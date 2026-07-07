@@ -1,0 +1,18 @@
+#!/bin/bash
+# pwd.test — Tests for the `pwd` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh pwd
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/pwd, ours: <OUR_BINARY> pwd)
+
+[ -f testing.sh ] && . testing.sh
+
+# pwd with no arguments - outputs current directory with trailing newline
+testing "pwd no args" '"$UTIL"' "$(pwd)\n" "" ""
+
+# pwd ignores extra arguments (redirect stderr since GNU pwd prints a warning)
+testing "pwd ignores args" '"$UTIL" foo bar 2>/dev/null' "$(pwd)\n" "" ""
+
+# pwd in pipeline
+testing "pwd pipeline" '"$UTIL" | cat' "$(pwd)\n" "" ""

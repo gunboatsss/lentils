@@ -1,0 +1,33 @@
+#!/bin/bash
+# echo.test — Tests for the `echo` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh echo
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/echo, ours: <OUR_BINARY> echo)
+
+[ -f testing.sh ] && . testing.sh
+
+# echo with no arguments outputs just a newline
+testing "echo no args" '"$UTIL"' "\n" "" ""
+
+# echo with one argument
+testing "echo one arg" '"$UTIL" hello' "hello\n" "" ""
+
+# echo with multiple arguments (joins with spaces)
+testing "echo multiple args" '"$UTIL" hello world foo' "hello world foo\n" "" ""
+
+# echo with -n (implementation-defined, both host and ours should agree: strip -n, suppress newline)
+testing "echo with -n" '"$UTIL" -n hello' "hello" "" ""
+
+# echo preserves spaces in quoted arguments
+testing "echo quoted spaces" '"$UTIL" "hello   world"' "hello   world\n" "" ""
+
+# echo preserves backslashes (implementation-defined, but both host and ours should agree)
+testing "echo backslash" '"$UTIL" "hello\nworld"' "hello\nworld\n" "" ""
+
+# echo with empty string argument
+testing "echo empty string" '"$UTIL" ""' "\n" "" ""
+
+# echo -n as first and only arg (implementation-defined, both strip -n, suppress newline)
+testing "echo just -n" '"$UTIL" -n' "" "" ""

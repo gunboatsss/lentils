@@ -1,0 +1,27 @@
+#!/bin/bash
+# printf.test — Tests for the `printf` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh printf
+
+[ -f testing.sh ] && . testing.sh
+
+# printf literal text
+testing "printf literal" \
+  '"$UTIL" "hello"' \
+  "hello" "" ""
+
+# printf %s substitution
+testing "printf percent s" \
+  '"$UTIL" "%s" "world"' \
+  "world" "" ""
+
+# printf %% produces literal percent
+testing "printf percent percent" \
+  '"$UTIL" "100%%"' \
+  "100%" "" ""
+
+# printf multiple substitutions (avoid escape sequences)
+testing "printf multiple" \
+  '"$UTIL" "%s %s" "hello" "world"' \
+  "hello world" "" ""
+

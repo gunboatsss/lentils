@@ -1,0 +1,32 @@
+#!/bin/bash
+# wc.test — Tests for the `wc` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh wc
+
+[ -f testing.sh ] && . testing.sh
+
+# wc from stdin (strip all spaces to ignore host padding)
+testing "wc stdin" \
+  'printf "hello world\n" | "$UTIL" | tr -d " "' \
+  "1212\n" "" ""
+
+# wc -l (lines only)
+testing "wc -l" \
+  'printf "a\nb\nc\n" | "$UTIL" -l | tr -d " "' \
+  "3\n" "" ""
+
+# wc -w (words only)
+testing "wc -w" \
+  'printf "hello world\n" | "$UTIL" -w | tr -d " "' \
+  "2\n" "" ""
+
+# wc -c (bytes only)
+testing "wc -c" \
+  'printf "abc" | "$UTIL" -c | tr -d " "' \
+  "3\n" "" ""
+
+# wc missing file
+testing "wc missing file" \
+  '"$UTIL" notfound 2>/dev/null || echo "error"' \
+  "error\n" "" ""
+

@@ -1,0 +1,29 @@
+#!/bin/bash
+# uniq.test — Tests for the `uniq` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh uniq
+
+[ -f testing.sh ] && . testing.sh
+
+# uniq normal mode (suppress adjacent duplicates)
+testing "uniq stdin" \
+  'printf "a\na\nb\nb\nc\n" | "$UTIL"' \
+  "a\nb\nc\n" "" ""
+
+# uniq -d (only duplicates)
+testing "uniq -d" \
+  'printf "a\na\nb\nc\nc\n" | "$UTIL" -d' \
+  "a\nc\n" "" ""
+
+# uniq -u (only unique)
+testing "uniq -u" \
+  'printf "a\na\nb\nc\nc\n" | "$UTIL" -u' \
+  "b\n" "" ""
+
+# uniq from file
+printf "x\nx\ny\n" > file1
+testing "uniq from file" \
+  '"$UTIL" file1' \
+  "x\ny\n" "" ""
+rm -f file1
+

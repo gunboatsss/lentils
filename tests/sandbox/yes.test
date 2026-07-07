@@ -1,0 +1,26 @@
+#!/bin/bash
+# yes.test — Tests for the `yes` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh yes
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/yes, ours: <OUR_BINARY> yes)
+#
+# Note: yes runs forever, so we pipe through head to limit output.
+
+[ -f testing.sh ] && . testing.sh
+
+# yes with no arguments outputs "y" lines
+testing "yes default" '"$UTIL" | head -n 3' "y\ny\ny\n" "" ""
+
+# yes with a custom string
+testing "yes custom" '"$UTIL" hello | head -n 2' "hello\nhello\n" "" ""
+
+# yes with multiple arguments (joined with spaces)
+testing "yes multi" '"$UTIL" hello world | head -n 2' "hello world\nhello world\n" "" ""
+
+# yes with empty string argument (just newlines)
+testing "yes empty arg" '"$UTIL" "" | head -n 2' "\n\n" "" ""
+
+# yes piped to another yes
+testing "yes pipeline" '"$UTIL" | head -n 1 | "$UTIL" | head -n 1' "y\n" "" ""

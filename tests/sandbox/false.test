@@ -1,0 +1,18 @@
+#!/bin/bash
+# false.test — Tests for the `false` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh false
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/false, ours: <OUR_BINARY> false)
+
+[ -f testing.sh ] && . testing.sh
+
+# false with no arguments (differential: host uses /bin/false, ours uses our binary)
+testing "false" '"$UTIL" && echo yes || echo no' "no\n" "" ""
+
+# false ignores all arguments
+testing "false with args" '"$UTIL" --help --version foo bar && echo yes || echo no' "no\n" "" ""
+
+# false in a pipeline
+testing "false in pipeline" '"$UTIL" | "$UTIL" && echo yes || echo no' "no\n" "" ""

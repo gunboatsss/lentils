@@ -1,0 +1,34 @@
+#!/bin/bash
+# head.test — Tests for the `head` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh head
+
+[ -f testing.sh ] && . testing.sh
+
+# head default (10 lines or all if fewer)
+testing "head stdin" \
+  'printf "a\nb\nc\n" | "$UTIL"' \
+  "a\nb\nc\n" "" ""
+
+# head -n 2 via stdin
+testing "head -n 2 stdin" \
+  'printf "a\nb\nc\nd\ne\n" | "$UTIL" -n 2' \
+  "a\nb\n" "" ""
+
+# head from a single file (avoids file headers in host output)
+echo "one" > file1
+testing "head from file" \
+  '"$UTIL" file1' \
+  "one\n" "" ""
+rm -f file1
+
+# head with - as stdin
+testing "head stdin via dash" \
+  'printf "a\nb\n" | "$UTIL" -' \
+  "a\nb\n" "" ""
+
+# head missing file (error message varies, just check non-zero exit)
+testing "head missing file" \
+  '"$UTIL" notfound 2>/dev/null || echo "error"' \
+  "error\n" "" ""
+

@@ -1,0 +1,19 @@
+#!/bin/bash
+# tee.test — Tests for the `tee` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh tee
+
+[ -f testing.sh ] && . testing.sh
+
+# tee writes to stdout and file
+testing "tee stdout and file" \
+  'printf "hello\n" | "$UTIL" test_tee_out && cat test_tee_out' \
+  "hello\nhello\n" "" ""
+
+# tee -a appends
+testing "tee append" \
+  'printf "line1\n" > test_tee_append; printf "line2\n" | "$UTIL" -a test_tee_append && cat test_tee_append' \
+  "line2\nline1\nline2\n" "" ""
+
+rm -f test_tee_out test_tee_append
+

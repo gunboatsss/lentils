@@ -1,0 +1,40 @@
+#!/bin/bash
+# cat.test — Adapted from ToyBox (0BSD, Rob Landley)
+# Tests: stdin, files, missing file, binary, /dev/full
+# Run via: run-sandbox-tests.sh cat
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/cat, ours: <OUR_BINARY> cat)
+#   $C   = path to our binary (for file references like: cat "$C")
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic stdin (differential: host uses /bin/cat, ours uses our binary)
+testing "cat" '"$UTIL" && echo yes' "oneyes\n" "" "one"
+
+# File input
+echo "one" > file1
+echo "two" > file2
+testing "file1 file2" '"$UTIL" file1 file2' "one\ntwo\n" "" ""
+rm -f file1 file2
+
+# Missing file (error message + non-zero exit)
+# Note: Ours outputs "cat:" while host's /bin/cat outputs "/bin/cat:".
+# Both are valid POSIX. Normalize by stripping /bin/ prefix.
+echo "one" > file1
+echo "two" > file2
+testing "file1 notfound file2" \
+  '"$UTIL" file1 notfound file2 2>stderr.err; cat stderr.err | sed "s|/bin/||"; rm -f stderr.err' \
+  "one\ntwo\ncat: notfound: No such file or directory\n" "" ""
+rm -f file1 file2
+
+# Binary round-trip (use our binary as a binary file)
+testing "binary" \
+  '"$UTIL" "$C" > file1 && cmp "$C" file1 && echo yes' "yes\n" "" ""
+rm -f file1
+
+# /dev/full (write failure)
+skipnot [ -e /dev/full ]
+testing "> /dev/full" \
+  '"$UTIL" - > /dev/full 2>/dev/null || echo failed' \
+  "failed\n" "" "zero\n"

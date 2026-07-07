@@ -1,0 +1,29 @@
+#!/bin/bash
+# tail.test — Tests for the `tail` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh tail
+
+[ -f testing.sh ] && . testing.sh
+
+# tail default (10 lines or all if fewer)
+testing "tail stdin" \
+  'printf "a\nb\nc\n" | "$UTIL"' \
+  "a\nb\nc\n" "" ""
+
+# tail -n 2 via stdin
+testing "tail -n 2 stdin" \
+  'printf "a\nb\nc\nd\ne\n" | "$UTIL" -n 2' \
+  "d\ne\n" "" ""
+
+# tail from a single file
+echo "one" > file1
+testing "tail from file" \
+  '"$UTIL" file1' \
+  "one\n" "" ""
+rm -f file1
+
+# tail missing file
+testing "tail missing file" \
+  '"$UTIL" notfound 2>/dev/null || echo "error"' \
+  "error\n" "" ""
+

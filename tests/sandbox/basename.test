@@ -1,0 +1,32 @@
+#!/bin/bash
+# basename.test — Tests for the `basename` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh basename
+
+[ -f testing.sh ] && . testing.sh
+
+# basename strips directory
+testing "basename strip dir" \
+  '"$UTIL" /usr/bin/file.txt' \
+  "file.txt\n" "" ""
+
+# basename strips suffix
+testing "basename strip suffix" \
+  '"$UTIL" /usr/bin/file.txt .txt' \
+  "file\n" "" ""
+
+# basename with just filename
+testing "basename plain" \
+  '"$UTIL" file.txt' \
+  "file.txt\n" "" ""
+
+# basename of /
+testing "basename root" \
+  '"$UTIL" /' \
+  "/\n" "" ""
+
+# basename with trailing slash
+testing "basename trailing slash" \
+  '"$UTIL" /usr/bin/' \
+  "bin\n" "" ""
+

@@ -1,0 +1,18 @@
+#!/bin/bash
+# true.test — Tests for the `true` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh true
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/true, ours: <OUR_BINARY> true)
+
+[ -f testing.sh ] && . testing.sh
+
+# true with no arguments (differential: host uses /bin/true, ours uses our binary)
+testing "true" '"$UTIL" && echo yes' "yes\n" "" ""
+
+# true ignores all arguments
+testing "true with args" '"$UTIL" --help --version foo bar && echo yes' "yes\n" "" ""
+
+# true in a pipeline
+testing "true in pipeline" '"$UTIL" | "$UTIL" && echo yes' "yes\n" "" ""

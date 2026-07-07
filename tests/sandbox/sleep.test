@@ -1,0 +1,33 @@
+#!/bin/bash
+# sleep.test — Tests for the `sleep` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh sleep
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/sleep, ours: <OUR_BINARY> sleep)
+
+[ -f testing.sh ] && . testing.sh
+
+# sleep with integer seconds (quick: 0.01s)
+testing "sleep integer" '"$UTIL" 0.01 && echo ok' "ok\n" "" ""
+
+# sleep with fractional seconds
+testing "sleep fractional" '"$UTIL" 0.02 && echo ok' "ok\n" "" ""
+
+# sleep with 0 exits immediately
+testing "sleep zero" '"$UTIL" 0 && echo ok' "ok\n" "" ""
+
+# sleep missing argument is an error (normalize error message)
+testing "sleep no args" \
+  '"$UTIL" 2>&1 | sed "s|/bin/||" | head -1; echo "exit=$?"' \
+  "sleep: missing operand\nexit=1\n" "" ""
+
+# sleep invalid argument is an error (normalize error message and quotes)
+testing "sleep invalid" \
+  '"$UTIL" abc 2>&1 | sed "s|/bin/||; s|‘|'"'"'|g; s|’|'"'"'|g" | head -1; echo "exit=$?"' \
+  "sleep: invalid time interval 'abc'\nexit=1\n" "" ""
+
+# sleep with extra invalid argument (both host and ours will error on the second arg)
+testing "sleep extra invalid" \
+  '"$UTIL" 0.01 extra 2>&1 | sed "s|/bin/||; s|‘|'"'"'|g; s|’|'"'"'|g" | head -1; echo "exit=$?"' \
+  "sleep: invalid time interval 'extra'\nexit=1\n" "" ""

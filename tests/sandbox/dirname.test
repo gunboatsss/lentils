@@ -1,0 +1,32 @@
+#!/bin/bash
+# dirname.test — Tests for the `dirname` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh dirname
+
+[ -f testing.sh ] && . testing.sh
+
+# dirname of full path
+testing "dirname full path" \
+  '"$UTIL" /usr/bin/file.txt' \
+  "/usr/bin\n" "" ""
+
+# dirname of plain file
+testing "dirname plain file" \
+  '"$UTIL" file.txt' \
+  ".\n" "" ""
+
+# dirname of /
+testing "dirname root" \
+  '"$UTIL" /' \
+  "/\n" "" ""
+
+# dirname with trailing slash
+testing "dirname trailing slash" \
+  '"$UTIL" /usr/bin/' \
+  "/usr\n" "" ""
+
+# dirname of ".."
+testing "dirname dotdot" \
+  '"$UTIL" ..' \
+  ".\n" "" ""
+

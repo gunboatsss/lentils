@@ -1,0 +1,15 @@
+/.lake
+
+# Smithers run store (ephemeral — never commit)
+smithers.db
+smithers.db-shm
+smithers.db-wal
+
+# POSIX spec downloads — local reference only, not for redistribution
+# © IEEE and The Open Group. All Rights Reserved.
+wiki/posix/
+wiki/toybox-roadmap.md
+wiki/toybox-roadmap.html
+wiki/lean/
+wiki/posix-syscalls/
+wiki/posix-base/

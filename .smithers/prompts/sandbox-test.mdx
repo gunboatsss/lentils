@@ -1,0 +1,42 @@
+# Sandbox Test
+
+Run the differential sandbox test harness and report the results.
+
+## What to do
+
+1. Ensure the binary is built:
+   ```bash
+   lake build 2>&1 | tail -5
+   ```
+
+2. Run the sandbox test harness with JSON output:
+   ```bash
+   cd /home/gunboats/projects/lean-coreutils
+   OUR_BINARY="{props.binaryPath}" tests/sandbox/run-sandbox-tests.sh --json {props.utility} 2>/dev/null
+   ```
+
+   The harness runs each test case inside a **bubblewrap sandbox** (tmpfs root,
+   read-only fixtures). For each case it:
+   - Runs the **host** coreutils binary → captures stdout, exit code, FS state
+   - Runs **our** binary → captures the same
+   - Diffs stdout, exit code, and filesystem state (file tree + sha256)
+   - Reports pass/fail per test
+
+3. Parse the JSON output and report it in the required schema.
+
+## If the harness script doesn't exist yet
+
+If `tests/sandbox/run-sandbox-tests.sh` or `tests/sandbox/testing.sh` don't exist,
+create them first. The framework is adapted from ToyBox's runtest.sh (0BSD).
+See `ARCHITECTURE_AND_LICENSE.md` section 4.2 for the sandbox design.
+
+## Utility under test
+
+{props.utility}
+
+## Binary path
+
+{props.binaryPath}
+
+REQUIRED OUTPUT:
+{props.schema}
