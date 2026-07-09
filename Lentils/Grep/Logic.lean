@@ -49,7 +49,13 @@ def containsPattern (text : ByteArray) (pattern : ByteArray) : Bool :=
 def processInput (input : ByteArray) (pattern : String) (flags : Flags) : ByteArray × Bool :=
   let patternBytes := pattern.toUTF8
   let lines := splitLines input
-  let matching := lines.filter (λ line =>
+  -- Drop trailing empty line if present (artifact of trailing newline)
+  let cleaned :=
+    match lines.reverse with
+    | [] => []
+    | last :: rest =>
+      if last.isEmpty then rest.reverse else lines
+  let matching := cleaned.filter (λ line =>
     let matched := containsPattern line patternBytes
     if flags.invert then ¬ matched else matched)
   (joinLines matching, !matching.isEmpty)

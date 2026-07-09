@@ -8,6 +8,12 @@ namespace Lentils.Test
 
 open Logic
 
-def run (args : List String) : IO UInt32 := return runPure args
+-- Strip trailing "]" when invoked via the `[` form (arg[0] is not the program name,
+-- the shell passes `[` args directly including the closing `]`).
+def run (args : List String) : IO UInt32 :=
+  let cleaned := match args.reverse with
+    | "]" :: rest => rest.reverse
+    | _ => args
+  return runPure cleaned
 
 end Lentils.Test

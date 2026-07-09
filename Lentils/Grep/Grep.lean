@@ -12,13 +12,12 @@ open Lentils.Common.Errors
 open Lentils.Common.IO.Fd
 open Logic
 
+-- Reads all bytes from fd, appending a trailing newline if output is non-empty
+-- so the last line doesn't run into the shell prompt.
 partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := do
   let chunk ← readBytes fd bufSize
   if chunk.isEmpty then return ByteArray.empty
   else return chunk ++ (← readAll fd bufSize)
-
-def tryWrite (buf : ByteArray) : IO Bool :=
-  try let _ ← writeBytes 1 buf; return true catch _ => return false
 
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
@@ -29,16 +28,28 @@ def run (args : List String) : IO UInt32 := do
     | file :: _ =>
       if file = "-" then readAll 0
       else
-        let fdResult ← try
-          let fd ← openFile file 0 0
+        match (← try
+          let fd ← openFile file O_RDONLY 0
           let content ← readAll fd
           closeFd fd
-          pure content
-        catch _ =>
-          pure ByteArray.empty
-        pure fdResult
+          pure (some content)
+        catch _ => pure none) with
+        | some content => pure content
+        | none =>
+          -- POSIX: cannot open file, exit 2
+          let _ ← writeBytes 2 (ByteArray.mk #[0x67, 0x72, 0x65, 0x70, 0x3a, 0x20]) -- "grep: "
+          let _ ← writeBytes 2 file.toUTF8
+          let _ ← writeBytes 2 (ByteArray.mk #[0x3a, 0x20, 0x4e, 0x6f, 0x20, 0x73, 0x75, 0x63, 0x68, 0x20, 0x66, 0x69, 0x6c, 0x65, 0x20, 0x6f, 0x72, 0x20, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x0a])
+          return 2
   let (result, hasMatch) := processInput input pattern flags
-  let ok ← tryWrite result
+  -- Add trailing newline so output doesn't run into the prompt
+  let output := if result.isEmpty then result else result.push 0x0a
+  let ok ← try
+    let _ ← writeBytes 1 output
+    pure true
+  catch _ =>
+    let _ ← writeBytes 2 (ByteArray.mk #[0x65, 0x72, 0x72, 0x0a])  -- "err\n"
+    pure false
   -- POSIX: exit 0 if match found, 1 if no match, 2 if error
   if not ok then return 2
   else if not hasMatch then return 1
