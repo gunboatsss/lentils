@@ -1,0 +1,26 @@
+#!/bin/bash
+# tr.test — Tests for the `tr` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh tr
+
+[ -f testing.sh ] && . testing.sh
+
+# tr translate lowercase to uppercase
+testing "tr lower to upper" \
+  'printf "abc" | "$UTIL" abc ABC' \
+  "ABC" "" ""
+
+# tr delete (-d)
+testing "tr -d delete" \
+  'printf "hello" | "$UTIL" -d hl' \
+  "eo" "" ""
+
+# tr squeeze (-s)
+testing "tr -s squeeze" \
+  'printf "aaabbbccc" | "$UTIL" -s a' \
+  "abbbccc" "" ""
+
+# tr identity
+testing "tr identity" \
+  'printf "abc" | "$UTIL" abc abc' \
+  "abc" "" ""

@@ -12,10 +12,10 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-OUR_BINARY="${OUR_BINARY:-$PROJECT_ROOT/.lake/build/bin/coreutils}"
+OUR_BINARY="${OUR_BINARY:-$PROJECT_ROOT/.lake/build/bin/lentils}"
 # Resolve to absolute path so wrapper scripts work from any CWD
 OUR_BINARY="$(cd "$PROJECT_ROOT" && realpath "$OUR_BINARY" 2>/dev/null || echo "$OUR_BINARY")"
-[ -x "$OUR_BINARY" ] || OUR_BINARY="$PROJECT_ROOT/.lake/build/bin/coreutils"
+[ -x "$OUR_BINARY" ] || OUR_BINARY="$PROJECT_ROOT/.lake/build/bin/lentils"
 
 JSON_MODE=0
 UTILS=()

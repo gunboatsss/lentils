@@ -1,0 +1,27 @@
+#!/bin/bash
+# sort.test — Tests for the `sort` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh sort
+
+[ -f testing.sh ] && . testing.sh
+
+# sort basic
+testing "sort stdin" \
+  'printf "c\na\nb\n" | "$UTIL"' \
+  "a\nb\nc\n" "" ""
+
+# sort -r (reverse)
+testing "sort -r" \
+  'printf "a\nb\nc\n" | "$UTIL" -r' \
+  "c\nb\na\n" "" ""
+
+# sort already sorted
+testing "sort already sorted" \
+  'printf "a\nb\n" | "$UTIL"' \
+  "a\nb\n" "" ""
+
+# sort empty
+testing "sort empty" \
+  'printf "" | "$UTIL"' \
+  "" "" ""
+

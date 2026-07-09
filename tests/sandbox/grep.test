@@ -1,0 +1,31 @@
+#!/bin/bash
+# grep.test — Tests for the `grep` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh grep
+
+[ -f testing.sh ] && . testing.sh
+
+# grep basic match
+testing "grep basic" \
+  'printf "hello\nworld\n" | "$UTIL" hello' \
+  "hello\n" "" ""
+
+# grep no match
+testing "grep no match" \
+  'printf "hello\nworld\n" | "$UTIL" nonexistent' \
+  "" "" ""
+
+# grep -v invert
+testing "grep -v" \
+  'printf "hello\nworld\n" | "$UTIL" -v hello' \
+  "world\n" "" ""
+
+# grep empty pattern (matches all)
+testing "grep empty pattern" \
+  'printf "hello\nworld\n" | "$UTIL" ""' \
+  "hello\nworld\n" "" ""
+
+# grep multiple matches
+testing "grep multi" \
+  'printf "apple\nbanana\napricot\n" | "$UTIL" ap' \
+  "apple\napricot\n" "" ""

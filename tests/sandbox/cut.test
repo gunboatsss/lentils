@@ -1,0 +1,34 @@
+#!/bin/bash
+# cut.test — Tests for the `cut` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh cut
+
+[ -f testing.sh ] && . testing.sh
+
+# cut -c (character mode)
+testing "cut -c 1" \
+  'printf "hello\nworld\n" | "$UTIL" -c 1' \
+  "h\nw\n" "" ""
+
+testing "cut -c 1-3" \
+  'printf "hello\nworld\n" | "$UTIL" -c 1-3' \
+  "hel\nwor\n" "" ""
+
+testing "cut -c 2-" \
+  'printf "abc\ndef\n" | "$UTIL" -c 2-' \
+  "bc\nef\n" "" ""
+
+# cut -f (field mode) with default tab delimiter
+testing "cut -f 1 with tab" \
+  'printf "a\tb\nc\td\n" | "$UTIL" -f 1' \
+  "a\nc\n" "" ""
+
+testing "cut -f 2 with tab" \
+  'printf "a\tb\nc\td\n" | "$UTIL" -f 2' \
+  "b\nd\n" "" ""
+
+# cut -d (custom delimiter)
+testing "cut -d: -f 1" \
+  'printf "a:b:c\nd:e:f\n" | "$UTIL" -d: -f 1' \
+  "a\nd\n" "" ""
+

@@ -7,6 +7,7 @@ Rules:
 2. Prefer existing repo patterns and run the most relevant checks you can.
 3. Record files changed, commands run, unresolved issues, and reusable learnings for later workers.
 4. If the feature cannot be completed, make the best safe partial progress and explain exactly what blocks it.
+5. Never run scripts/install-symlinks.sh. It is a manual, human-only system installation tool. Use `lake build` to verify compilation and run tests/sandbox scripts for validation instead.
 
 MISSION GOAL:
 {props.missionGoal}

@@ -1,0 +1,36 @@
+#!/bin/bash
+# test.test — Tests for the `test` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh test
+
+[ -f testing.sh ] && . testing.sh
+
+# test non-empty string (exit 0)
+testing "test nonempty" \
+  '"$UTIL" hello' \
+  "" "" ""
+
+# test -n non-empty (exit 0)
+testing "test -n nonempty" \
+  '"$UTIL" -n hello' \
+  "" "" ""
+
+# test -z empty (exit 0)
+testing "test -z empty" \
+  '"$UTIL" -z ""' \
+  "" "" ""
+
+# test string equality (exit 0)
+testing "test =" \
+  '"$UTIL" abc = abc' \
+  "" "" ""
+
+# test string inequality (exit 0)
+testing "test !=" \
+  '"$UTIL" abc != def' \
+  "" "" ""
+
+# test integer equality (exit 0)
+testing "test -eq" \
+  '"$UTIL" 42 -eq 42' \
+  "" "" ""

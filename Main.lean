@@ -26,6 +26,12 @@ def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "tail"     => Lentils.Tail.run args
   | "wc"       => Lentils.Wc.run args
   | "uniq"     => Lentils.Uniq.run args
+  | "cut"      => Lentils.Cut.run args
+  | "tr"       => Lentils.Tr.run args
+  | "sort"     => Lentils.Sort.run args
+  | "test"     => Lentils.Test.run args
+  | "["        => Lentils.Test.run args
+  | "grep"     => Lentils.Grep.run args
   | "basename" => Lentils.Basename.run args
   | "dirname"  => Lentils.Dirname.run args
   | "yes"      => Lentils.Yes.run args
@@ -39,15 +45,20 @@ def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "Available applets:"
           IO.println "  basename  — strip directory and suffix from filenames"
           IO.println "  cat       — concatenate files to stdout"
+          IO.println "  cut       — extract sections from each line of files"
           IO.println "  dirname   — strip last component from file name"
           IO.println "  echo      — write arguments to stdout"
           IO.println "  false     — exit with status 1"
+          IO.println "  grep      — print lines matching a pattern"
           IO.println "  head      — output the first part of files"
           IO.println "  printf    — write formatted output"
           IO.println "  pwd       — print working directory"
           IO.println "  sleep     — suspend execution for an interval"
+          IO.println "  sort      — sort lines of text files"
           IO.println "  tail      — output the last part of files"
           IO.println "  tee       — read stdin and write to stdout and files"
+          IO.println "  test      — check file types and compare values"
+          IO.println "  tr        — translate or delete characters"
           IO.println "  true      — exit with status 0"
           IO.println "  uniq      — report or omit repeated lines"
           IO.println "  wc        — word, line, and byte count"

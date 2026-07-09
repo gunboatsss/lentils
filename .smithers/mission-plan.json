@@ -1,0 +1,389 @@
+{
+  "goal": "Implement Tier 2 text processing utilities (cut, tr, sort, test, grep, expr) for lentils following the pure/IO split pattern. Each utility gets formal proofs, sandbox differential tests, and dispatcher registration.",
+  "summary": "Six milestones, one per utility. Each milestone produces a Logic.lean with formal proofs (no sorry/admit), an IO wrapper, a sandbox test, and dispatcher registration. Milestones are ordered by increasing complexity: cut → tr → sort → test → grep → expr. Within each milestone, Logic.lean must be implemented first (IO wrapper depends on it), but sandbox test and dispatcher registration can overlap partially.",
+  "milestones": [
+    {
+      "id": "cut",
+      "title": "cut — Field Extraction",
+      "objective": "Implement the `cut` utility: parse -d delimiter and -f field list, split lines, extract requested fields, output with delimiter. Formal proof: output fields are a subset of input fields.",
+      "features": [
+        {
+          "id": "cut-logic",
+          "title": "Cut.Logic — Pure field extraction",
+          "instructions": "Create Lentils/Cut/Logic.lean with pure functions: (1) parseFieldList to parse comma/hyphen-separated field numbers and ranges (e.g., '1,3-5,7'), (2) splitFields to split a ByteArray line on a delimiter byte, (3) extractFields to select fields by number and rejoin with delimiter, (4) processBytes to process entire input through split/select/join pipeline. Formal proofs: (a) extractFields returns subset of fields (length output ≤ length input), (b) processBytes on empty input yields empty output, (c) lines without delimiters pass through unchanged when -s not set. Use Lentils.Common.Bytes and Lentils.Common.Lines for splitting/joining. No sorry/admit.",
+          "files": ["Lentils/Cut/Logic.lean"],
+          "validation": ["lake build succeeds (Lean compilation)", "! grep -rn 'sorry\\|admit' Lentils/Cut/Logic.lean returns empty", "Formal theorems compile (proofs are checked at build time)"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "cut-io",
+          "title": "Cut — IO wrapper",
+          "instructions": "Create Lentils/Cut/Cut.lean: parse CLI args (-d delim, -f list, -s), read from stdin or file, call Logic.processBytes, write to stdout. Follow pattern from Lentils/Uniq/Uniq.lean. Handle errors with Lentils.Common.Errors. Return exit code 0 on success, 1 on error.",
+          "files": ["Lentils/Cut/Cut.lean"],
+          "validation": ["lake build succeeds", "Manual test: echo 'a:b:c' | lentils cut -d: -f2 outputs 'b'"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "cut-module",
+          "title": "Cut — Module re-export",
+          "instructions": "Create Lentils/Cut.lean importing Lentils.Cut.Logic and Lentils.Cut.Cut.",
+          "files": ["Lentils/Cut.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "cut-test",
+          "title": "Cut — Sandbox differential test",
+          "instructions": "Create tests/sandbox/cut.test with differential tests against /bin/cut. Test cases: (1) basic -f1 on colon-delimited input, (2) -f2,3 with comma list, (3) -f1-3 range, (4) -f2- open-ended, (5) -f -3 closed from start, (6) -s suppress lines without delimiter, (7) -d with tab delimiter, (8) stdin mode (no file), (9) file mode. Follow pattern from tests/sandbox/uniq.test using the testing() function.",
+          "files": ["tests/sandbox/cut.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh cut — all tests pass", "Output matches /bin/cut for all cases"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "cut-dispatch",
+          "title": "Cut — Dispatcher registration",
+          "instructions": "Add `| \"cut\" => Lentils.Cut.run args` to the dispatch function in Main.lean. Add `import Lentils.Cut` to Lentils.lean. Add 'cut' to the help text listing.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds", "lentils cut --help-like invocation dispatches correctly"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Cut/Logic.lean — empty",
+        "bash tests/sandbox/run-sandbox-tests.sh cut — all pass"
+      ]
+    },
+    {
+      "id": "tr",
+      "title": "tr — Character Translation",
+      "objective": "Implement the `tr` utility: translate characters using set1→set2 mapping, delete characters (-d), squeeze repeats (-s). Formal proof: translation preserves length and maps characters correctly.",
+      "features": [
+        {
+          "id": "tr-logic",
+          "title": "Tr.Logic — Pure character translation",
+          "instructions": "Create Lentils/Tr/Logic.lean with pure functions: (1) parseSet to parse string arguments into character arrays (supporting \\n, \\t, \\\\ escapes and a-z ranges), (2) buildTrTable to build a 256-byte lookup table mapping each input byte to its output byte (or to a sentinel for deletion), (3) translateBytes to apply the translation table to a ByteArray, (4) squeezeBytes to collapse runs of repeated characters that appear in a squeeze set, (5) processBytes orchestration: optionally delete, optionally translate, optionally squeeze. Formal proofs: (a) translateBytes on empty is empty, (b) translateBytes length equals input length, (c) squeezeBytes is idempotent (squeeze ∘ squeeze = squeeze). Use ByteArray for byte-level operations. No sorry/admit.",
+          "files": ["Lentils/Tr/Logic.lean"],
+          "validation": ["lake build succeeds", "! grep -rn 'sorry\\|admit' Lentils/Tr/Logic.lean returns empty"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "tr-io",
+          "title": "Tr — IO wrapper",
+          "instructions": "Create Lentils/Tr/Tr.lean: parse CLI args (-d, -s, -c/-C complement flags), extract string1 and string2 operands, read stdin, call Logic.processBytes, write to stdout. Follow pattern from existing utilities. Handle errors for missing operands.",
+          "files": ["Lentils/Tr/Tr.lean"],
+          "validation": ["lake build succeeds", "Manual test: echo 'hello' | lentils tr a-z A-Z outputs 'HELLO'"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "tr-module",
+          "title": "Tr — Module re-export",
+          "instructions": "Create Lentils/Tr.lean importing Lentils.Tr.Logic and Lentils.Tr.Tr.",
+          "files": ["Lentils/Tr.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "tr-test",
+          "title": "Tr — Sandbox differential test",
+          "instructions": "Create tests/sandbox/tr.test with differential tests against /bin/tr. Test cases: (1) basic char mapping (a-z → A-Z), (2) delete mode (-d '0-9'), (3) squeeze mode (-s ' '), (4) complement (-c), (5) escape sequences (\\n→space), (6) combined -ds, (7) range with brackets. Follow patterns from existing .test files.",
+          "files": ["tests/sandbox/tr.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh tr — all pass"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "tr-dispatch",
+          "title": "Tr — Dispatcher registration",
+          "instructions": "Add `| \"tr\" => Lentils.Tr.run args` to Main.lean dispatch. Add `import Lentils.Tr` to Lentils.lean. Add 'tr' to help text.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Tr/Logic.lean — empty",
+        "bash tests/sandbox/run-sandbox-tests.sh tr — all pass"
+      ]
+    },
+    {
+      "id": "sort",
+      "title": "sort — Sorting with Permutation Proof",
+      "objective": "Implement the `sort` utility using merge sort. Flags: -r (reverse), -n (numeric). Formal proofs: output is sorted AND is a permutation of input. This is the most formally interesting milestone.",
+      "features": [
+        {
+          "id": "sort-logic",
+          "title": "Sort.Logic — Pure merge sort with proofs",
+          "instructions": "Create Lentils/Sort/Logic.lean with pure functions: (1) parseArgs to extract -r and -n flags from args, (2) merge two sorted lists, (3) mergeSort a list of ByteArrays using String-based or byte-based comparison, (4) numericCompare to extract leading numeric prefix and compare by value as defined by POSIX (optional whitespace, optional sign, digits), (5) sortLines orchestrating the full pipeline. Formal proofs: (a) Sorted property: for all adjacent elements a,b in output, a ≤ b (or ≥ for -r), (b) Perm property: output is a permutation of input (use List.Perm from Lean core / construct a bijection proof), (c) sortLines is idempotent: sort (sort x) = sort x, (d) empty input → empty output, (e) singleton input → singleton output. The Sorted proof should define an inductive Sorted predicate on List ByteArray. The Perm proof can use count-based reasoning or an explicit Perm relation. No sorry/admit.",
+          "files": ["Lentils/Sort/Logic.lean"],
+          "validation": ["lake build succeeds", "! grep -rn 'sorry\\|admit' Lentils/Sort/Logic.lean returns empty", "All theorems compile (Sorted, Perm, idempotence)"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "sort-io",
+          "title": "Sort — IO wrapper",
+          "instructions": "Create Lentils/Sort/Sort.lean: parse args for -r (reverse) and -n (numeric), read all input from stdin or files via readAll, call Logic.sortLines, write sorted output to stdout. Follow the common pattern from existing utilities.",
+          "files": ["Lentils/Sort/Sort.lean"],
+          "validation": ["lake build succeeds", "Manual test: printf 'c\\na\\nb' | lentils sort outputs 'a\\nb\\nc'"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "sort-module",
+          "title": "Sort — Module re-export",
+          "instructions": "Create Lentils/Sort.lean importing Lentils.Sort.Logic and Lentils.Sort.Sort.",
+          "files": ["Lentils/Sort.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "sort-test",
+          "title": "Sort — Sandbox differential test",
+          "instructions": "Create tests/sandbox/sort.test with differential tests against /bin/sort. Test cases: (1) basic alphabetical sort, (2) reverse sort (-r), (3) numeric sort (-n), (4) sort from file, (5) stdin mode, (6) empty input, (7) already-sorted input, (8) single line, (9) -rn combined flags. Follow existing test patterns.",
+          "files": ["tests/sandbox/sort.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh sort — all pass"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "sort-dispatch",
+          "title": "Sort — Dispatcher registration",
+          "instructions": "Add `| \"sort\" => Lentils.Sort.run args` to Main.lean dispatch. Add `import Lentils.Sort` to Lentils.lean. Add 'sort' to help text listing.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Sort/Logic.lean — empty",
+        "All Sorted/Perm/idempotence theorems compile",
+        "bash tests/sandbox/run-sandbox-tests.sh sort — all pass"
+      ]
+    },
+    {
+      "id": "test",
+      "title": "test / [ — Conditionals",
+      "objective": "Implement the `test` / `[` utility to evaluate conditional expressions: -f, -d, -z, -n, =, !=, -eq, -lt, -gt, -le, -ge, and logical combinators. Formal proof: evaluation is deterministic and returns correct boolean for each operator.",
+      "features": [
+        {
+          "id": "test-logic",
+          "title": "Test.Logic — Pure conditional evaluation",
+          "instructions": "Create Lentils/Test/Logic.lean with pure functions: (1) define an Expr inductive type for test expressions (FileExists, DirExists, StrZero, StrNonZero, StrEq, StrNe, IntEq, IntLt, IntGt, IntLe, IntGe, Not, And, Or), (2) evalExpr that given an expression and a context (map of stat results for file tests) returns Bool — but as a pure function, file tests receive pre-computed results from the IO layer, (3) parseArgs to parse argument list into Expr (handling the `[` wrapper where last arg must be `]`), (4) a formal proof that evalExpr is deterministic (always returns same result given same inputs) and correct for each base case: (a) strEq s s = true, (b) strEq s t = false when s ≠ t (use decidable equality), (c) intEq n n = true, (d) intLt a b = true iff a < b. No sorry/admit.",
+          "files": ["Lentils/Test/Logic.lean"],
+          "validation": ["lake build succeeds", "! grep -rn 'sorry\\|admit' Lentils/Test/Logic.lean returns empty"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "test-io",
+          "title": "Test — IO wrapper with FS stat",
+          "instructions": "Create Lentils/Test/Test.lean: parse args (handling both `test` and `[` forms), for file/dir tests stat the file (using IO.FS or FFI), build the context, call Logic.evalExpr, return exit code 0 for true, 1 for false, 2 for error. Handle the `[` syntax: last argument must be `]`. File test operations: -f (exists and is regular file), -d (exists and is directory) — use IO.FS.metadata or FFI stat. String operations: -z, -n, =, !=. Numeric operations: -eq, -ne, -lt, -gt, -le, -ge. Combinators: ! (NOT), -a (AND), -o (OR).",
+          "files": ["Lentils/Test/Test.lean"],
+          "validation": ["lake build succeeds", "Manual test: lentils test -f /etc/passwd returns 0", "Manual test: lentils test -z '' returns 0"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "test-module",
+          "title": "Test — Module re-export",
+          "instructions": "Create Lentils/Test.lean importing Lentils.Test.Logic and Lentils.Test.Test.",
+          "files": ["Lentils/Test.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "test-sandbox",
+          "title": "Test — Sandbox differential test",
+          "instructions": "Create tests/sandbox/test.test with differential tests against /bin/test (or /usr/bin/[). Test cases: (1) -f on existing file, (2) -f on nonexistent file, (3) -d on directory, (4) -z with empty string, (5) -n with nonempty string, (6) = with equal strings, (7) != with different strings, (8) -eq with equal numbers, (9) -lt with ordering, (10) -gt with ordering, (11) ! negation, (12) -a conjunction, (13) -o disjunction, (14) combined expressions. Use testing() function. Note: exit codes are 0=true, 1=false.",
+          "files": ["tests/sandbox/test.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh test — all pass"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "test-dispatch",
+          "title": "Test — Dispatcher registration",
+          "instructions": "Add both `| \"test\" => Lentils.Test.run args` and `| \"[\" => Lentils.Test.run args` to Main.lean dispatch. Add `import Lentils.Test` to Lentils.lean. Add 'test' and '[' to help text.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds", "lentils test dispatches correctly", "lentils [ dispatches correctly"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Test/Logic.lean — empty",
+        "bash tests/sandbox/run-sandbox-tests.sh test — all pass"
+      ]
+    },
+    {
+      "id": "grep",
+      "title": "grep — Pattern Matching",
+      "objective": "Implement the `grep` utility: search stdin/files for a basic regex pattern. Flags: -v (invert match), -c (count matches). Formal proof: count matches ≤ total lines, and -v inverts correctly.",
+      "features": [
+        {
+          "id": "grep-logic",
+          "title": "Grep.Logic — Pure pattern matching",
+          "instructions": "Create Lentils/Grep/Logic.lean with pure functions: (1) basic regex engine supporting literal characters, `.` (any char), `*` (zero or more of preceding), `^` (start anchor), `$` (end anchor), `[abc]` character class, `[^abc]` negated class, `\\` escape. Implement as a recursive descent matcher on ByteArray. (2) matchLine to test if a single line matches the compiled pattern, (3) processLines to filter/count lines based on match results, (4) parseArgs for -v, -c flags and pattern extraction. Formal proofs: (a) matchLine returns false for empty pattern on nonempty line (or true — document the decision), (b) for any line, exactly one of matchLine line and -v (invert matchLine line) is true, (c) when -c is used, count ≤ total line count, (d) empty input → empty output. Keep the regex engine deliberately simple (no backreferences, no alternation `|`). No sorry/admit.",
+          "files": ["Lentils/Grep/Logic.lean"],
+          "validation": ["lake build succeeds", "! grep -rn 'sorry\\|admit' Lentils/Grep/Logic.lean returns empty"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "grep-io",
+          "title": "Grep — IO wrapper",
+          "instructions": "Create Lentils/Grep/Grep.lean: parse args (-v invert, -c count, -i case-insensitive optional), extract pattern (first non-flag argument), read input from files or stdin, call Logic.processLines, output matching lines (or count) to stdout. For -c mode, print just the count. Handle multiple files with filename prefix. Return exit code 0 if matches found, 1 if no matches, 2 on error.",
+          "files": ["Lentils/Grep/Grep.lean"],
+          "validation": ["lake build succeeds", "Manual test: echo -e 'hello\\nworld' | lentils grep hello outputs 'hello'"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "grep-module",
+          "title": "Grep — Module re-export",
+          "instructions": "Create Lentils/Grep.lean importing Lentils.Grep.Logic and Lentils.Grep.Grep.",
+          "files": ["Lentils/Grep.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "grep-test",
+          "title": "Grep — Sandbox differential test",
+          "instructions": "Create tests/sandbox/grep.test with differential tests against /bin/grep. Test cases: (1) literal match, (2) no match, (3) -v invert, (4) -c count, (5) `.` dot wildcard, (6) `^` start anchor, (7) `$` end anchor, (8) `[abc]` character class, (9) `*` repetition, (10) stdin mode, (11) file mode, (12) multiple files, (13) -vc combined. For cases where our simplified regex differs from full POSIX grep behavior, document the difference and match our own semantics.",
+          "files": ["tests/sandbox/grep.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh grep — all pass (or documented differences)"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "grep-dispatch",
+          "title": "Grep — Dispatcher registration",
+          "instructions": "Add `| \"grep\" => Lentils.Grep.run args` to Main.lean dispatch. Add `import Lentils.Grep` to Lentils.lean. Add 'grep' to help text.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Grep/Logic.lean — empty",
+        "bash tests/sandbox/run-sandbox-tests.sh grep — all pass (or documented deviations)"
+      ]
+    },
+    {
+      "id": "expr",
+      "title": "expr — Expression Evaluation",
+      "objective": "Implement the `expr` utility: evaluate integer and string expressions. Support operators: +, -, *, /, %, : (string match), =, !=, <, <=, >, >=, & (AND), | (OR). Formal proof: arithmetic operations are correct per their integer semantics.",
+      "features": [
+        {
+          "id": "expr-logic",
+          "title": "Expr.Logic — Pure expression evaluation",
+          "instructions": "Create Lentils/Expr/Logic.lean with pure functions: (1) define an Expr inductive type for AST nodes (IntLit, StrLit, Add, Sub, Mul, Div, Mod, StrMatch, StrEq, StrNe, IntLt, IntLe, IntGt, IntGe, And, Or), (2) define an EvalResult type (IntResult n | StrResult s | Error msg), (3) evalExpr recursively evaluates an AST: arithmetic on integers, string operations on strings, logical AND/OR with short-circuit semantics per POSIX (OR returns first non-zero/non-empty, AND returns first zero/empty or last), (4) tokenize/parseArgs to parse argument list into AST (handling shell escaping — operators are normal args). Formal proofs: (a) evalExpr on Add (IntLit a) (IntLit b) = IntResult (a+b), same for Sub/Mul/Div, (b) Mod a b = a % b (for b ≠ 0), (c) StrEq s s = IntResult (s.length), (d) IntLt a b = IntResult 1 iff a < b, 0 otherwise, (e) And (IntResult 0) _ = IntResult 0 (short-circuit), (f) Or (IntResult 5) _ = IntResult 5 (short-circuit). No sorry/admit.",
+          "files": ["Lentils/Expr/Logic.lean"],
+          "validation": ["lake build succeeds", "! grep -rn 'sorry\\|admit' Lentils/Expr/Logic.lean returns empty", "All arithmetic correctness theorems compile"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "expr-io",
+          "title": "Expr — IO wrapper",
+          "instructions": "Create Lentils/Expr/Expr.lean: parse all args as expression tokens, build AST via Logic.parseArgs, evaluate via Logic.evalExpr, print result to stdout (integer or string), return exit code 0 on successful eval (where result is non-zero/non-empty), 1 if result is zero/empty, 2 on syntax error, 3 on other error. Beware of shell metacharacters: `*`, `(`, `)` must be escaped by the caller; our parser just sees the args as passed.",
+          "files": ["Lentils/Expr/Expr.lean"],
+          "validation": ["lake build succeeds", "Manual test: lentils expr 3 + 4 outputs '7'", "Manual test: lentils expr 0 '|' 0 returns exit 1 (0 OR 0 = 0)"],
+          "workerType": "implementation",
+          "canRunInParallel": false
+        },
+        {
+          "id": "expr-module",
+          "title": "Expr — Module re-export",
+          "instructions": "Create Lentils/Expr.lean importing Lentils.Expr.Logic and Lentils.Expr.Expr.",
+          "files": ["Lentils/Expr.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        },
+        {
+          "id": "expr-test",
+          "title": "Expr — Sandbox differential test",
+          "instructions": "Create tests/sandbox/expr.test with differential tests against /bin/expr (or /usr/bin/expr). Test cases: (1) addition 3 + 4, (2) subtraction, (3) multiplication (with escaped *), (4) division, (5) modulo, (6) string match with : operator, (7) string equality =, (8) numeric comparisons <, <=, >, >=, =, !=, (9) logical AND (&), (10) logical OR (|), (11) parenthesized expression with escaped parens, (12) edge case: division by zero, (13) operator precedence (left-to-right). Shell-escape * and parens as needed in test commands.",
+          "files": ["tests/sandbox/expr.test"],
+          "validation": ["bash tests/sandbox/run-sandbox-tests.sh expr — all pass"],
+          "workerType": "test",
+          "canRunInParallel": true
+        },
+        {
+          "id": "expr-dispatch",
+          "title": "Expr — Dispatcher registration",
+          "instructions": "Add `| \"expr\" => Lentils.Expr.run args` to Main.lean dispatch. Add `import Lentils.Expr` to Lentils.lean. Add 'expr' to help text.",
+          "files": ["Main.lean", "Lentils.lean"],
+          "validation": ["lake build succeeds"],
+          "workerType": "implementation",
+          "canRunInParallel": true
+        }
+      ],
+      "validationPlan": [
+        "lake build — zero errors",
+        "! grep -rn 'sorry\\|admit' Lentils/Expr/Logic.lean — empty",
+        "All arithmetic correctness theorems compile",
+        "bash tests/sandbox/run-sandbox-tests.sh expr — all pass"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Lean 4 toolchain (lean, lake) is installed and working",
+    "C compiler (cc/gcc) is available for FFI compilation (c/coreutils.c)",
+    "bwrap is installed for sandbox test isolation",
+    "Host coreutils (/bin/cut, /bin/tr, etc.) are available for differential testing",
+    "Existing Common modules (Bytes.lean, Lines.lean, Errors.lean, IO/Fd.lean) provide adequate primitives — no new Common modules needed",
+    "POSIX specs for cut, tr, sort are available in wiki/posix/. For test, grep, expr, POSIX semantics are derived from POSIX.1-2017 standard behavior (no local wiki spec files exist for these three)",
+    "Lean's native_decide tactic is sufficient for finite-domain proofs (byte arrays up to reasonable size)",
+    "The grep regex engine is deliberately simple (no backreferences, no alternation) — complexity is scoped to what's provable",
+    "The sort Perm proof can use List.Perm or a counting argument — full Mathlib is not imported, we build what we need",
+    "Each milestone's Logic.lean proofs are self-contained within the file (no cross-utility dependencies beyond Common)",
+    "IO wrappers follow the existing pattern: ignoreSigpipe, readAll, tryWrite, processFd — no new FFI bindings are required for these six utilities",
+    "test utility uses IO.FS.metadata for file stat (available in Lean 4.31 stdlib) rather than raw FFI stat",
+    "expr handles only integer and string expressions per POSIX expr(1) — no floating point"
+  ],
+  "risks": [
+    "Sort Perm proof is the hardest formal verification task — may need creative use of multisets or count-based reasoning if List.Perm is unavailable",
+    "Grep regex engine correctness is inherently complex — proving match correctness for regex is non-trivial. Scope is limited to basic regex (no Kleene star nesting beyond char*, no alternation) to keep proofs feasible",
+    "test utility has many operators — risk of combinatorial explosion in parseArgs. Design the Expr AST carefully",
+    "expr parser must handle shell-special characters (*, parens) that arrive pre-escaped/unescaped depending on caller — test setup must escape properly",
+    "Sandbox tests for grep may diverge from /bin/grep if our regex semantics differ — document all intentional differences in test comments",
+    "Lean's native_decide may not scale to large ByteArrays — may need to use rfl or induction for some proofs beyond a few hundred bytes",
+    "The -c (complement) flag for tr maps to POSIX -C behavior — may differ from busybox tr which uses -c differently",
+    "buildTrTable for tr must handle 256-byte lookup table — need to prove table construction is total and deterministic"
+  ],
+  "outOfScope": [
+    "Full POSIX regex for grep (no backreferences, alternation, capturing groups, non-greedy quantifiers, lookahead/lookbehind)",
+    "sort -k keydef, -t field separator, -u unique, -c check, -m merge — only -r and -n are implemented",
+    "tr -c/-C complement and character classes ([:alpha:], [:digit:]) — scope is basic char mapping with escape sequences and ranges",
+    "cut -b and -c (byte/character mode) — only -f (field) mode",
+    "test -e, -r, -w, -x, -s, -nt, -ot, -ef file operators — only -f, -d, -z, -n, =, !=, numeric comparisons",
+    "expr string length, index, substr, match with capture groups — only basic integer arithmetic, string comparison, and regex match",
+    "Any GPL source code — all implementations are clean-room from POSIX specs only",
+    "Multi-byte / Unicode support — all utilities operate on bytes (POSIX/C locale)",
+    "Performance optimization — correctness and proofs take priority over speed",
+    "Man page or help text beyond basic usage string",
+    "symlinks in scripts/install-symlinks.sh for the new utilities"
+  ],
+  "approvalNotes": "This plan implements 6 Tier 2 text processing utilities. Sort has the most interesting formal proof (Sorted + Perm). Grep has the most complex algorithm (regex engine). Expr has the most operators to prove correct. The plan assumes test, grep, and expr POSIX specs are derived from standard POSIX behavior since wiki/posix/ lacks spec files for them. Each milestone depends on Logic.lean being completed first within that milestone, but milestones themselves are independent and could run in parallel with separate workers. Sandbox tests use differential comparison against /bin/<util>. Recommend starting with cut (simplest) and proceeding in order to build confidence."
+}
