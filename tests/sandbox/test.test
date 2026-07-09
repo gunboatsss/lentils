@@ -34,3 +34,64 @@ testing "test !=" \
 testing "test -eq" \
   '"$UTIL" 42 -eq 42' \
   "" "" ""
+
+# ─── File operator tests ─────────────────────────────────────────────────────
+
+# Create temp files for file tests
+touch emptyfile
+echo "content" > regfile
+mkdir testdir
+
+# test -f on existing file → exit 0
+testing "test -f existing file" \
+  '"$UTIL" -f regfile' \
+  "" "" ""
+
+# test -f on nonexistent → exit 1
+testing "test -f nonexistent" \
+  '"$UTIL" -f no_such_file' \
+  "" "" ""
+
+# test -f on directory → exit 1
+testing "test -f on directory" \
+  '"$UTIL" -f testdir' \
+  "" "" ""
+
+# test -d on directory → exit 0
+testing "test -d on directory" \
+  '"$UTIL" -d testdir' \
+  "" "" ""
+
+# test -d on file → exit 1
+testing "test -d on file" \
+  '"$UTIL" -d regfile' \
+  "" "" ""
+
+# test -e on existing → exit 0
+testing "test -e existing" \
+  '"$UTIL" -e regfile' \
+  "" "" ""
+
+# test -e on nonexistent → exit 1
+testing "test -e nonexistent" \
+  '"$UTIL" -e no_such_file' \
+  "" "" ""
+
+# test -s on non-empty file → exit 0
+testing "test -s nonempty" \
+  '"$UTIL" -s regfile' \
+  "" "" ""
+
+# test -s on empty file → exit 1
+testing "test -s empty" \
+  '"$UTIL" -s emptyfile' \
+  "" "" ""
+
+# test combined: -f /etc/passwd -a -d / → exit 0
+testing "test -f /etc/passwd -a -d /" \
+  '"$UTIL" -f /etc/passwd -a -d /' \
+  "" "" ""
+
+# Cleanup temp files
+rm -f emptyfile regfile
+rm -rf testdir
