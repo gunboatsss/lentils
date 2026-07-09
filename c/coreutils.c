@@ -89,41 +89,7 @@ LEAN_EXPORT lean_object *lean_coreutils_ignore_sigpipe(lean_object *w) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-// ─── getcwd ────────────────────────────────────────────────────────────────────
-
-// getcwd(3): returns the current working directory as a Lean String.
-// Uses malloc + getcwd with dynamic allocation, then converts to Lean string.
-LEAN_EXPORT lean_object *lean_coreutils_getcwd(lean_object *w) {
-    size_t size = 256;
-    char *buf = NULL;
-    while (1) {
-        char *tmp = realloc(buf, size);
-        if (tmp == NULL) {
-            free(buf);
-            errno = ENOMEM;
-            return io_err();
-        }
-        buf = tmp;
-        if (getcwd(buf, size) != NULL) {
-            lean_object *s = lean_mk_string(buf);
-            free(buf);
-            return lean_io_result_mk_ok(s);
-        }
-        if (errno != ERANGE) {
-            free(buf);
-            return io_err();
-        }
-        free(buf);
-        buf = NULL;
-        size *= 2;
-        if (size > 65536) {
-            errno = ENAMETOOLONG;
-            return io_err();
-        }
-    }
-}
-
-// ─── nanosleep ─────────────────────────────────────────────────────────────────
+// // ─── nanosleep ─────────────────────────────────────────────────────────────────
 
 #include <time.h>
 

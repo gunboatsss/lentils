@@ -2,9 +2,8 @@
 Pwd — IO wrapper for the `pwd` utility.
 0BSD
 
-Calls getcwd via FFI and prints the result.
+Uses Lean's native `IO.currentDir` for getcwd.
 Uses Pwd.Logic (pure, verified) for output formatting.
-IO/FFI side effects are confined to this module.
 -/
 
 import Lentils.Pwd.Logic
@@ -16,20 +15,14 @@ open Logic
 open Lentils.Common.Errors
 
 /--
-FFI declaration for getcwd from c/coreutils.c.
--/
-@[extern "lean_coreutils_getcwd"]
-opaque getcwdFFI : Unit → IO String
-
-/--
 Run the `pwd` utility.
-Calls getcwd and prints the working directory to stdout.
+Gets the current working directory and prints it to stdout.
 Returns exit code 0 on success, 1 on error.
 -/
 def run (_args : List String) : IO UInt32 := do
   try
-    let cwd ← getcwdFFI ()
-    let output := format cwd
+    let cwd ← IO.currentDir
+    let output := format cwd.toString
     IO.print output
     return (0 : UInt32)
   catch _ =>
