@@ -22,6 +22,10 @@ partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := d
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
   let (flags, pattern, filenames) := parseArgs args
+  if flags.showHelp then
+    let helpText := "Usage: grep [OPTION]... PATTERN [FILE]...\nSearch for PATTERN in each FILE or standard input.\n\nOptions:\n  -i, --ignore-case     ignore case distinctions\n  -c, --count           print only a count of matching lines\n  -q, --quiet, --silent suppress all normal output\n  -v, --invert-match    select non-matching lines\n  -e, --regexp=PATTERN  use PATTERN as the pattern\n      --help            display this help and exit\n"
+    let _ ← writeBytes 1 helpText.toUTF8
+    return 0
   let input ←
     match filenames with
     | [] => readAll 0
@@ -42,6 +46,8 @@ def run (args : List String) : IO UInt32 := do
           let _ ← writeBytes 2 (ByteArray.mk #[0x3a, 0x20, 0x4e, 0x6f, 0x20, 0x73, 0x75, 0x63, 0x68, 0x20, 0x66, 0x69, 0x6c, 0x65, 0x20, 0x6f, 0x72, 0x20, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x0a])
           return 2
   let (result, hasMatch) := processInput input pattern flags
+  if flags.quiet then
+    if hasMatch then return 0 else return 1
   -- Add trailing newline so output doesn't run into the prompt
   let output := if result.isEmpty then result else result.push 0x0a
   let ok ← try

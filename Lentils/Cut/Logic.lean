@@ -17,9 +17,10 @@ structure Range where
 deriving Inhabited, DecidableEq
 
 structure Config where
-  mode  : Mode := Mode.fields
-  delim : UInt8 := 0x09
-  ranges : List Range := []
+  mode     : Mode := Mode.fields
+  delim    : UInt8 := 0x09
+  ranges   : List Range := []
+  suppress : Bool := false
 deriving Inhabited
 
 def charAt (cs : List Char) (idx : Nat) : Option Char :=
@@ -73,6 +74,7 @@ def parseArgs (args : List String) : Config :=
     | [] => cfg
     | "-f" :: fld :: rest => go rest { cfg with mode := Mode.fields, ranges := parseRangeList fld }
     | "-c" :: chs :: rest => go rest { cfg with mode := Mode.chars, ranges := parseRangeList chs }
+    | "-s" :: rest => go rest { cfg with suppress := true }
     | "-d" :: d :: rest =>
       match d.toList with
       | [] => go rest cfg
@@ -140,9 +142,20 @@ def processLine (line : ByteArray) (cfg : Config) : ByteArray :=
   | Mode.fields => selectFields line cfg.ranges cfg.delim
   | Mode.chars  => selectChars line cfg.ranges
 
+def contains (ba : ByteArray) (b : UInt8) : Bool :=
+  let rec go (i : Nat) : Bool :=
+    if i < ba.size then
+      if ba.get! i == b then true else go (i + 1)
+    else false
+  go 0
+
 def processInput (input : ByteArray) (cfg : Config) : ByteArray :=
   let lines := splitLines input
-  let resultLines := lines.map (λ l => processLine l cfg)
+  let resultLines := lines.filterMap (λ l =>
+    if cfg.suppress && cfg.mode == Mode.fields && ¬ (contains l cfg.delim) then
+      none
+    else
+      some (processLine l cfg))
   joinLines resultLines
 
 -- Theorems

@@ -66,21 +66,49 @@ def squeeze (input : ByteArray) (chars : String) : ByteArray :=
         go ba (i + 1) false (acc.push b)
   go input 0 false ByteArray.empty
 
-def parseArgs (args : List String) : Mode × String × String :=
-  let rec go (args : List String) (mode : Mode) : Mode × String × String :=
-    match args with
-    | [] => (mode, "", "")
-    | "-d" :: set1 :: _ => (Mode.delete, set1, "")
-    | "-s" :: set1 :: _ => (Mode.squeeze, set1, "")
-    | set1 :: set2 :: _ => (Mode.translate, set1, set2)
-    | set1 :: _ => (mode, set1, "")
-  go args Mode.translate
 
-def processInput (input : ByteArray) (mode : Mode) (set1 : String) (set2 : String) : ByteArray :=
-  match mode with
-  | Mode.translate => translate input set1 set2
-  | Mode.delete => delete input set1
-  | Mode.squeeze => squeeze input set1
+-- Complement delete: delete bytes NOT in set1 (keep only bytes IN set1)
+partial def deleteComplement (input : ByteArray) (set1 : String) : ByteArray :=
+  input.foldl (λ acc b =>
+    if byteInString b set1 then acc.push b else acc
+  ) ByteArray.empty
+
+-- Complement squeeze: squeeze runs of bytes NOT in set1
+partial def squeezeComplement (input : ByteArray) (set1 : String) : ByteArray :=
+  let rec go (ba : ByteArray) (i : Nat) (prevWasMatch : Bool) (acc : ByteArray) : ByteArray :=
+    if i >= ba.size then acc
+    else
+      let b := ba.get! i
+      if ¬ byteInString b set1 then
+        if prevWasMatch then go ba (i + 1) true acc
+        else go ba (i + 1) true (acc.push b)
+      else
+        go ba (i + 1) false (acc.push b)
+  go input 0 false ByteArray.empty
+
+def parseArgs (args : List String) : Mode × Bool × String × String :=
+  let rec go (args : List String) (mode : Mode) (complement : Bool) : Mode × Bool × String × String :=
+    match args with
+    | [] => (mode, complement, "", "")
+    | "-c" :: rest => go rest mode true
+    | "-C" :: rest => go rest mode true
+    | "-d" :: set1 :: _ => (Mode.delete, complement, set1, "")
+    | "-s" :: set1 :: _ => (Mode.squeeze, complement, set1, "")
+    | set1 :: set2 :: _ => (Mode.translate, complement, set1, set2)
+    | set1 :: _ => (mode, complement, set1, "")
+  go args Mode.translate false
+
+def processInput (input : ByteArray) (mode : Mode) (complement : Bool) (set1 : String) (set2 : String) : ByteArray :=
+  if complement then
+    match mode with
+    | Mode.delete => deleteComplement input set1
+    | Mode.squeeze => squeezeComplement input set1
+    | Mode.translate => translate input set1 set2
+  else
+    match mode with
+    | Mode.translate => translate input set1 set2
+    | Mode.delete => delete input set1
+    | Mode.squeeze => squeeze input set1
 
 -- Theorems
 
@@ -103,8 +131,10 @@ theorem squeeze_empty : squeeze ByteArray.empty "" = ByteArray.empty := by
 theorem squeeze_single : squeeze (ByteArray.mk #[0x41, 0x41, 0x41, 0x42]) "A" = ByteArray.mk #[0x41, 0x42] := by
   native_decide
 
-theorem parseArgs_delete : parseArgs ["-d", "abc"] = (Mode.delete, "abc", "") := rfl
+theorem parseArgs_delete : parseArgs ["-d", "abc"] = (Mode.delete, false, "abc", "") := rfl
 
-theorem parseArgs_translate : parseArgs ["abc", "ABC"] = (Mode.translate, "abc", "ABC") := rfl
+theorem parseArgs_translate : parseArgs ["abc", "ABC"] = (Mode.translate, false, "abc", "ABC") := rfl
+
+theorem parseArgs_complement : (parseArgs ["-c", "abc", "ABC"]).2.1 = true := rfl
 
 end Lentils.Tr.Logic

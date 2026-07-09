@@ -118,7 +118,7 @@ def printHelp (prog : String) : IO Unit :=
       IO.println ""
       IO.println "Options:"
       IO.println "  -r        reverse sort order"
-      IO.println "  -n        numeric sort (not yet implemented)"
+      IO.println "  -n        compare according to string numerical value"
   | "test" => do
       IO.println "Usage: lentils test expression"
       IO.println "       lentils [ expression ]"

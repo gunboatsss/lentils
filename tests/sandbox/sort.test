@@ -25,3 +25,13 @@ testing "sort empty" \
   'printf "" | "$UTIL"' \
   "" "" ""
 
+# sort -n (numeric sort)
+testing "sort -n" \
+  'printf "10\n2\n1\n" | "$UTIL" -n' \
+  "1\n2\n10\n" "" ""
+
+# sort -nr (numeric reverse sort)
+testing "sort -nr" \
+  'printf "10\n2\n1\n" | "$UTIL" -nr' \
+  "10\n2\n1\n" "" ""
+

@@ -11,16 +11,38 @@ open ByteArray
 
 structure Flags where
   invert : Bool := false
+  ignoreCase : Bool := false
+  countOnly : Bool := false
+  quiet : Bool := false
+  showHelp : Bool := false
 deriving Inhabited, DecidableEq
 
 def parseArgs (args : List String) : Flags × String × List String :=
+  let rec setFlag (flags : Flags) (c : Char) : Flags :=
+    match c with
+    | 'v' => { flags with invert := true }
+    | 'i' => { flags with ignoreCase := true }
+    | 'c' => { flags with countOnly := true }
+    | 'q' => { flags with quiet := true }
+    | _   => flags
   let rec go (args : List String) (flags : Flags) (pattern : String) : Flags × String × List String :=
     match args with
     | [] => (flags, pattern, [])
     | "-v" :: rest => go rest { flags with invert := true } pattern
+    | "-i" :: rest => go rest { flags with ignoreCase := true } pattern
+    | "-c" :: rest => go rest { flags with countOnly := true } pattern
+    | "-q" :: rest => go rest { flags with quiet := true } pattern
     | "-e" :: p :: rest => go rest flags p
+    | "--help" :: rest => go rest { flags with showHelp := true } pattern
     | arg :: rest =>
-      if arg.startsWith "-" && arg ≠ "-" && arg ≠ "-e" then go rest flags pattern
+      if arg.startsWith "-" && arg ≠ "-" && arg ≠ "-e" then
+        -- Handle combined short flags like "-ci" = "-c" + "-i"
+        if arg.length > 2 && !arg.startsWith "--" then
+          let chars := arg.toList.drop 1
+          let flags' := chars.foldl setFlag flags
+          go rest flags' pattern
+        else
+          go rest flags pattern
       else if pattern.isEmpty then go rest flags arg
       else (flags, pattern, arg :: rest)
   go args {} ""
@@ -33,6 +55,15 @@ def rangeEq (ba : ByteArray) (start : Nat) (sub : ByteArray) : Bool :=
       else if ba.get! (start + i) == sub.get! i then go (i + 1)
       else false
     go 0
+
+-- ─── ASCII case folding ───────────────────────────────────────────────────────
+
+def toLowerByte (b : UInt8) : UInt8 :=
+  if b ≥ 0x41 && b ≤ 0x5A then b + 0x20 else b
+
+/-- Lowercase every byte in a ByteArray (ASCII only: 'A'-'Z' → 'a'-'z'). -/
+def toLowerByteArray (ba : ByteArray) : ByteArray :=
+  ba.foldl (λ acc b => acc.push (toLowerByte b)) ByteArray.empty
 
 -- ─── Regex AST ─────────────────────────────────────────────────────────────────
 
@@ -204,9 +235,11 @@ def compilePattern (pattern : String) : Regex :=
 
 -- ─── Pattern matching / input processing ────────────────────────────────────────
 
-def containsPattern (text : ByteArray) (pattern : ByteArray) : Bool :=
-  let patternStr := String.fromUTF8! pattern
-  lineMatches (compilePattern patternStr) text
+def containsPattern (text : ByteArray) (pattern : ByteArray) (ignoreCase : Bool) : Bool :=
+  let text' := if ignoreCase then toLowerByteArray text else text
+  let pattern' := if ignoreCase then toLowerByteArray pattern else pattern
+  let patternStr := String.fromUTF8! pattern'
+  lineMatches (compilePattern patternStr) text'
 
 def processInput (input : ByteArray) (pattern : String) (flags : Flags) : ByteArray × Bool :=
   let patternBytes := pattern.toUTF8
@@ -217,9 +250,13 @@ def processInput (input : ByteArray) (pattern : String) (flags : Flags) : ByteAr
     | last :: rest =>
       if last.isEmpty then rest.reverse else lines
   let matching := cleaned.filter (λ line =>
-    let matched := containsPattern line patternBytes
+    let matched := containsPattern line patternBytes flags.ignoreCase
     if flags.invert then ¬ matched else matched)
-  (joinLines matching, !matching.isEmpty)
+  if flags.countOnly then
+    let count := matching.length
+    (s!"{count}".toUTF8, count > 0)
+  else
+    (joinLines matching, !matching.isEmpty)
 
 -- ─── Proofs ─────────────────────────────────────────────────────────────────────
 
@@ -364,10 +401,23 @@ example : lineMatches (compilePattern "h.*d")
   native_decide
 
 -- containsPattern: backward compatibility — literal behaves like original
-example : containsPattern (ByteArray.mk #[0x61, 0x62, 0x63]) (ByteArray.mk #[0x62]) = true := by
+example : containsPattern (ByteArray.mk #[0x61, 0x62, 0x63]) (ByteArray.mk #[0x62]) false = true := by
   native_decide
 
-example : containsPattern (ByteArray.mk #[0x61, 0x62, 0x63]) (ByteArray.mk #[0x64]) = false := by
+example : containsPattern (ByteArray.mk #[0x61, 0x62, 0x63]) (ByteArray.mk #[0x64]) false = false := by
+  native_decide
+
+-- toLowerByte: uppercase letters become lowercase
+example : toLowerByte 0x41 = 0x61 := by native_decide
+example : toLowerByte 0x5A = 0x7A := by native_decide
+example : toLowerByte 0x61 = 0x61 := by native_decide
+example : toLowerByte 0x30 = 0x30 := by native_decide
+
+-- containsPattern with ignoreCase
+example : containsPattern (ByteArray.mk #[0x48, 0x65, 0x6C, 0x6C, 0x6F]) (ByteArray.mk #[0x68, 0x65, 0x6C, 0x6C, 0x6F]) true = true := by
+  native_decide
+
+example : containsPattern (ByteArray.mk #[0x68, 0x65, 0x6C, 0x6C, 0x6F]) (ByteArray.mk #[0x48, 0x45, 0x4C, 0x4C, 0x4F]) true = true := by
   native_decide
 
 end Lentils.Grep.Logic

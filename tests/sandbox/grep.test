@@ -106,3 +106,47 @@ testing "grep regex with -v" \
 testing "grep literal fallback" \
   "printf 'hello\n' | \"\$UTIL\" hello" \
   "hello\n" "" ""
+
+# --- -i / -c / -q tests ---
+
+# grep -i case insensitive (lower matches upper)
+testing "grep -i lowercase pattern" \
+  "printf 'Hello\n' | \"\$UTIL\" -i hello" \
+  "Hello\n" "" ""
+
+# grep -i case insensitive (upper matches lower)
+testing "grep -i uppercase pattern" \
+  "printf 'hello\n' | \"\$UTIL\" -i HELLO" \
+  "hello\n" "" ""
+
+# grep -c count
+testing "grep -c count" \
+  "printf 'a\nb\na\n' | \"\$UTIL\" -c a" \
+  "2\n" "" ""
+
+# grep -c count no match
+testing "grep -c count no match" \
+  "printf 'a\nb\n' | \"\$UTIL\" -c x" \
+  "0\n" "" ""
+
+# grep -q quiet match
+testing "grep -q quiet match" \
+  "printf 'hello\n' | \"\$UTIL\" -q hello" \
+  "" "" ""
+
+# grep -q quiet no match
+testing "grep -q quiet no match" \
+  "printf 'hello\n' | \"\$UTIL\" -q xyz" \
+  "" "" ""
+
+# grep -ci combined
+testing "grep -ci combined" \
+  "printf 'Hello\nHELLO\nworld\n' | \"\$UTIL\" -ci hello" \
+  "2\n" "" ""
+
+# grep -cv invert count
+testing "grep -cv invert count" \
+  "printf 'a\nb\nc\n' | \"\$UTIL\" -cv a" \
+  "2\n" "" ""
+
+

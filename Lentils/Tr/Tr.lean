@@ -22,9 +22,9 @@ def tryWrite (buf : ByteArray) : IO Bool :=
 
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
-  let (mode, set1, set2) := parseArgs args
+  let (mode, complement, set1, set2) := parseArgs args
   let input ← readAll 0
-  let result := processInput input mode set1 set2
+  let result := processInput input mode complement set1 set2
   let ok ← tryWrite result
   return if ok then 0 else 1
 

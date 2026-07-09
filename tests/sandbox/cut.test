@@ -27,8 +27,16 @@ testing "cut -f 2 with tab" \
   'printf "a\tb\nc\td\n" | "$UTIL" -f 2' \
   "b\nd\n" "" ""
 
-# cut -d (custom delimiter)
-testing "cut -d: -f 1" \
-  'printf "a:b:c\nd:e:f\n" | "$UTIL" -d: -f 1' \
-  "a\nd\n" "" ""
+# cut -s (suppress lines without delimiter)
+testing "cut -s suppresses no-delim line" \
+  'printf "a:b\nno_delim\nc:d\n" | "$UTIL" -d: -f 2 -s' \
+  "b\nd\n" "" ""
+
+testing "cut -s empty output when all lines lack delimiter" \
+  'printf "no_delim\n" | "$UTIL" -d: -f 2 -s' \
+  "" "" ""
+
+testing "cut without -s passes no-delim line unchanged" \
+  'printf "no_delim\n" | "$UTIL" -d: -f 2' \
+  "no_delim\n" "" ""
 

@@ -22,7 +22,11 @@ def tryWrite (buf : ByteArray) : IO Bool :=
 
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
-  let (reverse, filenames) := parseArgs args
+  let (reverse, numeric, filenames) := parseArgs args
+  if args.contains "--help" || args.contains "-h" then
+    let helpText := "Usage: sort [OPTION]... [FILE]...\nSort lines of text from FILE(s) or standard input.\n\nOptions:\n  -r, --reverse       reverse the result of comparisons\n  -n, --numeric-sort   compare according to string numerical value\n      --help            display this help and exit\n"
+    let _ ← writeBytes 1 helpText.toUTF8
+    return 0
   let input ←
     match filenames with
     | [] => readAll 0
@@ -36,7 +40,7 @@ def run (args : List String) : IO UInt32 := do
           pure content
         catch _ => pure ByteArray.empty
         pure fdResult
-  let result := sortLines input reverse
+  let result := sortLines input reverse numeric
   let ok ← tryWrite result
   return if ok then 0 else 1
 
