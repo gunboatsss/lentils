@@ -15,6 +15,9 @@ structure Flags where
   countOnly : Bool := false
   quiet : Bool := false
   showHelp : Bool := false
+  lineNumber : Bool := false
+  showFiles : Bool := false
+  wordMatch : Bool := false
 deriving Inhabited, DecidableEq
 
 def parseArgs (args : List String) : Flags × String × List String :=
@@ -24,6 +27,9 @@ def parseArgs (args : List String) : Flags × String × List String :=
     | 'i' => { flags with ignoreCase := true }
     | 'c' => { flags with countOnly := true }
     | 'q' => { flags with quiet := true }
+    | 'n' => { flags with lineNumber := true }
+    | 'l' => { flags with showFiles := true }
+    | 'w' => { flags with wordMatch := true }
     | _   => flags
   let rec go (args : List String) (flags : Flags) (pattern : String) : Flags × String × List String :=
     match args with
@@ -32,6 +38,9 @@ def parseArgs (args : List String) : Flags × String × List String :=
     | "-i" :: rest => go rest { flags with ignoreCase := true } pattern
     | "-c" :: rest => go rest { flags with countOnly := true } pattern
     | "-q" :: rest => go rest { flags with quiet := true } pattern
+    | "-n" :: rest => go rest { flags with lineNumber := true } pattern
+    | "-l" :: rest => go rest { flags with showFiles := true } pattern
+    | "-w" :: rest => go rest { flags with wordMatch := true } pattern
     | "-e" :: p :: rest => go rest flags p
     | "--help" :: rest => go rest { flags with showHelp := true } pattern
     | arg :: rest =>
@@ -64,6 +73,24 @@ def toLowerByte (b : UInt8) : UInt8 :=
 /-- Lowercase every byte in a ByteArray (ASCII only: 'A'-'Z' → 'a'-'z'). -/
 def toLowerByteArray (ba : ByteArray) : ByteArray :=
   ba.foldl (λ acc b => acc.push (toLowerByte b)) ByteArray.empty
+
+/-- Check whether a byte is an alphanumeric ASCII character (word character). -/
+def isWordByte (b : UInt8) : Bool :=
+  (b ≥ 0x30 && b ≤ 0x39) || (b ≥ 0x41 && b ≤ 0x5A) || (b ≥ 0x61 && b ≤ 0x7A)
+
+/-- Literal word-boundary match: find pattern as a whole word in text.
+    A word is a sequence of word characters bounded by non-word-chars or edges. -/
+partial def containsPatternWord (text : ByteArray) (pattern : ByteArray) : Bool :=
+  if pattern.isEmpty then true
+  else
+    let rec find (pos : Nat) : Bool :=
+      if pos + pattern.size > text.size then false
+      else if rangeEq text pos pattern then
+        let beforeOk := pos == 0 || !isWordByte (text.get! (pos - 1))
+        let afterOk := pos + pattern.size == text.size || !isWordByte (text.get! (pos + pattern.size))
+        if beforeOk && afterOk then true else find (pos + 1)
+      else find (pos + 1)
+    find 0
 
 -- ─── Regex AST ─────────────────────────────────────────────────────────────────
 
@@ -235,11 +262,13 @@ def compilePattern (pattern : String) : Regex :=
 
 -- ─── Pattern matching / input processing ────────────────────────────────────────
 
-def containsPattern (text : ByteArray) (pattern : ByteArray) (ignoreCase : Bool) : Bool :=
+def containsPattern (text : ByteArray) (pattern : ByteArray) (ignoreCase : Bool) (wordMatch : Bool := false) : Bool :=
   let text' := if ignoreCase then toLowerByteArray text else text
   let pattern' := if ignoreCase then toLowerByteArray pattern else pattern
-  let patternStr := String.fromUTF8! pattern'
-  lineMatches (compilePattern patternStr) text'
+  if wordMatch then containsPatternWord text' pattern'
+  else
+    let patternStr := String.fromUTF8! pattern'
+    lineMatches (compilePattern patternStr) text'
 
 def processInput (input : ByteArray) (pattern : String) (flags : Flags) : ByteArray × Bool :=
   let patternBytes := pattern.toUTF8
@@ -249,13 +278,30 @@ def processInput (input : ByteArray) (pattern : String) (flags : Flags) : ByteAr
     | [] => []
     | last :: rest =>
       if last.isEmpty then rest.reverse else lines
-  let matching := cleaned.filter (λ line =>
-    let matched := containsPattern line patternBytes flags.ignoreCase
-    if flags.invert then ¬ matched else matched)
   if flags.countOnly then
+    let matching := cleaned.filter (λ line =>
+      let matched := containsPattern line patternBytes flags.ignoreCase flags.wordMatch
+      if flags.invert then ¬ matched else matched)
     let count := matching.length
     (s!"{count}".toUTF8, count > 0)
+  else if flags.lineNumber then
+    let rec go (lines : List ByteArray) (idx : Nat) (acc : List ByteArray) : List ByteArray :=
+      match lines with
+      | [] => acc.reverse
+      | line :: rest =>
+        let matched := containsPattern line patternBytes flags.ignoreCase flags.wordMatch
+        let effective := if flags.invert then ¬ matched else matched
+        if effective then
+          let lnPrefix := (toString (idx + 1) ++ ":").toUTF8
+          go rest (idx + 1) ((lnPrefix ++ line) :: acc)
+        else
+          go rest (idx + 1) acc
+    let matching := go cleaned 0 []
+    (joinLines matching, !matching.isEmpty)
   else
+    let matching := cleaned.filter (λ line =>
+      let matched := containsPattern line patternBytes flags.ignoreCase flags.wordMatch
+      if flags.invert then ¬ matched else matched)
     (joinLines matching, !matching.isEmpty)
 
 -- ─── Proofs ─────────────────────────────────────────────────────────────────────

@@ -46,6 +46,15 @@ def run (args : List String) : IO UInt32 := do
           let _ ← writeBytes 2 (ByteArray.mk #[0x3a, 0x20, 0x4e, 0x6f, 0x20, 0x73, 0x75, 0x63, 0x68, 0x20, 0x66, 0x69, 0x6c, 0x65, 0x20, 0x6f, 0x72, 0x20, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x0a])
           return 2
   let (result, hasMatch) := processInput input pattern flags
+  if flags.showFiles then
+    if hasMatch then
+      let fname := match filenames with
+        | [] => "(standard input)"
+        | f :: _ => if f = "-" then "(standard input)" else f
+      let _ ← writeBytes 1 (fname.toUTF8.push 0x0a)
+      return 0
+    else
+      return 1
   if flags.quiet then
     if hasMatch then return 0 else return 1
   -- Add trailing newline so output doesn't run into the prompt

@@ -108,13 +108,20 @@ def enumerateOne (xs : List α) : List (Nat × α) :=
     | x :: xs => (i, x) :: go xs (i + 1)
   go xs 1
 
+def contains (ba : ByteArray) (b : UInt8) : Bool :=
+  let rec go (i : Nat) : Bool :=
+    if i < ba.size then
+      if ba.get! i == b then true else go (i + 1)
+    else false
+  go 0
+
 def selectFields (line : ByteArray) (ranges : List Range) (delim : UInt8) : ByteArray :=
   let fields := splitFields line delim
   let indexed := enumerateOne fields
   let selected := indexed.filterMap (λ (idx, f) =>
     if indexInRanges ranges idx then some f else none)
   if selected.isEmpty then
-    if line.isEmpty then ByteArray.empty else line
+    if contains line delim then ByteArray.empty else line
   else
     let rec joinDelim (flds : List ByteArray) : ByteArray :=
       match flds with
@@ -141,13 +148,6 @@ def processLine (line : ByteArray) (cfg : Config) : ByteArray :=
   match cfg.mode with
   | Mode.fields => selectFields line cfg.ranges cfg.delim
   | Mode.chars  => selectChars line cfg.ranges
-
-def contains (ba : ByteArray) (b : UInt8) : Bool :=
-  let rec go (i : Nat) : Bool :=
-    if i < ba.size then
-      if ba.get! i == b then true else go (i + 1)
-    else false
-  go 0
 
 def processInput (input : ByteArray) (cfg : Config) : ByteArray :=
   let lines := splitLines input
