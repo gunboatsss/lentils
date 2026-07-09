@@ -29,3 +29,80 @@ testing "grep empty pattern" \
 testing "grep multi" \
   'printf "apple\nbanana\napricot\n" | "$UTIL" ap' \
   "apple\napricot\n" "" ""
+
+# --- Regex tests ---
+
+# grep dot match
+testing "grep dot match" \
+  "printf 'cat\n' | \"\$UTIL\" 'c.t'" \
+  "cat\n" "" ""
+
+# grep dot no match
+testing "grep dot no match" \
+  "printf 'ct\n' | \"\$UTIL\" 'c.t'" \
+  "" "" ""
+
+# grep star match
+testing "grep star match" \
+  "printf 'aaa\n' | \"\$UTIL\" 'a*'" \
+  "aaa\n" "" ""
+
+# grep star backtrack
+testing "grep star backtrack" \
+  "printf 'hello world\n' | \"\$UTIL\" 'h.*d'" \
+  "hello world\n" "" ""
+
+# grep anchor start
+testing "grep anchor start" \
+  "printf 'hello\n' | \"\$UTIL\" '^hel'" \
+  "hello\n" "" ""
+
+# grep anchor start fail
+testing "grep anchor start fail" \
+  "printf 'hello\n' | \"\$UTIL\" '^ell'" \
+  "" "" ""
+
+# grep anchor end
+testing "grep anchor end" \
+  "printf 'hello\n' | \"\$UTIL\" 'lo\$'" \
+  "hello\n" "" ""
+
+# grep anchor end fail
+testing "grep anchor end fail" \
+  "printf 'hello\n' | \"\$UTIL\" 'hel\$'" \
+  "" "" ""
+
+# grep charclass match
+testing "grep charclass match" \
+  "printf 'cat\n' | \"\$UTIL\" '[abc]at'" \
+  "cat\n" "" ""
+
+# grep charclass no match
+testing "grep charclass no match" \
+  "printf 'dog\n' | \"\$UTIL\" '[abc]og'" \
+  "" "" ""
+
+# grep negated class
+testing "grep negated class" \
+  "printf 'dog\n' | \"\$UTIL\" '[^abc]og'" \
+  "dog\n" "" ""
+
+# grep escaped bracket
+testing "grep escaped bracket" \
+  "printf 'a[b\n' | \"\$UTIL\" 'a\\['" \
+  "a[b\n" "" ""
+
+# grep combined anchors
+testing "grep combined anchors" \
+  "printf 'hello world\n' | \"\$UTIL\" '^h.*\$'" \
+  "hello world\n" "" ""
+
+# grep regex with -v
+testing "grep regex with -v" \
+  "printf 'hello\nworld\n' | \"\$UTIL\" -v '^hel'" \
+  "world\n" "" ""
+
+# grep literal fallback
+testing "grep literal fallback" \
+  "printf 'hello\n' | \"\$UTIL\" hello" \
+  "hello\n" "" ""
