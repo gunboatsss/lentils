@@ -1,6 +1,6 @@
 # lentils
 
-A [coreutils](https://en.wikipedia.org/wiki/GNU_Core_Utilities) rewrite in [Lean 4](https://lean-lang.org/), following the toybox multi-call binary pattern. Heavily inspired by [toybox](https://landley.net/toybox/). Shoutout Rob Landley.
+A [coreutils](https://en.wikipedia.org/wiki/GNU_Core_Utilities) rewrite in [Lean 4](https://lean-lang.org/), following the toybox multi-call binary pattern. Heavily inspired by [toybox](https://landley.net/toybox/). Shoutout to Rob Landley.
 
 Each utility is implemented with a pure logic layer (formal proofs) and an IO wrapper, with differential sandbox tests against the system coreutils.
 

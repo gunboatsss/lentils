@@ -22,6 +22,11 @@ export const providers = {
   lean: new SmithersVibeAgent({ agent: "lean", cwd: process.cwd() }),
   deepseekFlash: new SmithersPiAgent({ provider: "opencode-go", model: "deepseek-v4-flash" }),
   deepseekPro: new SmithersPiAgent({ provider: "opencode-go", model: "deepseek-v4-pro" }),
+  hy3Free: new SmithersPiAgent({ provider: "opencode", model: "hy3-free" }),
+  deepseekFlashFree: new SmithersPiAgent({ provider: "opencode", model: "deepseek-v4-flash-free" }),
+  mimoV25Free: new SmithersPiAgent({ provider: "opencode", model: "mimo-v2.5-free" }),
+  nemotron3UltraFree: new SmithersPiAgent({ provider: "opencode", model: "nemotron-3-ultra-free" }),
+  northMiniCodeFree: new SmithersPiAgent({ provider: "opencode", model: "north-mini-code-free" }),
 //   codex: CodexAgent,
 //   opencode: OpenCodeAgent,
 //   antigravity: AntigravityAgent,
@@ -36,26 +41,43 @@ export const providers = {
 } as const;
 
 export const agents = {
+  // Fast/cheap — quick turnarounds, simple tasks
   cheapFast: [
     providers.deepseekFlash,
+    providers.deepseekFlashFree,
+    providers.northMiniCodeFree,
   ],
+  // Smart reasoning — complex logic, proofs, architecture
   smart: [
-    providers.deepseekPro,
-    providers.lean,
+    // providers.deepseekPro,   // out of credits
+    // providers.lean,          // out of credits
+    providers.hy3Free,
+    providers.nemotron3UltraFree,
   ],
+  // Tool-heavy agentic tasks
   smartTool: [
-    providers.deepseekPro
+    // providers.deepseekPro,   // out of credits
+    providers.hy3Free,
   ],
+  // Code review (nemotron: 1M ctx for full-project analysis; mimo: vision for diagrams)
   review: [
-    providers.deepseekPro,
-    providers.lean,
+    // providers.deepseekPro,   // out of credits
+    // providers.lean,          // out of credits
+    providers.nemotron3UltraFree,
+    providers.mimoV25Free,
   ],
+  // Architecture & implementation planning
   planning: [
-    providers.deepseekPro,
-    providers.lean,
+    // providers.deepseekPro,   // out of credits
+    // providers.lean,          // out of credits
+    providers.nemotron3UltraFree,
+    providers.hy3Free,
   ],
+  // Hands-on implementation & coding
   implement: [
-    providers.lean,
-    providers.deepseekPro,
+    // providers.lean,          // out of credits
+    // providers.deepseekPro,   // out of credits
+    providers.hy3Free,
+    providers.northMiniCodeFree,
   ],
 } as const satisfies Record<string, AgentLike[]>;

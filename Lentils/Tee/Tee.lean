@@ -4,49 +4,48 @@ Tee — IO wrapper for the `tee` utility.
 -/
 
 import Lentils.Common.Errors
-import Lentils.Common.IO.Fd
+import Lentils.Common.IO.Native
 import Lentils.Tee.Logic
 
 namespace Lentils.Tee
 
 open Lentils.Common.Errors
-open Lentils.Common.IO.Fd
+open Lentils.Common.IO.Native
 open Logic
 open ByteArray
 
-partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := do
-  let chunk ← readBytes fd bufSize
-  if chunk.isEmpty then return ByteArray.empty
-  else return chunk ++ (← readAll fd bufSize)
-
-def tryWriteFd (fd : UInt32) (buf : ByteArray) : IO Bool :=
-  try let _ ← writeBytes fd buf; return true catch _ => return false
-
-def openOutputFile (path : String) (append : Bool) : IO (Option UInt32) :=
-  let flags := if append then O_WRONLY ||| O_CREAT ||| O_APPEND
-                         else O_WRONLY ||| O_CREAT ||| O_TRUNC
-  try let fd ← openFile path flags DEFAULT_MODE; return some fd catch _ => return none
+def openOutputFile (path : String) (append : Bool) : IO (Option File) :=
+  try
+    let f := if append then openFileAppend path else openFileWrite path
+    pure (some (← f))
+  catch _ =>
+    pure none
 
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
   let append := parseAppend args
   let filenames := parseFilenames args
-  let input ← readAll 0
-  let mut fds : List UInt32 := []
+  let input ← readStdin
+  let mut files : List File := []
   let mut exitCode : UInt32 := 0
   for file in filenames do
-    let fdResult ← openOutputFile file append
-    match fdResult with
+    let fResult ← openOutputFile file append
+    match fResult with
     | none =>
       let _ ← exitError "tee" (some file) "Failed to open"
       exitCode := 1
-    | some fd => fds := fd :: fds
-  let stdoutOk ← tryWriteFd 1 input
-  if not stdoutOk then exitCode := 1
-  for fd in fds do
-    let ok ← tryWriteFd fd input
-    if not ok then exitCode := 1
-    closeFd fd
+    | some f => files := f :: files
+  -- Write to stdout
+  try
+    writeStdout input
+  catch _ =>
+    exitCode := 1
+  -- Write to each output file
+  for f in files do
+    try
+      writeBytes f input
+    catch _ =>
+      exitCode := 1
   return exitCode
 
 end Lentils.Tee

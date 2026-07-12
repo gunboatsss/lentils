@@ -3,43 +3,28 @@ Cat — IO wrapper for `cat` utility.
 
 Reads from stdin and/or files, concatenates, writes to stdout.
 Uses Cat.Logic (pure, verified) for byte processing.
-IO/FFI side effects are confined to this module.
+Uses Lean native IO (IO.FS.Handle) instead of C FFI.
 -/
 
 import Lentils.Common.Errors
-import Lentils.Common.IO.Fd
+import Lentils.Common.IO.Native
 import Lentils.Cat.Logic
 
 namespace Lentils.Cat
 
 open Lentils.Common.Errors
-open Lentils.Common.IO.Fd
+open Lentils.Common.IO.Native
 
-/-- Read the entire contents of an open file descriptor. -/
-partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := do
-  let chunk ← readBytes fd bufSize
-  if chunk.isEmpty then
-    return ByteArray.empty
-  else
-    let rest ← readAll fd bufSize
-    return chunk ++ rest
-
-/-- Write bytes to fd, catching errors to avoid segfault from malformed FFI errors.
-    Returns true if write succeeded, false otherwise.
-    POSIX cat continues after write errors but sets non-zero exit. -/
-def tryWrite (fd : UInt32) (buf : ByteArray) : IO Bool := do
+/-- Read from a file, process bytes, and write to stdout.
+    Returns true if write succeeded. -/
+def processFile (f : File) : IO Bool := do
+  let content ← readAll f
+  let processed := Logic.processBytes content
   try
-    let _ ← writeBytes fd buf
+    writeStdout processed
     return true
   catch _ =>
     return false
-
-/-- Read from an fd, process bytes, and write to stdout fd.
-    Returns true if write succeeded. -/
-def processFd (fd : UInt32) (stdoutFd : UInt32) : IO Bool := do
-  let content ← readAll fd
-  let processed := Logic.processBytes content
-  tryWrite stdoutFd processed
 
 /-- Run `cat` with the given arguments.
     Returns UInt32 exit code (0 on success, 1 on error).
@@ -52,40 +37,44 @@ def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
 
   let prog : String := "cat"
-  let stdoutFd : UInt32 := 1  -- STDOUT_FILENO
 
   match args with
   | [] => do
-    -- Read from stdin (fd 0)
-    let content ← readAll 0
+    -- Read from stdin
+    let content ← readStdin
     let processed := Logic.processBytes content
-    let ok ← tryWrite stdoutFd processed
-    if ok then return 0 else return 1
+    try
+      writeStdout processed
+      return 0
+    catch _ =>
+      return 1
 
   | files =>
     let mut exitCode : UInt32 := 0
     for file in files do
       if file = "-" then
-        let content ← readAll 0
+        let content ← readStdin
         let processed := Logic.processBytes content
-        let ok ← tryWrite stdoutFd processed
-        if not ok then exitCode := 1
+        try
+          writeStdout processed
+        catch _ =>
+          exitCode := 1
         pure ()
       else
-        let fdResult ←
+        let fileResult ←
           try
-            let fd ← openFile file 0 0  -- O_RDONLY = 0, mode = 0
-            pure (some fd)
+            let f ← openFileRead file
+            pure (some f)
           catch _ =>
             let _ ← exitError prog (some file) "No such file or directory"
             exitCode := 1
             pure none
-        match fdResult with
+        match fileResult with
         | none   => pure ()
-        | some fd => do
-          let ok ← processFd fd stdoutFd
+        | some f => do
+          let ok ← processFile f
           if not ok then exitCode := 1
-          closeFd fd
+          -- File handle is GC-managed, no explicit close needed
     return exitCode
 
 end Lentils.Cat

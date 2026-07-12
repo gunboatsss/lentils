@@ -9,8 +9,7 @@ import Lentils.Basename
 import Lentils.Cat
 import Lentils.Common.Bytes
 import Lentils.Common.Errors
-import Lentils.Common.IO.Fd
-import Lentils.Common.IO.Sys
+import Lentils.Common.IO.Native
 import Lentils.Common.Lines
 import Lentils.Cut
 import Lentils.Dirname

@@ -4,27 +4,22 @@ Wc — IO wrapper for the `wc` utility.
 -/
 
 import Lentils.Common.Errors
-import Lentils.Common.IO.Fd
+import Lentils.Common.IO.Native
 import Lentils.Wc.Logic
 
 namespace Lentils.Wc
 
 open Lentils.Common.Errors
-open Lentils.Common.IO.Fd
+open Lentils.Common.IO.Native
 open Logic
 open ByteArray
-
-partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := do
-  let chunk ← readBytes fd bufSize
-  if chunk.isEmpty then return ByteArray.empty
-  else return chunk ++ (← readAll fd bufSize)
 
 def run (args : List String) : IO UInt32 := do
   ignoreSigpipe
   let (flags, filenames) := parseArgs args
   match filenames with
   | [] => do
-    let content ← readAll 0
+    let content ← readStdin
     let l := countLines content
     let w := countWords content
     let c := countBytes content
@@ -37,7 +32,7 @@ def run (args : List String) : IO UInt32 := do
     let mut totalBytes : Nat := 0
     for file in files do
       if file = "-" then
-        let content ← readAll 0
+        let content ← readStdin
         let l := countLines content
         let w := countWords content
         let c := countBytes content
@@ -47,17 +42,17 @@ def run (args : List String) : IO UInt32 := do
         IO.print (formatCounts l w c "" flags)
         pure ()
       else
-        let fdResult ← try
-          let fd ← openFile file 0 0
-          pure (some fd)
+        let fileResult ← try
+          let f ← openFileRead file
+          pure (some f)
         catch _ =>
           let _ ← exitError "wc" (some file) "No such file or directory"
           exitCode := 1
           pure none
-        match fdResult with
+        match fileResult with
         | none => pure ()
-        | some fd => do
-          let content ← readAll fd
+        | some f => do
+          let content ← readAll f
           let l := countLines content
           let w := countWords content
           let c := countBytes content
@@ -65,7 +60,6 @@ def run (args : List String) : IO UInt32 := do
           totalWords := totalWords + w
           totalBytes := totalBytes + c
           IO.print (formatCounts l w c file flags)
-          closeFd fd
     if files.length > 1 then
       IO.print (formatCounts totalLines totalWords totalBytes "total" flags)
     return exitCode

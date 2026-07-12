@@ -4,22 +4,17 @@ Tail — IO wrapper for the `tail` utility.
 -/
 
 import Lentils.Common.Errors
-import Lentils.Common.IO.Fd
+import Lentils.Common.IO.Native
 import Lentils.Tail.Logic
 
 namespace Lentils.Tail
 
 open Lentils.Common.Errors
-open Lentils.Common.IO.Fd
+open Lentils.Common.IO.Native
 open Logic
 
-partial def readAll (fd : UInt32) (bufSize : USize := 65536) : IO ByteArray := do
-  let chunk ← readBytes fd bufSize
-  if chunk.isEmpty then return ByteArray.empty
-  else return chunk ++ (← readAll fd bufSize)
-
-def tryWrite (buf : ByteArray) : IO Bool :=
-  try let _ ← writeBytes 1 buf; return true catch _ => return false
+def tryWriteStdout (buf : ByteArray) : IO Bool :=
+  try writeStdout buf; return true catch _ => return false
 
 def filterFilenames (args : List String) : List String :=
   let rec go (args : List String) : List String :=
@@ -41,35 +36,34 @@ def run (args : List String) : IO UInt32 := do
   let filenames := filterFilenames args
   match filenames with
   | [] => do
-    let content ← readAll 0
+    let content ← readStdin
     let result := takeLastLines content count
-    let ok ← tryWrite result
+    let ok ← tryWriteStdout result
     return if ok then 0 else 1
   | files =>
     let mut exitCode : UInt32 := 0
     for file in files do
       if file = "-" then
-        let content ← readAll 0
+        let content ← readStdin
         let result := takeLastLines content count
-        let ok ← tryWrite result
+        let ok ← tryWriteStdout result
         if not ok then exitCode := 1
         pure ()
       else
-        let fdResult ← try
-          let fd ← openFile file 0 0
-          pure (some fd)
+        let fileResult ← try
+          let f ← openFileRead file
+          pure (some f)
         catch _ =>
           let _ ← exitError "tail" (some file) "No such file or directory"
           exitCode := 1
           pure none
-        match fdResult with
+        match fileResult with
         | none => pure ()
-        | some fd => do
-          let content ← readAll fd
+        | some f => do
+          let content ← readAll f
           let result := takeLastLines content count
-          let ok ← tryWrite result
+          let ok ← tryWriteStdout result
           if not ok then exitCode := 1
-          closeFd fd
     return exitCode
 
 end Lentils.Tail
