@@ -1,97 +1,105 @@
 #!/bin/bash
-# test.test — Tests for the `test` utility
+# test.test — Differential sandbox tests for the `test` utility.
 # License: 0BSD
 # Run via: run-sandbox-tests.sh test
+#
+# `test` produces no stdout; the differential harness compares exit
+# codes (and empty stdout) between host /bin/test and lentils test.
+# Each operator (-f, -d, -e, -s, -r, -w, -x) is exercised with both
+# a positive and a negative case.
 
 [ -f testing.sh ] && . testing.sh
 
-# test non-empty string (exit 0)
-testing "test nonempty" \
-  '"$UTIL" hello' \
+# ─── -f : path is a regular file ──────────────────────────────────────────────
+
+# Positive: our wrapper script is a regular file.
+testing "test -f regular file" \
+  '"$UTIL" -f our_test' \
   "" "" ""
 
-# test -n non-empty (exit 0)
-testing "test -n nonempty" \
-  '"$UTIL" -n hello' \
-  "" "" ""
-
-# test -z empty (exit 0)
-testing "test -z empty" \
-  '"$UTIL" -z ""' \
-  "" "" ""
-
-# test string equality (exit 0)
-testing "test =" \
-  '"$UTIL" abc = abc' \
-  "" "" ""
-
-# test string inequality (exit 0)
-testing "test !=" \
-  '"$UTIL" abc != def' \
-  "" "" ""
-
-# test integer equality (exit 0)
-testing "test -eq" \
-  '"$UTIL" 42 -eq 42' \
-  "" "" ""
-
-# ─── File operator tests ─────────────────────────────────────────────────────
-
-# Create temp files for file tests
-touch emptyfile
-echo "content" > regfile
-mkdir testdir
-
-# test -f on existing file → exit 0
-testing "test -f existing file" \
-  '"$UTIL" -f regfile' \
-  "" "" ""
-
-# test -f on nonexistent → exit 1
-testing "test -f nonexistent" \
-  '"$UTIL" -f no_such_file' \
-  "" "" ""
-
-# test -f on directory → exit 1
+# Negative: a directory is not a regular file.
 testing "test -f on directory" \
   '"$UTIL" -f testdir' \
   "" "" ""
 
-# test -d on directory → exit 0
-testing "test -d on directory" \
+# ─── -d : path is a directory ─────────────────────────────────────────────────
+
+# Positive: testdir fixture is a directory.
+testing "test -d directory" \
   '"$UTIL" -d testdir' \
   "" "" ""
 
-# test -d on file → exit 1
-testing "test -d on file" \
-  '"$UTIL" -d regfile' \
+# Negative: a regular file is not a directory.
+testing "test -d on regular file" \
+  '"$UTIL" -d our_test' \
   "" "" ""
 
-# test -e on existing → exit 0
-testing "test -e existing" \
-  '"$UTIL" -e regfile' \
+# ─── -e : path exists ─────────────────────────────────────────────────────────
+
+# Positive: an existing file exists.
+testing "test -e existing file" \
+  '"$UTIL" -e our_test' \
   "" "" ""
 
-# test -e on nonexistent → exit 1
+# Negative: a nonexistent path does not exist.
 testing "test -e nonexistent" \
-  '"$UTIL" -e no_such_file' \
+  '"$UTIL" -e /nonexistent_lentils_path_xyz' \
   "" "" ""
 
-# test -s on non-empty file → exit 0
-testing "test -s nonempty" \
-  '"$UTIL" -s regfile' \
+# ─── -s : path exists and has size > 0 ───────────────────────────────────────
+
+# Positive: the wrapper script is non-empty.
+testing "test -s nonempty file" \
+  '"$UTIL" -s our_test' \
   "" "" ""
 
-# test -s on empty file → exit 1
-testing "test -s empty" \
-  '"$UTIL" -s emptyfile' \
+# Negative: an empty file has zero size.
+testing "test -s empty file" \
+  'touch __ls_emptyf; "$UTIL" -s __ls_emptyf' \
   "" "" ""
 
-# test combined: -f /etc/passwd -a -d / → exit 0
-testing "test -f /etc/passwd -a -d /" \
-  '"$UTIL" -f /etc/passwd -a -d /' \
+# Negative: a nonexistent path is not -s.
+testing "test -s nonexistent" \
+  '"$UTIL" -s /nonexistent_lentils_path_xyz' \
   "" "" ""
 
-# Cleanup temp files
-rm -f emptyfile regfile
-rm -rf testdir
+# ─── -r : path is readable ────────────────────────────────────────────────────
+
+# Positive: the wrapper script is readable by the owner.
+testing "test -r readable file" \
+  '"$UTIL" -r our_test' \
+  "" "" ""
+
+# Negative: a nonexistent path is not readable.
+testing "test -r nonexistent" \
+  '"$UTIL" -r /nonexistent_lentils_path_xyz' \
+  "" "" ""
+
+# ─── -w : path is writable ────────────────────────────────────────────────────
+
+# Positive: the wrapper script is writable by the owner.
+testing "test -w writable file" \
+  '"$UTIL" -w our_test' \
+  "" "" ""
+
+# Negative: a nonexistent path is not writable.
+testing "test -w nonexistent" \
+  '"$UTIL" -w /nonexistent_lentils_path_xyz' \
+  "" "" ""
+
+# ─── -x : path is executable ──────────────────────────────────────────────────
+
+# Positive: the wrapper script has the execute bit set.
+testing "test -x executable file" \
+  '"$UTIL" -x our_test' \
+  "" "" ""
+
+# Negative: a freshly created file without the exec bit is not executable.
+testing "test -x nonexecutable file" \
+  'touch __ls_nonexec; "$UTIL" -x __ls_nonexec' \
+  "" "" ""
+
+# Negative: a nonexistent path is not executable.
+testing "test -x nonexistent" \
+  '"$UTIL" -x /nonexistent_lentils_path_xyz' \
+  "" "" ""

@@ -2,32 +2,255 @@
 # echo.test — Tests for the `echo` utility
 # License: 0BSD
 # Run via: run-sandbox-tests.sh echo
-#
-# In test commands:
-#   $UTIL = the utility invocation (host: /bin/echo, ours: <OUR_BINARY> echo)
 
 [ -f testing.sh ] && . testing.sh
 
-# echo with no arguments outputs just a newline
-testing "echo no args" '"$UTIL"' "\n" "" ""
+# Basic echo
+testing "echo basic" \
+  '"$UTIL" hello world' \
+  "hello world\n" "" ""
 
-# echo with one argument
-testing "echo one arg" '"$UTIL" hello' "hello\n" "" ""
+# echo -n suppresses newline
+testing "echo -n" \
+  '"$UTIL" -n hello world' \
+  "hello world" "" ""
 
-# echo with multiple arguments (joins with spaces)
-testing "echo multiple args" '"$UTIL" hello world foo' "hello world foo\n" "" ""
+# echo only -n outputs nothing
+testing "echo only -n" \
+  '"$UTIL" -n' \
+  "" "" ""
 
-# echo with -n (implementation-defined, both host and ours should agree: strip -n, suppress newline)
-testing "echo with -n" '"$UTIL" -n hello' "hello" "" ""
+# echo with no arguments outputs newline
+testing "echo no args" \
+  '"$UTIL"' \
+  "\n" "" ""
 
-# echo preserves spaces in quoted arguments
-testing "echo quoted spaces" '"$UTIL" "hello   world"' "hello   world\n" "" ""
+# echo -n not first preserves it
+testing "echo -n not first" \
+  '"$UTIL" hello -n' \
+  "hello -n\n" "" ""
 
-# echo preserves backslashes (implementation-defined, but both host and ours should agree)
-testing "echo backslash" '"$UTIL" "hello\nworld"' "hello\nworld\n" "" ""
+# ADDITIONAL EDGE-CASE TESTS
 
-# echo with empty string argument
-testing "echo empty string" '"$UTIL" ""' "\n" "" ""
+# Edge case 1: Empty string argument
+testing "echo empty string arg" \
+  '"$UTIL" ""' \
+  "\n" "" ""
 
-# echo -n as first and only arg (implementation-defined, both strip -n, suppress newline)
-testing "echo just -n" '"$UTIL" -n' "" "" ""
+# Edge case 2: Multiple empty string arguments
+testing "echo multiple empty args" \
+  '"$UTIL" "" "" ""' \
+  "  \n" "" ""
+
+# Edge case 3: -n with empty string argument
+testing "echo -n empty string" \
+  '"$UTIL" -n ""' \
+  "" "" ""
+
+# Edge case 4: Backslash treated literally (no escape processing)
+testing "echo backslash literal" \
+  '"$UTIL" "hello\\nworld"' \
+  "hello\\nworld\n" "" ""
+
+# Edge case 5: Tab character treated literally
+testing "echo tab literal" \
+  '"$UTIL" $'"'"'hello\tworld'"'"'' \
+  "hello\tworld\n" "" ""
+
+# Edge case 6: Multiple -n flags (only first consumes - BSD behavior)
+testing "echo multiple -n flags" \
+  '"$UTIL" -n -n -n hello' \
+  "-n -n hello" "" ""
+
+# Edge case 7: Arguments with spaces
+testing "echo args with spaces" \
+  '"$UTIL" "hello world" "foo bar"' \
+  "hello world foo bar\n" "" ""
+
+# Edge case 8: Unicode characters
+testing "echo unicode" \
+  '"$UTIL" "🐍 🐍 🐍"' \
+  "🐍 🐍 🐍\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 2 (new code paths)
+
+# Edge case 9: Multiple spaces between arguments collapse to single space
+# Exercises intercalate joining with a multi-space argument list.
+testing "echo multiple spaces" \
+  '"$UTIL" a   b' \
+  "a b\n" "" ""
+
+# Edge case 10: All leading -n flags with no other operand -> empty output
+testing "echo all -n flags" \
+  '"$UTIL" -n -n' \
+  "" "" ""
+
+# Edge case 11: -n with two empty-string operands -> single space, no newline
+testing "echo -n empty empty" \
+  '"$UTIL" -n "" ""' \
+  " " "" ""
+
+# Edge case 12: Two empty-string operands -> single space then newline
+testing "echo empty empty" \
+  '"$UTIL" "" ""' \
+  " \n" "" ""
+
+# Edge case 13: Flag after non-flag argument (position matters)
+testing "echo flag after arg" \
+  '"$UTIL" a -n' \
+  "a -n\n" "" ""
+
+# Edge case 14: Empty argument after -n
+testing "echo -n empty after" \
+  '"$UTIL" -n ""' \
+  "" "" ""
+
+# Edge case 15: Multiple arguments with mixed -n flags
+testing "echo mixed flags args" \
+  '"$UTIL" -n a b -n c' \
+  "a b -n c\n" "" ""
+
+# Edge case 16: Unicode with escape sequences
+testing "echo unicode escapes" \
+  '"$UTIL" "\\u0065\\u0066\\u0067"' \
+  "\\u0065\\u0066\\u0067\n" "" ""
+
+# Edge case 17: Argument starting with dash (treated as flag)
+testing "echo dash arg" \
+  '"$UTIL" -hello' \
+  "-hello\n" "" ""
+
+# Edge case 18: Multiple consecutive -n flags at start
+testing "echo many -n flags" \
+  '"$UTIL" -n -n -n -n' \
+  "-n -n -n" "" ""
+
+# Edge case 19: Single character arguments
+testing "echo single chars" \
+  '"$UTIL" a b c' \
+  "a b c\n" "" ""
+
+# Edge case 20: Zero-length flag
+# This tests the -n flag on an empty string argument
+testing "echo zero length flag" \
+  '"$UTIL" -n "" "x"' \
+  " x\n" "" ""
+
+# Edge case 21: Argument containing equals sign
+testing "echo equals sign" \
+  '"$UTIL" key=value' \
+  "key=value\n" "" ""
+
+# Edge case 22: Multiple arguments with emoji
+testing "echo emoji arg" \
+  '"$UTIL" 🚀 🌟 💫' \
+  "🚀 🌟 💫\n" "" ""
+
+# Edge case 23: Backslash at end of argument
+testing "echo backslash end" \
+  '"$UTIL" "test\\"' \
+  "test\\\n" "" ""
+
+# Edge case 24: Quote characters
+testing "echo quotes" \
+  '"$UTIL" "hello\'world" "double\"quote"' \
+  "hello'world double\"quote\n" "" ""
+
+# Edge case 25: -n flag on multiple empty args
+testing "echo -n multiple empties" \
+  '"$UTIL" -n "" "" ""' \
+  "  " "" ""
+
+# Edge case 26: Argument with numeric dash
+testing "echo numeric dash" \
+  '"$UTIL" 123-456' \
+  "123-456\n" "" ""
+
+# Edge case 27: Mixed empty and non-empty with -n
+testing "echo mixed empties with -n" \
+  '"$UTIL" -n "" a "" b' \
+  " a  b\n" "" ""
+
+# Edge case 28: Complex escape sequences
+testing "echo complex escapes" \
+  '"$UTIL" "line1\\nline2\\ttab\\r"' \
+  "line1\\nline2\\ttab\\r\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 29: Only -n flag and empty string -> empty output, no newline
+# Tests stripN with single -n and empty remaining list
+testing "echo -n only empty" \
+  '"$UTIL" -n ""' \
+  "" "" ""
+
+# Edge case 30: Multiple -n flags interspersed with args (only leading consumed)
+# Only leading -n flags are consumed, later ones are literal
+testing "echo interleaved -n flags" \
+  '"$UTIL" -n a -n b -n c' \
+  "a -n b -n c" "" ""
+
+# Edge case 31: Arguments with leading/trailing spaces preserved
+# String.intercalate preserves spaces within args
+testing "echo args with leading trailing spaces" \
+  '"$UTIL" "  a" "b  "' \
+  "  a b  \n" "" ""
+
+# NEW EDGE-CASE TESTS — Round 4 (additional edge cases for unobserved paths)
+
+# Edge case 32: Empty string with -n flag and multiple empty args
+testing "echo empty mixed with -n" \
+  '"$UTIL" -n "" "" a' \
+  "  a\n" "" ""
+
+# Edge case 33: Arguments with only whitespace characters (spaces, tabs, newlines)
+testing "echo whitespace only" \
+  '"$UTIL" "   " "\\t" "   \\n"' \
+  "    \\n\n" "" ""
+
+# Edge case 34: Mixed empty and non-empty with -n at different positions
+testing "echo -n mixed args at start" \
+  '"$UTIL" -n "" a "" "" b' \
+  " a   b\n" "" ""
+
+# NEW EDGE-CASE TESTS — Round 5 (final three uncovered paths)
+
+# Edge case 35: Arguments containing only dash characters (potential flag confusion)
+testing "echo only dashes" \
+  '"$UTIL" - - -- ---' \
+  "- -- ---\n" "" ""
+
+# Edge case 36: Unicode emoji with special characters and flags
+testing "echo emoji with -n flag" \
+  '"$UTIL" -n 🚀 🌟' \
+  "🚀 🌟\n" "" ""
+
+# Edge case 37: Very long empty string argument
+testing "echo very long empty" \
+  '"$UTIL" "" "$(printf "%0.sa" {1..1000})"' \
+  " $(printf "%0.sa" {1..1000})\n" "" ""
+
+# Edge case 38: Arguments with only special characters and -n
+testing "echo special chars with -n" \
+  '"$UTIL" -n "!@#$%^&*()"' \
+  "!@#$%^&*()\n" "" ""
+
+# Edge case 39: Unicode escape sequences in argument
+testing "echo unicode escape" \
+  '"$UTIL" "\\u0041\\u0042\\u0043\\u0044"' \
+  "\\u0041\\u0042\\u0043\\u0044\n" "" ""
+
+# Edge case 40: Invalid flag -n with additional -n flags
+testing "echo multiple -n flags complex" \
+  '"$UTIL" -n -n -n -n a -n b -n c' \
+  "-n -n -n -n a -n b -n c\n" "" ""
+
+# Edge case 41: Arguments with embedded newlines (preserved as literal)
+testing "echo embedded newlines" \
+  '"$UTIL" "line1\\nline2\\nline3"' \
+  "line1\\nline2\\nline3\n" "" ""
+
+# Edge case 42: Zero-length arguments in middle of other arguments
+testing "echo zero-length middle" \
+  '"$UTIL" a "" b "" c' \
+  "a  b  c\n" "" ""

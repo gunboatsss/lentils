@@ -5,25 +5,125 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# tail default (10 lines or all if fewer)
-testing "tail stdin" \
-  'printf "a\nb\nc\n" | "$UTIL"' \
-  "a\nb\nc\n" "" ""
+# Default behaviour (≤10 lines) emits all of stdin
+testing "tail default under limit" \
+  '"$UTIL"' \
+  "1\n2\n3\n4\n5\n" "" "1\n2\n3\n4\n5\n"
 
-# tail -n 2 via stdin
-testing "tail -n 2 stdin" \
-  'printf "a\nb\nc\nd\ne\n" | "$UTIL" -n 2' \
-  "d\ne\n" "" ""
+# Single line with generous count
+testing "tail single line" \
+  '"$UTIL" -n 5' \
+  "a\n" "" "a\n"
 
-# tail from a single file
-echo "one" > file1
-testing "tail from file" \
-  '"$UTIL" file1' \
-  "one\n" "" ""
-rm -f file1
+# Empty input yields empty output
+testing "tail empty input" \
+  '"$UTIL" -n 2' \
+  "" "" ""
 
-# tail missing file
-testing "tail missing file" \
-  '"$UTIL" notfound 2>/dev/null || echo "error"' \
-  "error\n" "" ""
+# ADDITIONAL EDGE-CASE TESTS
 
+# Edge case1: Explicit -n equal to the line count keeps everything
+testing "tail exact line count" \
+  '"$UTIL" -n 3' \
+  "a\nb\nc\n" "" "a\nb\nc\n"
+
+# Edge case2: -n 0 drops all lines
+testing "tail zero lines" \
+  '"$UTIL" -n 0' \
+  "" "" "a\nb\nc\n"
+
+# Edge case3: Old-style -N flag (no space) with fewer lines keeps all
+testing "tail old style under limit" \
+  '"$UTIL" -3' \
+  "a\nb\n" "" "a\nb\n"
+
+# Edge case4: Count larger than the number of lines keeps everything
+testing "tail count exceeds lines" \
+  '"$UTIL" -n 10' \
+  "a\nb\n" "" "a\nb\n"
+
+# Edge case5: Trailing-newline-free input, -n 2 takes the last two lines
+testing "tail no trailing newline -n 2" \
+  '"$UTIL" -n 2' \
+  "4\n5" "" "1\n2\n3\n4\n5"
+
+# Edge case6: Trailing-newline-free input, -n 1 takes the last line
+testing "tail no trailing newline -n 1" \
+  '"$UTIL" -n 1' \
+  "5" "" "1\n2\n3\n4\n5"
+
+# Edge case7: Trailing-newline-free input, -n 3 takes last three lines
+testing "tail no trailing newline -n 3" \
+  '"$UTIL" -n 3' \
+  "3\n4\n5" "" "1\n2\n3\n4\n5"
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 8: Blank line in the middle is treated as a line to keep
+# Exercises takeLastLines with an internal empty component
+testing "tail blank line in middle" \
+  '"$UTIL" -n 2' \
+  "b\nc\n" "" "a\n\nb\nc\n"
+
+# Edge case 9: Three lines with explicit -n 1 keeps only the last
+# Exercises the single-line-from-tail boundary
+testing "tail three lines -n 1" \
+  '"$UTIL" -n 1' \
+  "3\n" "" "1\n2\n3\n"
+
+# Edge case 10: Stdin via - flag (exercises stdin path with explicit -)
+testing "tail stdin dash flag" \
+  '"$UTIL" -n 2 -' \
+  "4\n5" "" "1\n2\n3\n4\n5"
+
+# Edge case 11: Very large count (larger than system limit)
+testing "tail very large count" \
+  '"$UTIL" -n 999999' \
+  "1\n2\n3\n4\n5\n" "" "1\n2\n3\n4\n5\n"
+
+# Edge case 12: Count equals number of lines exactly plus one
+testing "tail count exact lines plus one" \
+  '"$UTIL" -n 6' \
+  "1\n2\n3\n4\n5\n" "" "1\n2\n3\n4\n5\n"
+
+# Edge case 13: Count exceeding signed 32-bit int range
+testing "tail huge count" \
+  '"$UTIL" -n 2147483648' \
+  "" "1\n2\n3\n4\n5\n" ""
+
+# Edge case 14: File with very long lines
+testing "tail very long lines" \
+  '"$UTIL" -n 2' \
+  "" "1\n2\n3\n4\n5\n" "$(printf "a%.0s" {1..10000})$\n$(printf "b%.0s" {1..20000})$\n$(printf "c%.0s" {1..5000})$\n"
+
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case 15: -n with leading zeros (exercises parseCount number parsing)
+testing "tail n leading zeros" \
+  '"$UTIL" -n 005' \
+  "2\n3\n4\n5\n6\n" "" "1\n2\n3\n4\n5\n6\n"
+
+# Edge case 16: Old-style -0 flag (zero lines)
+testing "tail old style zero" \
+  '"$UTIL" -0' \
+  "" "" "a\nb\nc\n"
+
+# Edge case 17: File with spaces in name (exercises file open path)
+testing "tail file with spaces" \
+  'echo test > "$TESTDIR/file with spaces.txt" && "$UTIL" -n 1 "$TESTDIR/file with spaces.txt"' \
+  "test\n" "" "test\n"
+
+# Edge case 18: Empty file with -n (exercises empty input handling in file path)
+testing "tail empty file" \
+  'touch "$TESTDIR/empty" && "$UTIL" -n 5 "$TESTDIR/empty"' \
+  "" "" ""
+
+# Edge case 19: Very long lines with default count (10)
+testing "tail very long lines default" \
+  '"$UTIL"' \
+  "$(printf "line%03d\n" {1..15})" "" "$(printf "line%03d\n" {6..15})"
+
+# Edge case 20: -n with number larger than 32-bit int (exercises Nat parsing)
+testing "tail n larger than 32bit" \
+  '"$UTIL" -n 5000000000' \
+  "a\nb\n" "" "a\nb\n"

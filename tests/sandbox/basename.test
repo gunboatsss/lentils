@@ -30,3 +30,264 @@ testing "basename trailing slash" \
   '"$UTIL" /usr/bin/' \
   "bin\n" "" ""
 
+# basename empty string
+testing "basename empty string" \
+  '"$UTIL" ""' \
+  "\n" "" ""
+
+# basename nonmatching suffix
+testing "basename nonmatching suffix" \
+  '"$UTIL" file.txt .foo' \
+  "file.txt\n" "" ""
+
+# basename multiple slashes
+testing "basename multiple slashes" \
+  '"$UTIL" //usr//bin' \
+  "bin\n" "" ""
+
+# basename trailing slashes collapse
+testing "basename trailing slashes collapse" \
+  '"$UTIL" a//b//' \
+  "b\n" "" ""
+
+# basename special chars
+testing "basename special chars" \
+  '"$UTIL" "/path with space/file"' \
+  "file\n" "" ""
+
+# basename near-miss suffix
+testing "basename near-miss suffix" \
+  '"$UTIL" file.txt .txtx' \
+  "file.txt\n" "" ""
+
+# basename with trailing slash (duplicate removed)
+testing "basename with trailing slash" \
+  '"$UTIL" /usr/bin/' \
+  "bin\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case 1: Empty path with suffix argument
+testing "basename empty path with suffix" \
+  '"$UTIL" "" ".txt"' \
+  "\n" "" ""
+
+# Edge case 2: Suffix longer than basename
+testing "basename suffix longer than basename" \
+  '"$UTIL" file "longer.txt"' \
+  "file\n" "" ""
+
+# Edge case 3: Only extension (dot at start)
+testing "basename only extension" \
+  '"$UTIL" ".txt"' \
+  ".txt\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 2 (new code paths)
+
+# Edge case 4: POSIX double-slash path -> root component
+# Exercises the findLast default '/' branch for an all-slash-ish path.
+testing "basename double slash" \
+  '"$UTIL" "//"' \
+  "/\n" "" ""
+
+# Edge case 5: Single dot -> '.'
+testing "basename dot" \
+  '"$UTIL" "."' \
+  ".\n" "" ""
+
+# Edge case 6: Double dot -> '..'
+testing "basename dotdot" \
+  '"$UTIL" ".."' \
+  "..\n" "" ""
+
+# Edge case 7: Multi-component relative path -> final component
+testing "basename nested relative" \
+  '"$UTIL" "a/b/c"' \
+  "c\n" "" ""
+
+# Edge case 8: Operand with a trailing slash collapses before suffix strip
+testing "basename trailing slash suffix" \
+  '"$UTIL" "/usr/bin/" ".txt"' \
+  "bin\n" "" ""
+
+# Edge case 9: Non-matching suffix on a relative path leaves the name
+# Exercises the endsWith-false branch with a deeper relative path.
+testing "basename relative nonmatching suffix" \
+  '"$UTIL" "a/b/c.def" ".txt"' \
+  "c.def\n" "" ""
+
+# Edge case 10: Path with just a trailing slash and suffix -> empty result
+testing "basename slash suffix" \
+  '"$UTIL" "" "."' \
+  "\n" "" ""
+
+# Edge case 11: Unicode characters in path and suffix
+testing "basename unicode" \
+  '"$UTIL" "café.txt" "é.txt"' \
+  "café\n" "" ""
+
+# Edge case 12: Path with escape characters
+testing "basename escape chars" \
+  '"$UTIL" "/path\\with\\many\\backslashes/file.txt"' \
+  "file.txt\n" "" ""
+
+# Edge case 13: Multiple consecutive dots in filename
+testing "basename multiple dots" \
+  '"$UTIL" "file...txt"' \
+  "file...txt\n" "" ""
+
+# Edge case 14: Path with dots and special chars
+testing "basename dots and special" \
+  '"$UTIL" "a.b.c.d" ".d"' \
+  "a.b.c\n" "" ""
+
+# Edge case 15: Path with newline character in argument
+testing "basename newline in path" \
+  '"$UTIL" "file\\nname.txt"' \
+  "file\nname.txt\n" "" ""
+
+# Edge case 16: Suffix matching only last component with multiple slashes
+testing "basename suffix middle segment" \
+  '"$UTIL" "a/b/c/d.txt" "c/d.txt"' \
+  "a/b\n" "" ""
+
+# Edge case 17: Absolute path with multiple root components
+testing "basename complex absolute path" \
+  '"$UTIL" "///usr///local///bin///app.txt"' \
+  "app.txt\n" "" ""
+
+# Edge case 18: Empty suffix (explicit) on empty path
+testing "basename explicit empty suffix" \
+  '"$UTIL" "" ""' \
+  "\n" "" ""
+
+# Edge case 19: Relative path starting with dot slash
+testing "basename dot slash path" \
+  '"$UTIL" "./relative/path/file"' \
+  "file\n" "" ""
+
+# Edge case 20: Path with just dot and suffix
+testing "basename dot with suffix" \
+  '"$UTIL" "." "something"' \
+  ".\n" "" ""
+
+# Edge case 21: Case-sensitive suffix matching
+testing "basename case sensitive suffix" \
+  '"$UTIL" "FILE.TXT" ".txt"' \
+  "FILE.TXT\n" "" ""
+
+# Edge case 22: Suffix containing slash (should not strip)
+testing "basename suffix with slash" \
+  '"$UTIL" "path/to/file" "to/file"' \
+  "path\n" "" ""
+
+# Edge case 23: Path with very long filename
+testing "basename long filename" \
+  '"$UTIL" "a$(printf "%0.sa" {1..200})file.txt"' \
+  "a"$(printf "%0.sa" {1..200})"file\n" "" ""
+
+# Edge case 24: Path ending with dots
+testing "basename ending dots" \
+  '"$UTIL" "file.." "."' \
+  "file.\n" "" ""
+
+# Edge case 25: Multiple suffixes (should only strip the provided one)
+testing "basename multiple suffixes" \
+  '"$UTIL" "file.tar.gz" ".gz"' \
+  "file.tar\n" "" ""
+
+# Edge case 26: Path with spaces and dots
+testing "basename spaces and dots" \
+  '"$UTIL" "my.file with spaces.txt" ".txt"' \
+  "my.file with spaces\n" "" ""
+
+# Edge case 27: Suffix matching middle component (edge of strip logic)
+testing "basename suffix middle component" \
+  '"$UTIL" "a/b/c/file" "c/file"' \
+  "a\n" "" ""
+
+# Edge case 28: Empty path with empty suffix (already covered but separate test)
+testing "basename empty inputs" \
+  '"$UTIL" "" ""' \
+  "\n" "" ""
+
+# Edge case 29: Path with only slashes and empty basename
+testing "basename only slashes empty" \
+  '"$UTIL" "///"' \
+  "/\n" "" ""
+
+# Edge case 30: Path with tabular character
+testing "basename tab character" \
+  '"$UTIL" "/path\\t/file"' \
+  "file\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 31: Suffix equals entire basename -> host doesn't strip
+# Exercises the take branch where length - suffix.length = 0
+testing "basename suffix equals basename" \
+  '"$UTIL" "/path/to/file" "file"' \
+  "file\n" "" ""
+
+# Edge case 32: Path with directory and suffix matching basename exactly
+testing "basename dir with suffix equals basename" \
+  '"$UTIL" "/usr/bin/" "bin"' \
+  "bin\n" "" ""
+
+# Edge case 33: Literal backslash-n in path (not newline, but two chars)
+# Exercises splitOn with literal backslash char
+testing "basename literal backslash-n" \
+  '"$UTIL" "file\\nname"' \
+  "file\\nname\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 4 (3 more uncovered paths)
+
+# Edge case 34: Suffix equals entire basename (no directory) -> host doesn't strip
+testing "basename suffix equals bare basename" \
+  '"$UTIL" "file.txt" "file.txt"' \
+  "file.txt\n" "" ""
+
+# Edge case 35: Path with literal backslash-dot (not escape)
+testing "basename literal backslash dot" \
+  '"$UTIL" "path\\.file" ".file"' \
+  "path\\"\n" "" ""
+
+# Edge case 36: Path starting with multiple dots then slash
+testing "basename multi-dot prefix" \
+  '"$UTIL" ".../file.txt"' \
+  "file.txt\n" "" ""
+
+# NEW EDGE-CASE TESTS (added to cover additional uncovered paths) — Round 5
+
+# Edge case 37: Trailing newline in input path (exercises splitOn with trailing separator)
+testing "basename trailing newline" \
+  '"$UTIL" "file.txt\\n"' \
+  "file.txt\n" "" ""
+
+# Edge case 38: Empty path with non-empty suffix (should output empty)
+testing "basename empty path non-empty suffix" \
+  '"$UTIL" "" "non-empty"' \
+  "\n" "" ""
+
+# Edge case 39: Path containing only a dot (current behavior tests this)
+testing "basename just dot" \
+  "'$UTIL' '.'" \
+  ".\n" "" ""
+
+# NEW EDGE-CASE TESTS — Round 6 (additional uncovered paths)
+
+# Edge case 40: Path with slash at end and matching suffix
+# This tests the suffix matching logic with a trailing slash
+testing "basename trailing slash with suffix" \
+  '"$UTIL" "/usr/bin/" "/usr/bin/"' \
+  "bin\n" "" ""
+
+# Edge case 41: Unicode path with spaces and dots
+testing "basename unicode spaces dots" \
+  '"$UTIL" "café thé.txt" "é.txt"' \
+  "café thé\n" "" ""
+
+# Edge case 42: Tab character in middle of path (exercises splitOn edge case)
+testing "basename tab in middle" \
+  '"$UTIL" "before\\tafter"' \
+  "after\n" "" ""

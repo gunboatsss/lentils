@@ -25,8 +25,258 @@ testing "dirname trailing slash" \
   '"$UTIL" /usr/bin/' \
   "/usr\n" "" ""
 
-# dirname of ".."
+# dirname empty string
+testing "dirname empty string" \
+  '"$UTIL" ""' \
+  ".\n" "" ""
+
+# dirname all slashes
+testing "dirname all slashes" \
+  '"$UTIL" ///' \
+  "/\n" "" ""
+
+# dirname multiple slashes
+testing "dirname multiple slashes" \
+  '"$UTIL" /usr//bin' \
+  "/usr\n" "" ""
+
+# dirname nested relative
+testing "dirname nested relative" \
+  '"$UTIL" a/b/c' \
+  "a/b\n" "" ""
+
+# dirname special chars
+testing "dirname special chars" \
+  '"$UTIL" "/path with space/x"' \
+  "/path with space\n" "" ""
+
+# dirname dotdot
 testing "dirname dotdot" \
   '"$UTIL" ..' \
   ".\n" "" ""
 
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case 1: Path with empty component
+testing "dirname empty component" \
+  '"$UTIL" a//b' \
+  "a\n" "" ""
+
+# Edge case 2: Unicode path component
+testing "dirname unicode path" \
+  '"$UTIL" "a/🐍/b/c"' \
+  "a/🐍/b\n" "" ""
+
+# Edge case 3: Only dots
+testing "dirname only dots" \
+  '"$UTIL" "..."' \
+  ".\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 2 (new code paths)
+
+# Edge case 4: Single dot operand -> '.'
+testing "dirname dot" \
+  '"$UTIL" "."' \
+  ".\n" "" ""
+
+# Edge case 5: Absolute single component -> '/'
+testing "dirname abs single" \
+  '"$UTIL" "/a"' \
+  "/\n" "" ""
+
+# Edge case 6: Single relative component -> '.'
+testing "dirname single rel" \
+  '"$UTIL" "a"' \
+  ".\n" "" ""
+
+# Edge case 7: Trailing slash collapses the last empty component
+# Exercises the filter/nonEmpty path with a trailing separator.
+testing "dirname trailing slash collapse" \
+  '"$UTIL" "a/b/"' \
+  "a\n" "" ""
+
+# Edge case 8: Deep relative path strips only the final component
+testing "dirname deep relative" \
+  '"$UTIL" "a/b/c/d"' \
+  "a/b/c\n" "" ""
+
+# Edge case 9: Leading './' is preserved as a remaining component
+testing "dirname dot prefix" \
+  '"$UTIL" "./a"' \
+  ".\n" "" ""
+
+# Edge case 10: Absolute deep path keeps the leading '/'
+testing "dirname abs deep" \
+  '"$UTIL" "/foo/bar/baz"' \
+  "/foo/bar\n" "" ""
+
+# Edge case 11: Empty path with empty suffix (already covered but separate test)
+testing "dirname path only slashes" \
+  '"$UTIL" "///"' \
+  "/\n" "" ""
+
+# Edge case 12: Path with only a single slash
+testing "dirname single slash" \
+  '"$UTIL" "/"' \
+  "/\n" "" ""
+
+# Edge case 13: Relative path starting with ./ and containing .. components
+testing "dirname complex relative" \
+  '"$UTIL" "./a/../b/c"' \
+  "a\n" "" ""
+
+# Edge case 14: Path ending with . and .. components
+testing "dirname dot dot slash" \
+  '"$UTIL" "a/../."' \
+  "a\n" "" ""
+
+# Edge case 15: Single component with dot in it
+testing "dirname dot in component" \
+  '"$UTIL" "file.name"' \
+  ".\n" "" ""
+
+# Edge case 16: Unicode with special characters in path
+testing "dirname unicode spaces" \
+  '"$UTIL" "café/naïve"' \
+  "café\n" "" ""
+
+# Edge case 17: Path with newline character in argument
+testing "dirname newline in path" \
+  '"$UTIL" "a\\nb/c"' \
+  "a\nb\n" "" ""
+
+# Edge case 18: Trailing backslash on Windows-style path (Unix behavior)
+testing "dirname backslash in path" \
+  '"$UTIL" "/a\\b\\c\\d"' \
+  "/a\\b\\c\n" "" ""
+
+# Edge case 19: Path with only a colon (invalid on Unix)
+testing "dirname colon only" \
+  '"$UTIL" ":"' \
+  ".\n" "" ""
+
+# Edge case 20: Empty string for path (baseline)
+testing "dirname empty path baseline" \
+  '"$UTIL" ""' \
+  ".\n" "" ""
+
+# Edge case 21: Multiple consecutive empty components
+testing "dirname multiple empty components" \
+  '"$UTIL" "a////b"' \
+  "a\n" "" ""
+
+# Edge case 22: Path with only a single non-slash character
+testing "dirname single char" \
+  '"$UTIL" "a"' \
+  ".\n" "" ""
+
+# Edge case 23: Absolute single component with trailing slash
+testing "dirname slash after abs single" \
+  '"$UTIL" "/a/"' \
+  "/\n" "" ""
+
+# Edge case 24: Relative path with trailing slash and single component
+testing "dirname trailing slash rel" \
+  '"$UTIL" "a/"' \
+  ".\n" "" ""
+
+# Edge case 25: Path with only a dot slash
+testing "dirname dot slash only" \
+  '"$UTIL" "./"' \
+  ".\n" "" ""
+
+# Edge case 26: Path with only a dot dot slash
+testing "dirname dot dot slash only" \
+  '"$UTIL" "../"' \
+  "..\n" "" ""
+
+# Edge case 27: Mixed valid and empty components
+testing "dirname mixed components" \
+  '"$UTIL" "a/ /b/ /c"' \
+  "a\n" "" ""
+
+# Edge case 28: Path with tab and space characters
+testing "dirname whitespace components" \
+  '"$UTIL" "a\\t/b/c\\n/d"' \
+  "a\\t/b\n" "" ""
+
+# Edge case 29: Path with leading and trailing whitespace
+testing "dirname whitespace path" \
+  '"$UTIL" "  /foo/bar/  "' \
+  "  /foo\n" "" ""
+
+# Edge case 30: Path with only slashes and dots
+testing "dirname slashes dots" \
+  '"$UTIL" "/./.././"' \
+  "/\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 31: Path with single non-empty component that is ".."
+# Exercises the single-component absolute/relative logic with dotdot
+testing "dirname dotdot component" \
+  '"$UTIL" ".."' \
+  ".\n" "" ""
+
+# Edge case 32: Absolute path with trailing slash and only root remains
+# Exercises the all-slashes branch after trailing slash collapse
+testing "dirname abs slash collapse" \
+  '"$UTIL" "/"' \
+  "/\n" "" ""
+
+# Edge case 33: Path with literal backslash characters (Windows-style)
+# Exercises filter logic with backslash as regular char
+testing "dirname backslash path" \
+  '"$UTIL" "a\\b\\c"' \
+  "a\\b\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 4 (3 more uncovered paths)
+
+# Edge case 34: Path with only "."
+testing "dirname just dot" \
+  '"$UTIL" "."' \
+  ".\n" "" ""
+
+# Edge case 35: Path with "./" and no other components
+testing "dirname dot slash no components" \
+  '"$UTIL" "./"' \
+  ".\n" "" ""
+
+# Edge case 36: Deep path with multiple ".." components
+testing "dirname deep dotdot" \
+  '"$UTIL" "a/b/../../c"' \
+  "a/b\n" "" ""
+
+# NEW EDGE-CASE TESTS (added to cover additional uncovered paths) — Round 5
+
+# Edge case 37: Trailing newline in input path (exercises splitOn with trailing separator)
+testing "dirname trailing newline" \
+  '"$UTIL" "a/b\\n"' \
+  "a\n" "" ""
+
+# Edge case 38: Path with empty component after trailing slash (exercises filter)
+testing "dirname empty after slash" \
+  '"$UTIL" "./"' \
+  ".\n" "" ""
+
+# Edge case 39: Unicode with emoji and complex characters
+testing "dirname complex unicode" \
+  '"$UTIL" "🎯/path/to/🏁"' \
+  "🎯/path/to\n" "" ""
+
+# NEW EDGE-CASE TESTS — Round 6 (additional uncovered paths)
+
+# Edge case 40: Path with mixed case components
+testing "dirname mixed case path" \
+  '"$UTIL" "FooBar/baz/QUX"' \
+  "FooBar/baz\n" "" ""
+
+# Edge case 41: Path with only slash and dot components
+testing "dirname slash dot path" \
+  '"$UTIL" "/./a/b/"' \
+  "/./a\n" "" ""
+
+# Edge case 42: Path with numeric digits and special chars
+testing "dirname digits special" \
+  '"$UTIL" "a1b2/c3/d4"' \
+  "a1b2/c3\n" "" ""

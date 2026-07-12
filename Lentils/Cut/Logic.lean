@@ -180,4 +180,12 @@ example : indexInRanges [{ start := some 2, stop := some 4 }] 5 = false := rfl
 
 example : splitFields ByteArray.empty 0x09 = [ByteArray.empty] := by native_decide
 
+-- POSIX ordering: fields are emitted in INPUT order regardless of the -f order.
+example : selectFields (ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63]) [{ start := some 3, stop := some 3 }, { start := some 1, stop := some 1 }] 0x3a
+  = ByteArray.mk #[0x61, 0x3a, 0x63] := by native_decide
+
+-- Overlapping ranges do not duplicate fields (output stays in input order).
+example : selectFields (ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63, 0x3a, 0x64]) [{ start := some 1, stop := some 3 }, { start := some 2, stop := some 2 }] 0x3a
+  = ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63] := by native_decide
+
 end Lentils.Cut.Logic

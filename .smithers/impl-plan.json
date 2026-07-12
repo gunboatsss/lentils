@@ -1,0 +1,154 @@
+{
+  "goal": "Complete the lentils coreutils implementation: formal proofs, sandbox tests coverage, and missing POSIX flags across all 20 utilities.",
+  "milestones": [
+    {
+      "id": "proofs-tee-uniq-wc",
+      "title": "Formal proofs for low-coverage utilities",
+      "objective": "Add formal Lean 4 proofs (theorems/lemmas) to Tee (1 proof), Uniq (1 proof), and Wc (3 proofs) — the utilities with the fewest proofs. Each should have at least 5 theorems covering core logic paths: normal operation, flag combinations, edge cases, empty input, and error paths.",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "proof-tee",
+          "title": "Tee formal proofs",
+          "instructions": "Add formal proofs to Lentils/Tee/Logic.lean. Cover: tee passthrough preserves stdin to stdout, tee fanout writes to both stdout and file, tee --append mode, empty input handling, single byte input, file open error behavior (no proofs needed for IO, just the pure logic). Target: 5+ theorems.",
+          "files": ["Lentils/Tee/Logic.lean"],
+          "validation": ["lake build succeeds", "all existing tests pass", "grep 'theorem\\|lemma' Lentils/Tee/Logic.lean | wc -l >= 6"]
+        },
+        {
+          "id": "proof-uniq",
+          "title": "Uniq formal proofs",
+          "instructions": "Add formal proofs to Lentils/Uniq/Logic.lean. Cover: uniq normal mode suppresses adjacent duplicates, uniq -u prints only unique lines, uniq -d prints only repeated lines, empty input, single line input, all-duplicate input, interleaved duplicates. Target: 5+ theorems.",
+          "files": ["Lentils/Uniq/Logic.lean"],
+          "validation": ["lake build succeeds", "grep 'theorem\\|lemma' Lentils/Uniq/Logic.lean | wc -l >= 6"]
+        },
+        {
+          "id": "proof-wc",
+          "title": "Wc formal proofs",
+          "instructions": "Add formal proofs to Lentils/Wc/Logic.lean. Cover: wc -l line counting, wc -w word counting, wc -c byte counting, wc default (all three), empty input, single-line input, flag combinations. Target: 6+ theorems.",
+          "files": ["Lentils/Wc/Logic.lean"],
+          "validation": ["lake build succeeds", "grep 'theorem\\|lemma' Lentils/Wc/Logic.lean | wc -l >= 7"]
+        }
+      ]
+    },
+    {
+      "id": "sandbox-tests-edge-cases",
+      "title": "Edge case sandbox tests for all utilities",
+      "objective": "Add sandbox test cases focusing on edge cases: empty input, binary input, very long lines, unicode, flag combinations, error conditions, and boundary values. Target: every utility has at least 5 test cases (currently tee has 2, pwd has 3, false/true have 3).",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "test-tee",
+          "title": "Tee edge-case tests",
+          "instructions": "Add sandbox test cases for tee. Cover: empty stdin, single line, multi-line, --append mode, file open error (non-writable path), multiple output files, stdin passthrough without -a, large input. Add tests to tests/sandbox/tee.test.",
+          "files": ["tests/sandbox/tee.test"],
+          "validation": ["cd tests/sandbox && bash run-sandbox-tests.sh tee --json 2>/dev/null"]
+        },
+        {
+          "id": "test-pwd",
+          "title": "Pwd edge-case tests",
+          "instructions": "Add sandbox test cases for pwd. Cover: basic CWD printing, -L and -P flags (logical vs physical), symlink behavior in CWD, unicode path, very long path, root directory. Add tests to tests/sandbox/pwd.test.",
+          "files": ["tests/sandbox/pwd.test"],
+          "validation": ["cd tests/sandbox && bash run-sandbox-tests.sh pwd --json 2>/dev/null"]
+        },
+        {
+          "id": "test-true-false",
+          "title": "True/False edge-case tests",
+          "instructions": "Add sandbox test cases for true and false. Cover: basic exit codes, --help output, --version, true with --ignore ignores arguments, false with arguments, true/false in pipelines (shell conditions). Add tests to tests/sandbox/{true,false}.test.",
+          "files": ["tests/sandbox/true.test", "tests/sandbox/false.test"],
+          "validation": ["cd tests/sandbox && bash run-sandbox-tests.sh true false --json 2>/dev/null"]
+        },
+        {
+          "id": "test-remaining",
+          "title": "Edge-case tests for remaining utilities",
+          "instructions": "Add at least 3 additional edge-case test scenarios to each of: basename, dirname, echo, printf, sleep, sort, tail, yes. Focus on: empty strings, special characters, boundary values, flag combinations, error messages. Each new test must exercise a code path not covered by existing tests.",
+          "files": [],
+          "validation": ["cd tests/sandbox && bash run-sandbox-tests.sh --json 2>/dev/null"]
+        }
+      ]
+    },
+    {
+      "id": "missing-grep-flags",
+      "title": "Grep missing flags: -E, -F, --help improvements",
+      "objective": "Add the -E (extended regex) and -F (fixed string) flags to grep, and update the help text to accurately reflect all implemented flags.",
+      "prerequisites": ["proofs-tee-uniq-wc"],
+      "features": [
+        {
+          "id": "grep-ef",
+          "title": "Grep -E and -F flags",
+          "instructions": "Add -E (extended regex, alias for basic regex — same engine) and -F (fixed string, literal match without regex metacharacters) to Lentils/Grep/Logic.lean. -F should escape all regex metacharacters in the pattern before matching. Update parseArgs to recognize -E and -F. Add corresponding test cases to tests/sandbox/grep.test. Update the help string in Main.lean to match actual implemented flags (remove 'not yet implemented' note for -i, -c, -n, -l, -q; add -E, -F to the listing).",
+          "files": ["Lentils/Grep/Logic.lean", "Lentils/Grep/Grep.lean", "Main.lean", "tests/sandbox/grep.test"],
+          "validation": [
+            "lake build succeeds",
+            "echo 'hello' | grep -F 'h.llo' → no output (literal dot, not regex)",
+            "echo 'h.llo' | grep -F 'h.llo' → 'h.llo'",
+            "cd tests/sandbox && bash run-sandbox-tests.sh grep --json 2>/dev/null"
+          ]
+        },
+        {
+          "id": "grep-help",
+          "title": "Grep help text update",
+          "instructions": "Update the grep help text in Main.lean to list all actually-implemented flags: -v (invert), -i (ignore-case), -c (count), -n (line-number), -l (files-with-match), -q (quiet), -w (word-match), -e (pattern), -E (extended-regex), -F (fixed-string). Remove the 'not yet implemented' note since all these are implemented. Use the same format as other applets.",
+          "files": ["Main.lean"],
+          "validation": ["lake build succeeds", "lentils grep --help 2>&1 | head -20"]
+        }
+      ]
+    },
+    {
+      "id": "cut-field-enhancements",
+      "title": "Cut field mode enhancements",
+      "objective": "The cut -f field mode is implemented but the help text says 'not yet implemented'. Fix the help text and add edge-case handling for multi-byte delimiters, overlapping ranges, and out-of-order field output.",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "cut-help-fix",
+          "title": "Cut help text correction",
+          "instructions": "Update the cut help text in Main.lean. Remove the '(not yet implemented)' note from -f, since -f field selection is fully implemented in Cut/Logic.lean. The note was misleading. Verify with: echo 'a:b:c' | lentils cut -d: -f2 → 'b'",
+          "files": ["Main.lean"],
+          "validation": [
+            "lake build succeeds",
+            "echo 'a:b:c' | lentils cut -d: -f2 | tr -d '\\n' → 'b'",
+            "echo 'a:b:c:d' | lentils cut -d: -f1,3 | tr -d '\\n' → 'ac'"
+          ]
+        },
+        {
+          "id": "cut-ordering",
+          "title": "Cut field output ordering",
+          "instructions": "POSIX requires that cut -f output fields in the order they appear in the input line, not the order specified in -f. For example, 'cut -f3,1' should still output field 1 then field 3. Review Lentils/Cut/Logic.lean selectFields to ensure this ordering. Add tests for out-of-order and overlapping field ranges.",
+          "files": ["Lentils/Cut/Logic.lean", "tests/sandbox/cut.test"],
+          "validation": [
+            "lake build succeeds",
+            "echo 'a:b:c' | lentils cut -d: -f3,1 | tr -d '\\n' → 'a:c'",
+            "echo 'a:b:c:d' | lentils cut -d: -f1-3,2 | tr -d '\\n' → 'a:b:c'"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test-file-ops",
+      "title": "Test file operations (-f, -d, -e, -s, -r, -w, -x)",
+      "objective": "The test utility has a StatContext structure and file ops parsing, but the file operations may not be fully wired through the IO layer. Verify and complete the -f, -d, -e, -s, -r, -w, -x file test flags.",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "test-file-ops-implement",
+          "title": "Test file operations implementation",
+          "instructions": "Review Lentils/Test/Logic.lean and Lentils/Test/*.lean for file operation completeness. The StatContext structure already supports fileExists, isFile, isDir, readable, writable, executable, size. Check that the IO layer (in Test.lean) populates StatContext correctly via stat(2)/access(2). Add any missing wiring. Add sandbox tests for each file operator: -f (file exists), -d (dir exists), -e (exists), -s (size > 0), -r (readable), -w (writable), -x (executable). Update Main.lean help text.",
+          "files": ["Lentils/Test/*.lean", "Main.lean", "tests/sandbox/test.test"],
+          "validation": [
+            "lake build succeeds",
+            "touch /tmp/_lstest && lentils test -f /tmp/_lstest && echo file || echo not_file",
+            "lentils test -d /tmp && echo dir || echo not_dir",
+            "rm -f /tmp/_lstest",
+            "cd tests/sandbox && bash run-sandbox-tests.sh test --json 2>/dev/null"
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Plan based on feature-enum run run-1783860226591 — 116 features across 24 groups",
+    "The codebase is more complete than help text suggests; help text needs updating",
+    "20 utilities exist, all with some tests, but formal proofs vary widely (1-49 per utility)",
+    "All features listed are code-backed per the feature-inventory scan"
+  ]
+}

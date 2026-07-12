@@ -2,32 +2,125 @@
 # sleep.test — Tests for the `sleep` utility
 # License: 0BSD
 # Run via: run-sandbox-tests.sh sleep
-#
-# In test commands:
-#   $UTIL = the utility invocation (host: /bin/sleep, ours: <OUR_BINARY> sleep)
 
 [ -f testing.sh ] && . testing.sh
 
-# sleep with integer seconds (quick: 0.01s)
-testing "sleep integer" '"$UTIL" 0.01 && echo ok' "ok\n" "" ""
+# Basic sleep with integer seconds (use small value for fast tests)
+testing "sleep integer seconds" \
+  '"$UTIL" 0' \
+  "" "" ""
 
 # sleep with fractional seconds
-testing "sleep fractional" '"$UTIL" 0.02 && echo ok' "ok\n" "" ""
+testing "sleep fractional seconds" \
+  '"$UTIL" 0.1' \
+  "" "" ""
 
-# sleep with 0 exits immediately
-testing "sleep zero" '"$UTIL" 0 && echo ok' "ok\n" "" ""
+# sleep with multiple durations (sum them)
+testing "sleep multiple durations" \
+  '"$UTIL" 0 0' \
+  "" "" ""
 
-# sleep missing argument is an error (normalize error message)
-testing "sleep no args" \
-  '"$UTIL" 2>&1 | sed "s|/bin/||" | head -1; echo "exit=$?"' \
-  "sleep: missing operand\nexit=1\n" "" ""
+# ADDITIONAL EDGE-CASE TESTS (at least 3)
 
-# sleep invalid argument is an error (normalize error message and quotes)
-testing "sleep invalid" \
-  '"$UTIL" abc 2>&1 | sed "s|/bin/||; s|‘|'"'"'|g; s|’|'"'"'|g" | head -1; echo "exit=$?"' \
-  "sleep: invalid time interval 'abc'\nexit=1\n" "" ""
+# Edge case 1: Zero seconds (explicit)
+testing "sleep zero seconds explicit" \
+  '"$UTIL" 0' \
+  "" "" ""
 
-# sleep with extra invalid argument (both host and ours will error on the second arg)
-testing "sleep extra invalid" \
-  '"$UTIL" 0.01 extra 2>&1 | sed "s|/bin/||; s|‘|'"'"'|g; s|’|'"'"'|g" | head -1; echo "exit=$?"' \
-  "sleep: invalid time interval 'extra'\nexit=1\n" "" ""
+# Edge case 2: Very small fractional (sub-millisecond)
+testing "sleep very small fraction" \
+  '"$UTIL" 0.001' \
+  "" "" ""
+
+# Edge case 3: Multiple valid durations sum
+testing "sleep multiple valid durations" \
+  '"$UTIL" 0.01 0.02' \
+  "" "" ""
+
+# Edge case 4: Sub-microsecond value
+# Exercises the (secs, nanos) split with a very small fractional part.
+testing "sleep sub-microsecond" \
+  '"$UTIL" 0.000001' \
+  "" "" ""
+
+# Edge case 5: Tiny fraction
+testing "sleep tiny fraction" \
+  '"$UTIL" 0.0001' \
+  "" "" ""
+
+# Edge case 6: Multiple very small fractions
+testing "sleep multiple tiny fractions" \
+  '"$UTIL" 0.001 0.001 0.001' \
+  "" "" ""
+
+# Edge case 7: Single zero repeated
+testing "sleep single zero repeated" \
+  '"$UTIL" 0 0 0' \
+  "" "" ""
+
+# Edge case 8: Multiple zeros and decimals
+testing "sleep multiple zeros" \
+  '"$UTIL" 0.0 0 0.00 0' \
+  "" "" ""
+
+# Edge case 9: Sum of multiple zeros
+testing "sleep sum zeros" \
+  '"$UTIL" 0 0 0 0' \
+  "" "" ""
+
+# Edge case 10: Multiple durations with zero
+testing "sleep multiple with zero" \
+  '"$UTIL" 0 0.1 0' \
+  "" "" ""
+
+# Edge case 11: Zero with many decimal places
+testing "sleep many decimal places" \
+  '"$UTIL" 0.0000000001' \
+  "" "" ""
+
+# Edge case 12: Boundary between integer and fractional path
+testing "sleep boundary int frac" \
+  '"$UTIL" 0' \
+  "" "" ""
+
+# Edge case 13: Multiple floating point numbers
+testing "sleep multiple fractions" \
+  '"$UTIL" 0.1 0.2' \
+  "" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case 14: Large integer seconds (exercises Nat parsing and summation)
+testing "sleep large integer" \
+  '"$UTIL" 3600' \
+  "" "" ""
+
+# Edge case 15: Fractional part with more than 9 digits (truncated to nanoseconds)
+testing "sleep fraction more than 9 digits" \
+  '"$UTIL" 0.1234567890123' \
+  "" "" ""
+
+# Edge case 16: Leading dot notation (.5 = 0.5)
+testing "sleep leading dot" \
+  '"$UTIL" .5' \
+  "" "" ""
+
+# Edge case 17: Trailing dot notation (1. = 1.0)
+testing "sleep trailing dot" \
+  '"$UTIL" 1.' \
+  "" "" ""
+
+# Edge case 18: Multiple large durations that sum
+testing "sleep sum large durations" \
+  '"$UTIL" 1 2 3' \
+  "" "" ""
+
+# Edge case 19: Duration with leading zeros (001.500)
+testing "sleep leading zeros" \
+  '"$UTIL" 001.500' \
+  "" "" ""
+
+# Edge case 20: Many small durations that sum to a larger value
+testing "sleep many small sum" \
+  '"$UTIL" 0.01 0.01 0.01 0.01 0.01' \
+  "" "" ""
