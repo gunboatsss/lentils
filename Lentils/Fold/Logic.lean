@@ -25,4 +25,12 @@ def fold (input : String) (width : Nat := 80) : String :=
   let folded := lines.map (λ l => String.intercalate "\n" (foldLine l width))
   String.intercalate "\n" folded
 
-end Lentils.Fold.Logic
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- foldLine at width equal to line length wraps nothing. -/
+example : foldLine "hello" 5 = ["hello"] := by
+  native_decide
+
+/-- foldLine on empty string returns empty list (no lines). -/
+example : foldLine "" 80 = [] := by
+  native_decide

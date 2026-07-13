@@ -31,3 +31,5 @@ def pasteSerial (fileLines : List (List String)) (delim : String := "\t") : Stri
   String.intercalate "\n" lines
 
 end Lentils.Paste.Logic
+
+

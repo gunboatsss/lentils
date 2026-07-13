@@ -55,4 +55,12 @@ def octalDump (data : ByteArray) : String :=
     addrStr ++ " " ++ body)
   String.intercalate "\n" lines
 
-end Lentils.Od.Logic
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- toOctal 0 with width 3 is "000". -/
+example : toOctal 0 3 = "000" := by
+  native_decide
+
+/-- toOctal 8 (decimal) with width 3 is "010" (8 = 0o10). -/
+example : toOctal 8 3 = "010" := by
+  native_decide

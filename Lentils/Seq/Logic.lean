@@ -52,4 +52,12 @@ def formatFloat (f : Float) : String :=
     else intPart ++ "." ++ (String.ofList stripped.reverse)
   | _ => s
 
-end Lentils.Seq.Logic
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- hasDecimal detects decimal point in a string. -/
+example : hasDecimal "1.5" = true := by
+  native_decide
+
+/-- hasDecimal returns false for integer strings. -/
+example : hasDecimal "42" = false := by
+  native_decide

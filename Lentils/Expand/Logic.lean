@@ -26,4 +26,16 @@ def expand (input : String) (tabSize : Nat := 8) : String :=
   let expanded := lines.map (λ l => expandLine l tabSize)
   String.intercalate "\n" expanded
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- A line with no tabs is unchanged. -/
+example : expandLine "hello" 8 = "hello" := by
+  native_decide
+
+/-- Empty line stays empty. -/
+example : expandLine "" 8 = "" := by
+  native_decide
+
 end Lentils.Expand.Logic
+
+

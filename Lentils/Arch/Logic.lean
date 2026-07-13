@@ -22,4 +22,16 @@ Validate that an architecture string is non-empty and reasonable.
 def isValid (arch : String) : Bool :=
   arch ≠ "" && arch ≠ "unknown"
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- x86_64 is a valid architecture. -/
+example : isValid "x86_64" = true := by
+  native_decide
+
+/-- Empty string is not a valid architecture. -/
+example : isValid "" = false := by
+  native_decide
+
 end Lentils.Arch.Logic
+
+

@@ -36,4 +36,16 @@ def comm (lines1 lines2 : List String) (flags : SuppressFlags := {}) : String :=
         else go as bs (a :: acc)
   String.intercalate "\n" (go lines1 lines2 [])
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- comm of two empty lists yields empty output. -/
+example : comm [] [] {} = "" := by
+  native_decide
+
+/-- comm with col1 suppressed hides lines unique to file1. -/
+example : comm ["a"] [] { col1 := true, col2 := false, col3 := false } = "" := by
+  native_decide
+
 end Lentils.Comm.Logic
+
+

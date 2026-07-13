@@ -43,4 +43,38 @@ def tsort (pairs : List (String × String)) : List String :=
     termination_by count
   go pairs allNodes.length []
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Empty input yields empty output. -/
+example : tsort [] = [] := by
+  native_decide
+
+/-- Single edge: a before b. -/
+example : tsort [("a", "b")] = ["a", "b"] := by
+  native_decide
+
+/-- Chain: a before b, b before c. -/
+example : tsort [("a", "b"), ("b", "c")] = ["a", "b", "c"] := by
+  native_decide
+
+/-- contains finds elements in a list. -/
+example : contains ["a", "b", "c"] "b" = true := by
+  native_decide
+
+example : contains ["a", "b", "c"] "z" = false := by
+  native_decide
+
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Empty input yields empty output. -/
+example : tsort [] = [] := by
+  native_decide
+
+/-- Single edge: a before b. -/
+example : tsort [("a", "b")] = ["a", "b"] := by
+  native_decide
+
 end Lentils.Tsort.Logic
+
+

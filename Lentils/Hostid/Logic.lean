@@ -14,4 +14,12 @@ def formatHostid (raw : String) : String :=
   if hexChars.isEmpty then "00000000"
   else hexChars
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Format hostid preserves hex format. -/
+example : formatHostid "abcdef01" = "abcdef01" := by
+  native_decide
+
 end Lentils.Hostid.Logic
+
+

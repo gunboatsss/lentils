@@ -22,4 +22,12 @@ def numberLines (input : String) (startNum : Nat := 1) (incr : Nat := 1) : Strin
         go rest (num + incr) (numbered :: acc)
   String.intercalate "\n" (go lines startNum [])
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Empty input produces empty output. -/
+example : numberLines "" = "" := by
+  native_decide
+
 end Lentils.Nl.Logic
+
+

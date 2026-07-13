@@ -16,4 +16,15 @@ def extractValue (entry : String) : String :=
   | _ :: rest => String.join rest
   | _ => ""
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- matchesVar matches a variable name in a KEY=VALUE pair. -/
+example : matchesVar "HOME=/home/user" "HOME" = true := by
+  native_decide
+
+example : matchesVar "HOME=/home/user" "PATH" = false := by
+  native_decide
+
 end Lentils.Printenv.Logic
+
+

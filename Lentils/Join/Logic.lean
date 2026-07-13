@@ -38,4 +38,12 @@ def join (lines1 lines2 : List String) (delim : String := " ")
         go as bs (joined :: acc)
   String.intercalate "\n" (go lines1 lines2 [])
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Empty files produce empty join. -/
+example : join [] [] " " = "" := by
+  native_decide
+
 end Lentils.Join.Logic
+
+

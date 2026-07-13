@@ -33,4 +33,15 @@ def parseArgs (args : List String) : Bool × List String × List String :=
     termination_by remaining.length
   go args false []
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- isEnvAssignment detects variable assignments. -/
+example : isEnvAssignment "FOO=bar" = true := by
+  native_decide
+
+example : isEnvAssignment "FOO" = false := by
+  native_decide
+
 end Lentils.Env.Logic
+
+
