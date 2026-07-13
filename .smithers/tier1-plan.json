@@ -1,0 +1,140 @@
+{
+  "goal": "Add 13 Tier-1 (trivial) utilities to lentils: uname, arch, hostid, logname, tty, whoami, uptime, printenv, nproc, users, groups, id, seq",
+  "milestones": [
+    {
+      "id": "t1-proc-readers",
+      "title": "Proc-file readers (uname, arch, hostid, uptime)",
+      "objective": "Implement 4 utilities that read a single value from /proc filesystem. No FFI needed — use Lean's IO.FS.readFile.",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "impl-uname",
+          "title": "uname — print system information",
+          "instructions": "Create Lentils/Uname/Logic.lean with a structure for uname info (sysname, nodename, release, version, machine). Create Lentils/Uname/Uname.lean. On Linux, read from /proc/sys/kernel/{ostype, hostname, osrelease, version}. Fall back to environment variables (HOSTNAME, etc). Format like POSIX: 'Linux hostname 6.2.0-... #1 SMP ... x86_64' without flags, or support -a, -s, -n, -r, -v, -m flags. Minimal: just print uname -a output. Use parseArgs with combined flag support (the pattern from Grep).",
+          "files": ["Lentils/Uname/Logic.lean", "Lentils/Uname/Uname.lean", "Lentils/Uname.lean"],
+          "validation": [".lake/build/bin/lentils uname 2>&1 | grep -q ."]
+        },
+        {
+          "id": "impl-arch",
+          "title": "arch — print machine architecture",
+          "instructions": "Create Lentils/Arch/Logic.lean and Lentils/Arch/Arch.lean. Read /proc/sys/kernel/arch or /proc/sys/kernel/machine. Print the machine architecture (x86_64, aarch64, etc.). No flags needed. If /proc unavailable, fall back to 'unknown'.",
+          "files": ["Lentils/Arch/Logic.lean", "Lentils/Arch/Arch.lean", "Lentils/Arch.lean"],
+          "validation": [".lake/build/bin/lentils arch 2>&1 | grep -q ."]
+        },
+        {
+          "id": "impl-hostid",
+          "title": "hostid — print numeric host identifier",
+          "instructions": "Create Lentils/Hostid/Logic.lean and Lentils/Hostid/Hostid.lean. Read /proc/sys/kernel/hostid (4-byte hex). Print as 8-digit hex (e.g., '007f0100'). No flags needed.",
+          "files": ["Lentils/Hostid/Logic.lean", "Lentils/Hostid/Hostid.lean", "Lentils/Hostid.lean"],
+          "validation": [".lake/build/bin/lentils hostid 2>&1 | grep -q '^[0-9a-f]\\+'"]
+        },
+        {
+          "id": "impl-uptime",
+          "title": "uptime — print system uptime",
+          "instructions": "Create Lentils/Uptime/Logic.lean and Lentils/Uptime/Uptime.lean. Create a pure function that formats uptime seconds into a human-readable string (e.g., '2 hours, 15 minutes'). Read /proc/uptime (first field = seconds as float). Parse the float. Format: 'X days, Y hours, Z minutes' for long uptimes, or just 'X min' for short ones. No flags needed.",
+          "files": ["Lentils/Uptime/Logic.lean", "Lentils/Uptime/Uptime.lean", "Lentils/Uptime.lean"],
+          "validation": [".lake/build/bin/lentils uptime 2>&1 | grep -q ."]
+        }
+      ]
+    },
+    {
+      "id": "t1-env-readers",
+      "title": "Environment readers (logname, whoami, printenv, tty)",
+      "objective": "Implement 4 utilities that read from environment variables or /proc. All can be done with Lean's built-in IO or /proc reads.",
+      "prerequisites": ["t1-proc-readers"],
+      "features": [
+        {
+          "id": "impl-logname",
+          "title": "logname — print user's login name",
+          "instructions": "Create Lentils/Logname/Logic.lean and Lentils/Logname/Logname.lean. Read from environment variable LOGNAME (POSIX standard), fall back to USER. Print the name followed by newline. Exit 0 on success, 1 if neither variable is set.",
+          "files": ["Lentils/Logname/Logic.lean", "Lentils/Logname/Logname.lean", "Lentils/Logname.lean"],
+          "validation": [".lake/build/bin/lentils logname 2>&1 | grep -q ."]
+        },
+        {
+          "id": "impl-whoami",
+          "title": "whoami — print effective user ID name",
+          "instructions": "Create Lentils/Whoami/Logic.lean and Lentils/Whoami/Whoami.lean. Read /proc/self/status, find 'Uid:' line, take the effective UID (second field). Then read /etc/passwd to look up the username for that UID, OR read the NAME environment variable. For simplicity on Linux, read /proc/self/loginuid or use $USER. Print the username followed by newline.",
+          "files": ["Lentils/Whoami/Logic.lean", "Lentils/Whoami/Whoami.lean", "Lentils/Whoami.lean"],
+          "validation": [".lake/build/bin/lentils whoami 2>&1 | grep -q ."]
+        },
+        {
+          "id": "impl-printenv",
+          "title": "printenv — print environment variables",
+          "instructions": "Create Lentils/Printenv/Logic.lean and Lentils/Printenv/Printenv.lean. If arguments given, print each named variable (VAR=value) if it exists, exit 1 if any are missing. If no arguments... Lean's IO.getEnv can read specific variables but can't enumerate all. For a complete implementation, add a C FFI function to coreutils.c: 'lean_coreutils_environ()' that returns an array of strings from the global 'environ'. Then in the IO wrapper, call that FFI, parse each 'KEY=VALUE' pair, sort them, and print.",
+          "files": ["Lentils/Printenv/Logic.lean", "Lentils/Printenv/Printenv.lean", "Lentils/Printenv.lean", "c/coreutils.c"],
+          "validation": [".lake/build/bin/lentils printenv HOME 2>&1 | grep -q '/'"]
+        },
+        {
+          "id": "impl-tty",
+          "title": "tty — print terminal file name",
+          "instructions": "Create Lentils/Tty/Logic.lean and Lentils/Tty/Tty.lean. Readlink /proc/self/fd/0 to get the terminal device name. If it's not a terminal (e.g., pipe), print 'not a tty' and exit 1. If it is a tty, print the device path (e.g., '/dev/pts/0') and exit 0. Support --help. No flag parsing needed beyond --help check.",
+          "files": ["Lentils/Tty/Logic.lean", "Lentils/Tty/Tty.lean", "Lentils/Tty.lean"],
+          "validation": ["bash -c 'if [ -t 0 ]; then .lake/build/bin/lentils tty 2>&1 | grep -q /dev; else .lake/build/bin/lentils tty 2>&1 | grep -q \"not a tty\"; fi'"]
+        }
+      ]
+    },
+    {
+      "id": "t1-system-queries",
+      "title": "System queries (nproc, users, groups, id)",
+      "objective": "Implement 4 utilities that query system resources. nproc can read /proc/cpuinfo. users, groups, and id need /proc/self/status parsing.",
+      "prerequisites": ["t1-proc-readers"],
+      "features": [
+        {
+          "id": "impl-nproc",
+          "title": "nproc — print number of processing units",
+          "instructions": "Create Lentils/Nproc/Logic.lean and Lentils/Nproc/Nproc.lean. Read /proc/cpuinfo and count lines matching 'processor\\t*:'. Print the count. No flags needed (--ignore and --all are optional). Exit 0.",
+          "files": ["Lentils/Nproc/Logic.lean", "Lentils/Nproc/Nproc.lean", "Lentils/Nproc.lean"],
+          "validation": [".lake/build/bin/lentils nproc 2>&1 | grep -q '^[0-9]\\+'"]
+        },
+        {
+          "id": "impl-users",
+          "title": "users — print logged-in user names",
+          "instructions": "Create Lentils/Users/Logic.lean and Lentils/Users/Users.lean. Parse /var/run/utmp (binary format defined in <utmp.h>) to find active login sessions. This requires a C FFI function 'lean_coreutils_users()' in coreutils.c that calls getutxent() in a loop, extracts ut_user for entries with ut_type == USER_PROCESS, and returns them as a Lean list (Array String). Deduplicate and print space-separated. If /var/run/utmp is unreadable or empty, print nothing and exit 0.",
+          "files": ["Lentils/Users/Logic.lean", "Lentils/Users/Users.lean", "Lentils/Users.lean", "c/coreutils.c"],
+          "validation": [".lake/build/bin/lentils users 2>&1; true"]
+        },
+        {
+          "id": "impl-groups",
+          "title": "groups — print group memberships",
+          "instructions": "Create Lentils/Groups/Logic.lean and Lentils/Groups/Groups.lean. Read /proc/self/status, find 'Groups:' line, parse the space-separated GID list. Add a C FFI function 'lean_coreutils_getgroups()' in coreutils.c that calls getgroups() and returns the list of supplementary GIDs. Look up each GID in /etc/group for group names (add FFI getgrgid_r, or just print numeric GIDs). Print space-separated group names.",
+          "files": ["Lentils/Groups/Logic.lean", "Lentils/Groups/Groups.lean", "Lentils/Groups.lean", "c/coreutils.c"],
+          "validation": [".lake/build/bin/lentils groups 2>&1 | grep -q ."]
+        },
+        {
+          "id": "impl-id",
+          "title": "id — print user and group identity",
+          "instructions": "Create Lentils/Id/Logic.lean and Lentils/Id/Id.lean. Read /proc/self/status for Uid/Gid lines (real, effective, saved, filesystem). Format like POSIX: 'uid=N(NAME) gid=N(NAME) groups=N(NAME),...'. Need C FFI for getpwuid_r (name lookup) and getgrgid_r, or parse /etc/passwd and /etc/group directly. Support flags: (none) for default, -u (effective UID), -g (effective GID), -G (supplementary groups), -n (print names instead of numbers), -r (real instead of effective). Use parseArgs with combined flag support.",
+          "files": ["Lentils/Id/Logic.lean", "Lentils/Id/Id.lean", "Lentils/Id.lean", "c/coreutils.c"],
+          "validation": [".lake/build/bin/lentils id 2>&1 | grep -q 'uid='"]
+        }
+      ]
+    },
+    {
+      "id": "t1-seq",
+      "title": "seq — print sequence of numbers",
+      "objective": "Implement seq, the only purely computational utility in Tier 1. No FFI or /proc needed.",
+      "prerequisites": [],
+      "features": [
+        {
+          "id": "impl-seq",
+          "title": "seq — print sequence of numbers",
+          "instructions": "Create Lentils/Seq/Logic.lean and Lentils/Seq/Seq.lean. seq takes 1-3 arguments: [first [increment]] last. Generate numbers from first to last, stepping by increment. Default first=1, increment=1. Print each number on its own line. Handle: seq LAST, seq FIRST LAST, seq FIRST INCREMENT LAST. Support floats with decimal formatting (trim trailing zeros, keep at least one decimal if input has decimals). Support -w flag (pad with leading zeros to equal width), -s STR (separator instead of newline), -f FORMAT (printf-style format string). Use parseArgs with combined flag support. Core logic is pure (no IO except printing).",
+          "files": ["Lentils/Seq/Logic.lean", "Lentils/Seq/Seq.lean", "Lentils/Seq.lean"],
+          "validation": [
+            ".lake/build/bin/lentils seq 5 2>&1 | tr '\\n' ' ' | grep -q '1 2 3 4 5'",
+            ".lake/build/bin/lentils seq 3 5 2>&1 | tr '\\n' ' ' | grep -q '3 4 5'",
+            ".lake/build/bin/lentils seq -s, 3 2>&1 | grep -q '1,2,3'"
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "5/13 done: arch, logname, whoami, nproc, uname (commit c13790b6)",
+    "13 new utilities would bring lentils from 20 → 33 utilities total",
+    "Each utility needs: Logic.lean (pure), Applet.lean (IO wrapper), Name.lean (re-export), imports in Lentils.lean, dispatch+help in Main.lean",
+    "FFI additions needed in c/coreutils.c: environ, getutxent, getgroups, getpwuid_r, getgrgid_r",
+    "On non-Linux systems, /proc-based implementations will fail gracefully — TODO: add portable FFI fallbacks later",
+    "Follow existing patterns: True/Logic.lean for trivial, Pwd/Pwd.lean for IO wrapper, Main.lean for dispatch"
+  ]
+}
