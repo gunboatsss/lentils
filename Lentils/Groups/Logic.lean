@@ -18,4 +18,14 @@ def findLine (content : String) (pref : String) : Option String :=
   let lines := content.splitOn "\n"
   lines.find? (fun l => String.startsWith l pref)
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Parse single group line. -/
+example : parseGroupsLine "Groups:\t1000" = ["1000"] := by
+  native_decide
+
+/-- Parse empty groups line. -/
+example : parseGroupsLine "" = [] := by
+  native_decide
+
 end Lentils.Groups.Logic

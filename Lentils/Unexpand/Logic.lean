@@ -14,8 +14,8 @@ def unexpandLine (line : String) (tabSize : Nat := 8) : String :=
   -- i: current position, spaceRun: consecutive spaces seen so far, acc: output (reversed)
   let rec go (i : Nat) (spaceRun : Nat) (acc : List Char) : List Char :=
     if i ≥ len then
-      -- Flush remaining spaces
-      (List.replicate spaceRun ' ').reverse ++ acc
+      -- Flush remaining spaces, then reverse acc
+      List.replicate spaceRun ' ' ++ acc.reverse
     else
       match chars.drop i with
       | ' ' :: _ =>
@@ -29,7 +29,7 @@ def unexpandLine (line : String) (tabSize : Nat := 8) : String :=
         -- Emit accumulated spaces as spaces, then the character
         let spaces := List.replicate spaceRun ' '
         go (i + 1) 0 (c :: spaces ++ acc)
-      | [] => (List.replicate spaceRun ' ').reverse ++ acc
+      | [] => List.replicate spaceRun ' ' ++ acc.reverse
     termination_by len - i
   String.ofList (go 0 0 [])
 
@@ -40,5 +40,15 @@ def unexpand (input : String) (tabSize : Nat := 8) : String :=
   let lines := input.splitOn "\n"
   let converted := lines.map (λ l => unexpandLine l tabSize)
   String.intercalate "\n" converted
+
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- A line with no leading spaces is unchanged. -/
+example : unexpandLine "hello" 8 = "hello" := by
+  native_decide
+
+/-- Empty line stays empty. -/
+example : unexpandLine "" 8 = "" := by
+  native_decide
 
 end Lentils.Unexpand.Logic

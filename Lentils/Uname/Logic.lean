@@ -19,4 +19,18 @@ def formatRelease (info : UnameInfo) : String := info.release
 def formatVersion (info : UnameInfo) : String := info.version
 def formatMachine (info : UnameInfo) : String := info.machine
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- formatSysname returns the sysname field. -/
+theorem formatSysname_eq : formatSysname { sysname := "Linux", nodename := "", release := "", version := "", machine := "" } = "Linux" := by
+  native_decide
+
+/-- formatNodename returns the nodename field. -/
+theorem formatNodename_eq : formatNodename { sysname := "", nodename := "myhost", release := "", version := "", machine := "" } = "myhost" := by
+  native_decide
+
+/-- formatRelease returns the release field. -/
+example : formatRelease { sysname := "", nodename := "", release := "6.5.0", version := "", machine := "" } = "6.5.0" := by
+  native_decide
+
 end Lentils.Uname.Logic

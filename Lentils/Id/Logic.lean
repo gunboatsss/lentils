@@ -58,4 +58,18 @@ def formatId (info : IdInfo) (uidName gidName : String) (groupPairs : List (Stri
   )
   s!"uid={uidStr} gid={gidStr} groups={String.intercalate "," groupStrs}"
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- Parse Uid line from /proc/self/status. -/
+example : parseUidLine "Uid:\t0\t0\t0\t0" = ["0","0","0","0"] := by
+  native_decide
+
+/-- Parse Gid line from /proc/self/status. -/
+example : parseGidLine "Gid:\t1000\t1000\t1000\t1000" = ["1000","1000","1000","1000"] := by
+  native_decide
+
+/-- findLine can locate a line by prefix. -/
+example : findLine "Uid:\t0\nGid:\t1000\n" "Gid:" = some "Gid:\t1000" := by
+  native_decide
+
 end Lentils.Id.Logic

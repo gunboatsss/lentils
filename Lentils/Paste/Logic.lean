@@ -30,6 +30,16 @@ def pasteSerial (fileLines : List (List String)) (delim : String := "\t") : Stri
   let lines := fileLines.map (λ lines => String.intercalate delim lines)
   String.intercalate "\n" lines
 
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+/-- paste of empty inputs yields empty. -/
+example : paste [] "	" = "" := by
+  native_decide
+
+/-- paste of one file with one line. -/
+example : paste [["a"]] "," = "a" := by
+  native_decide
+
 end Lentils.Paste.Logic
 
 
