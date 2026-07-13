@@ -74,22 +74,51 @@ def parseArgs (args : List String) : Config :=
     | [] => cfg
     | "-f" :: fld :: rest => go rest { cfg with mode := Mode.fields, ranges := parseRangeList fld }
     | "-c" :: chs :: rest => go rest { cfg with mode := Mode.chars, ranges := parseRangeList chs }
-    | "-s" :: rest => go rest { cfg with suppress := true }
     | "-d" :: d :: rest =>
       match d.toList with
       | [] => go rest cfg
       | c :: _ => go rest { cfg with delim := c.toUInt8 }
     | arg :: rest =>
-      if arg.startsWith "-f" && arg ≠ "-f" then
-        go rest { cfg with mode := Mode.fields, ranges := parseRangeList ((arg.drop 2).toString) }
-      else if arg.startsWith "-c" && arg ≠ "-c" then
-        go rest { cfg with mode := Mode.chars, ranges := parseRangeList ((arg.drop 2).toString) }
-      else if arg.startsWith "-d" && arg ≠ "-d" then
-        let dchar := (arg.drop 2).toString
-        match dchar.toList with
-        | [] => go rest cfg
-        | c :: _ => go rest { cfg with delim := c.toUInt8 }
-      else go rest cfg
+      if arg.startsWith "-" && arg.length > 1 && !arg.startsWith "--" then
+        -- Handle combined short flags like "-sf5", "-sd:", "-s", etc.
+        let chars := arg.toList.drop 1
+        let rec handleChars (cs : List Char) (cfg' : Config) (rem : List String) : Config :=
+          match cs with
+          | [] => go rem cfg'
+          | 's' :: more => handleChars more { cfg' with suppress := true } rem
+          | 'f' :: more =>
+            let fldStr := String.join (more.map (λ c => String.singleton c))
+            if fldStr.isEmpty then
+              match rem with
+              | fld :: rem' => go rem' { cfg' with mode := Mode.fields, ranges := parseRangeList fld }
+              | [] => cfg'
+            else
+              go rem { cfg' with mode := Mode.fields, ranges := parseRangeList fldStr }
+          | 'c' :: more =>
+            let chsStr := String.join (more.map (λ c => String.singleton c))
+            if chsStr.isEmpty then
+              match rem with
+              | chs :: rem' => go rem' { cfg' with mode := Mode.chars, ranges := parseRangeList chs }
+              | [] => cfg'
+            else
+              go rem { cfg' with mode := Mode.chars, ranges := parseRangeList chsStr }
+          | 'd' :: more =>
+            let dStr := String.join (more.map (λ c => String.singleton c))
+            if dStr.isEmpty then
+              match rem with
+              | d :: rem' =>
+                match d.toList with
+                | c :: _ => go rem' { cfg' with delim := c.toUInt8 }
+                | [] => go rem' cfg'
+              | [] => cfg'
+            else
+              match dStr.toList with
+              | c :: _ => go rem { cfg' with delim := c.toUInt8 }
+              | [] => go rem cfg'
+          | _ :: more => handleChars more cfg' rem
+        handleChars chars cfg rest
+      else
+        go rest cfg
   go args {}
 
 def splitFields (ba : ByteArray) (delim : UInt8) : List ByteArray :=
@@ -179,5 +208,13 @@ example : indexInRanges [{ start := some 2, stop := some 4 }] 3 = true := rfl
 example : indexInRanges [{ start := some 2, stop := some 4 }] 5 = false := rfl
 
 example : splitFields ByteArray.empty 0x09 = [ByteArray.empty] := by native_decide
+
+-- POSIX ordering: fields are emitted in INPUT order regardless of the -f order.
+example : selectFields (ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63]) [{ start := some 3, stop := some 3 }, { start := some 1, stop := some 1 }] 0x3a
+  = ByteArray.mk #[0x61, 0x3a, 0x63] := by native_decide
+
+-- Overlapping ranges do not duplicate fields (output stays in input order).
+example : selectFields (ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63, 0x3a, 0x64]) [{ start := some 1, stop := some 3 }, { start := some 2, stop := some 2 }] 0x3a
+  = ByteArray.mk #[0x61, 0x3a, 0x62, 0x3a, 0x63] := by native_decide
 
 end Lentils.Cut.Logic

@@ -31,29 +31,41 @@ def parseArgs (args : List String) : Flags × String × List String :=
     | 'l' => { flags with showFiles := true }
     | 'w' => { flags with wordMatch := true }
     | _   => flags
+
+  -- Iterate through a combined short-flag string (without the leading '-').
+  -- If 'e' is encountered, stop and return the remaining chars after 'e'
+  -- as a suffix, because the next argument becomes the pattern for -e.
+  -- If no 'e' is found, return none.
+  let rec processCombined (chars : List Char) (flags : Flags) : Flags × Option (List Char) :=
+    match chars with
+    | [] => (flags, none)
+    | 'e' :: rest => (flags, some rest)
+    | c :: rest => processCombined rest (setFlag flags c)
+
   let rec go (args : List String) (flags : Flags) (pattern : String) : Flags × String × List String :=
     match args with
     | [] => (flags, pattern, [])
-    | "-v" :: rest => go rest { flags with invert := true } pattern
-    | "-i" :: rest => go rest { flags with ignoreCase := true } pattern
-    | "-c" :: rest => go rest { flags with countOnly := true } pattern
-    | "-q" :: rest => go rest { flags with quiet := true } pattern
-    | "-n" :: rest => go rest { flags with lineNumber := true } pattern
-    | "-l" :: rest => go rest { flags with showFiles := true } pattern
-    | "-w" :: rest => go rest { flags with wordMatch := true } pattern
-    | "-e" :: p :: rest => go rest flags p
     | "--help" :: rest => go rest { flags with showHelp := true } pattern
     | arg :: rest =>
-      if arg.startsWith "-" && arg ≠ "-" && arg ≠ "-e" then
-        -- Handle combined short flags like "-ci" = "-c" + "-i"
-        if arg.length > 2 && !arg.startsWith "--" then
-          let chars := arg.toList.drop 1
-          let flags' := chars.foldl setFlag flags
+      if arg.startsWith "-" && arg.length > 1 && !arg.startsWith "--" then
+        -- Short flag(s): single flag ("-v") or combined ("-vi", "-ie", etc.)
+        let chars := arg.toList.drop 1  -- strip leading '-'
+        match processCombined chars flags with
+        | (flags', none) =>
+          -- No -e encountered; all flags processed normally
           go rest flags' pattern
-        else
-          go rest flags pattern
-      else if pattern.isEmpty then go rest flags arg
-      else (flags, pattern, arg :: rest)
+        | (flags', some restChars) =>
+          -- -e was encountered: the next argument becomes the pattern;
+          -- any chars after 'e' in the same group are also flags
+          match rest with
+          | [] => (flags', pattern, [])  -- -e without argument: stop gracefully
+          | p :: rest' =>
+            let flags'' := restChars.foldl setFlag flags'
+            go rest' flags'' p
+      else if pattern.isEmpty then
+        go rest flags arg
+      else
+        (flags, pattern, arg :: rest)
   go args {} ""
 
 def rangeEq (ba : ByteArray) (start : Nat) (sub : ByteArray) : Bool :=

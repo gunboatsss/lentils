@@ -47,16 +47,18 @@ def parseKeyDef (s : String) : Option SortKey :=
     | _ => none
 
 def parseArgs (args : List String) : SortOptions :=
+  let rec setFlag (opts : SortOptions) (c : Char) : SortOptions :=
+    match c with
+    | 'r' => { opts with reverse := true }
+    | 'n' => { opts with numeric := true }
+    | 'u' => { opts with unique := true }
+    | _   => opts
+
   let rec go (args' : List String) (opts : SortOptions) : SortOptions :=
     match args' with
     | [] => opts
-    | "-r" :: rest => go rest { opts with reverse := true }
     | "--reverse" :: rest => go rest { opts with reverse := true }
-    | "-n" :: rest => go rest { opts with numeric := true }
     | "--numeric-sort" :: rest => go rest { opts with numeric := true }
-    | "-nr" :: rest => go rest { opts with numeric := true, reverse := true }
-    | "-rn" :: rest => go rest { opts with numeric := true, reverse := true }
-    | "-u" :: rest => go rest { opts with unique := true }
     | "-t" :: sepArg :: rest =>
       match sepArg.toList with
       | c :: _ => go rest { opts with separator := some c }
@@ -74,8 +76,13 @@ def parseArgs (args : List String) : SortOptions :=
         let keyStr := (arg.drop 2).toString
         let parsedKey := parseKeyDef keyStr
         go rest { opts with key := parsedKey }
-      else if arg.startsWith "-" && arg ≠ "-" then go rest opts
-      else go rest { opts with filenames := opts.filenames ++ [arg] }
+      else if arg.startsWith "-" && arg.length > 1 && !arg.startsWith "--" then
+        -- Combined short flags: "-ru", "-nr", "-rnu", etc.
+        let chars := arg.toList.drop 1
+        let opts' := chars.foldl setFlag opts
+        go rest opts'
+      else
+        go rest { opts with filenames := opts.filenames ++ [arg] }
   go args {}
 
 def byteArrayLT (a b : ByteArray) : Bool :=
