@@ -14,7 +14,7 @@ Parse env args into (clearEnv, envPairs, cmdArgs).
 - `name=value` entries are environment variable assignments.
 - Everything else is treated as command + args.
 -/
-partial def parseArgs (args : List String) : Bool × List String × List String :=
+def parseArgs (args : List String) : Bool × List String × List String :=
   let rec go (remaining : List String) (clearEnv : Bool) (envPairs : List String) :
       Bool × List String × List String :=
     match remaining with
@@ -25,13 +25,12 @@ partial def parseArgs (args : List String) : Bool × List String × List String 
     | "--" :: rest => (clearEnv, envPairs.reverse, rest)
     | (s :: rest) =>
       if s.startsWith "-" then
-        -- Unknown flag, treat rest as positional args (command)
         (clearEnv, envPairs.reverse, remaining)
       else if isEnvAssignment s then
         go rest clearEnv (s :: envPairs)
       else
-        -- Start of command
         (clearEnv, envPairs.reverse, remaining)
+    termination_by remaining.length
   go args false []
 
 end Lentils.Env.Logic

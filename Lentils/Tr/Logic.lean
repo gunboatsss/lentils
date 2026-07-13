@@ -96,13 +96,13 @@ def squeeze (input : ByteArray) (chars : String) : ByteArray :=
 
 
 -- Complement delete: delete bytes NOT in set1 (keep only bytes IN set1)
-partial def deleteComplement (input : ByteArray) (set1 : String) : ByteArray :=
+def deleteComplement (input : ByteArray) (set1 : String) : ByteArray :=
   input.foldl (λ acc b =>
     if byteInString b set1 then acc.push b else acc
   ) ByteArray.empty
 
 -- Complement squeeze: squeeze runs of bytes NOT in set1
-partial def squeezeComplement (input : ByteArray) (set1 : String) : ByteArray :=
+def squeezeComplement (input : ByteArray) (set1 : String) : ByteArray :=
   let rec go (ba : ByteArray) (i : Nat) (prevWasMatch : Bool) (acc : ByteArray) : ByteArray :=
     if i >= ba.size then acc
     else
@@ -112,6 +112,7 @@ partial def squeezeComplement (input : ByteArray) (set1 : String) : ByteArray :=
         else go ba (i + 1) true (acc.push b)
       else
         go ba (i + 1) false (acc.push b)
+    termination_by ba.size - i
   go input 0 false ByteArray.empty
 
 private def processCombined (chars : List Char) (mode : Mode) (complement : Bool) (needsArg : Bool)

@@ -10,12 +10,9 @@ def contains (xs : List String) (x : String) : Bool :=
 
 /--
 Simple topological sort using Kahn's algorithm.
-Input lines are pairs separated by space: "a b" means a before b.
-Each line may contain one node (no edges).
-This is marked partial because Lean can't prove termination automatically
-for the filter-based algorithm (the list strictly shrinks each iteration).
+Terminates by counting down from the number of unique nodes.
 -/
-partial def tsort (pairs : List (String × String)) : List String :=
+def tsort (pairs : List (String × String)) : List String :=
   -- Collect all unique nodes (manual dedup)
   let allNodes :=
     let fst := pairs.map (λ (a, _) => a)
@@ -28,19 +25,22 @@ partial def tsort (pairs : List (String × String)) : List String :=
         if contains seen x then uniq rest seen
         else uniq rest (x :: seen)
     uniq combined []
-  -- Kahn's algorithm
-  let rec go (remaining : List (String × String)) (ordered : List String) : List String :=
-    match remaining with
-    | [] => ordered ++ (allNodes.filter (λ n => !contains ordered n))
-    | _ =>
-      let incoming := remaining.map (λ (_, b) => b)
-      let ready := allNodes.filter (λ n =>
-        !contains ordered n && !contains incoming n)
-      match ready with
-      | [] => ordered
-      | n :: _ =>
-        let remaining' := remaining.filter (λ (a, _) => a ≠ n)
-        go remaining' (ordered ++ [n])
-  go pairs []
+  -- Kahn's algorithm with countdown for termination
+  let rec go (remaining : List (String × String)) (count : Nat) (ordered : List String) : List String :=
+    if count = 0 then ordered
+    else
+      match remaining with
+      | [] => ordered ++ (allNodes.filter (λ n => !contains ordered n))
+      | _ =>
+        let incoming := remaining.map (λ (_, b) => b)
+        let ready := allNodes.filter (λ n =>
+          !contains ordered n && !contains incoming n)
+        match ready with
+        | [] => ordered  -- cycle detected
+        | n :: _ =>
+          let remaining' := remaining.filter (λ (a, _) => a ≠ n)
+          go remaining' (count - 1) (ordered ++ [n])
+    termination_by count
+  go pairs allNodes.length []
 
 end Lentils.Tsort.Logic
