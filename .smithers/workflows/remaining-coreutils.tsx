@@ -38,9 +38,9 @@ const { Workflow, Task, smithers, outputs } = createSmithers({
   review: reviewSchema,
 });
 
-function buildPrompt(batch: z.input<typeof batchSchema>): string {
+function buildPrompt(batch: z.input<typeof batchSchema>, feedback?: string): string {
   const names = batch.applets.join(", ");
-  return `Implement these utilities: ${names}.
+  const base = `Implement these utilities: ${names}.
 
 ${batch.title}
 
@@ -58,10 +58,15 @@ After all utilities:
 7. Run: .lake/build/bin/lentils --help  # verify listing
 
 Return the list of files changed.`;
+
+  if (feedback) {
+    return `${base}\n\n---\nPREVIOUS REVIEW FEEDBACK (fix these issues):\n${feedback}`;
+  }
+  return base;
 }
 
-function buildReviewPrompt(batch: z.input<typeof batchSchema>): string {
-  return `Review the implementation of: ${batch.applets.join(", ")}
+function buildReviewPrompt(batch: z.input<typeof batchSchema>, impl?: z.input<typeof implSchema>): string {
+  const base = `Review the implementation of: ${batch.applets.join(", ")}
 
 Check:
 1. Each utility has Lentils/<name>/Logic.lean (pure functions) and Lentils/<name>/<name>.lean (IO wrapper)
@@ -78,6 +83,11 @@ Also check code quality:
 
 If approved, return { approved: true }.
 If not, return { approved: false, feedback: "what needs fixing" }.`;
+
+  if (impl) {
+    return `${base}\n\nFiles changed:\n${(impl.filesChanged ?? []).join("\n")}\n\nSummary: ${impl.summary}`;
+  }
+  return base;
 }
 
 export default smithers((ctx) => {
@@ -92,42 +102,49 @@ export default smithers((ctx) => {
     );
   }
 
-  // Check each batch's review status from the latest iteration
+  // Check each batch's outputs from the last iteration
   const reviews = batches.map((_, i) =>
     ctx.outputMaybe("review", { nodeId: `batch-${i}:review` })
+  );
+  const impls = batches.map((_, i) =>
+    ctx.outputMaybe("impl", { nodeId: `batch-${i}:impl` })
   );
 
   return (
     <Workflow name="implement-batches">
       <Sequence>
-        {batches.map((batch, i) => (
-          <Loop
-            key={i}
-            id={`batch-${i}`}
-            until={reviews[i]?.approved === true}
-            maxIterations={3}
-            onMaxReached="return-last"
-          >
-            <Sequence>
-              <Task
-                id={`batch-${i}:impl`}
-                output={outputs.impl}
-                agent={agents.smartTool}
-                timeoutMs={600_000}
-                heartbeatTimeoutMs={120_000}
-              >
-                <ImplementPrompt prompt={buildPrompt(batch)} />
-              </Task>
-              <Task
-                id={`batch-${i}:review`}
-                output={outputs.review}
-                agent={agents.smartTool}
-              >
-                <ImplementPrompt prompt={buildReviewPrompt(batch)} />
-              </Task>
-            </Sequence>
-          </Loop>
-        ))}
+        {batches.map((batch, i) => {
+          const lastReview = reviews[i];
+          const lastImpl = impls[i];
+          return (
+            <Loop
+              key={i}
+              id={`batch-${i}`}
+              until={lastReview?.approved === true}
+              maxIterations={3}
+              onMaxReached="return-last"
+            >
+              <Sequence>
+                <Task
+                  id={`batch-${i}:impl`}
+                  output={outputs.impl}
+                  agent={agents.smartTool}
+                  timeoutMs={600_000}
+                  heartbeatTimeoutMs={120_000}
+                >
+                  <ImplementPrompt prompt={buildPrompt(batch, lastReview?.feedback)} />
+                </Task>
+                <Task
+                  id={`batch-${i}:review`}
+                  output={outputs.review}
+                  agent={agents.smartTool}
+                >
+                  <ImplementPrompt prompt={buildReviewPrompt(batch, lastImpl)} />
+                </Task>
+              </Sequence>
+            </Loop>
+          );
+        })}
       </Sequence>
     </Workflow>
   );
