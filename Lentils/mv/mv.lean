@@ -36,7 +36,7 @@ def run (args : List String) : IO UInt32 := do
     -- When moving multiple sources the destination must be a directory.
     let destIsDir : Bool ←
       if sources.length > 1 then
-        try IO.FS.isDir dest catch _ => pure false
+        try (System.FilePath.mk dest).isDir catch _ => pure false
       else
         pure false
     if sources.length > 1 && !destIsDir then

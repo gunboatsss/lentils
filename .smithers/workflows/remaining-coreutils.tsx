@@ -4,7 +4,7 @@
 // smithers-description: For each batch: implement + proof + integrate + test, then review. Loop on failure.
 // smithers-tags: implementation
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Loop, Sequence } from "smithers-orchestrator";
+import { createSmithers, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
 import { agents } from "../agents";
 import ImplementPrompt from "../prompts/implement.mdx";
@@ -96,26 +96,24 @@ export default smithers((ctx) => {
     <Workflow name="implement-batches">
       <Sequence>
         {batches.map((batch, i) => (
-          <Loop key={i} id={`batch-${i}`} maxIterations={3}>
-            <Sequence>
-              <Task
-                id={`batch-${i}:impl`}
-                output={outputs.impl}
-                agent={agents.smartTool}
-                timeoutMs={600_000}
-                heartbeatTimeoutMs={120_000}
-              >
-                <ImplementPrompt prompt={buildPrompt(batch)} />
-              </Task>
-              <Task
-                id={`batch-${i}:review`}
-                output={outputs.review}
-                agent={agents.smartTool}
-              >
-                <ImplementPrompt prompt={buildReviewPrompt(batch)} />
-              </Task>
-            </Sequence>
-          </Loop>
+          <Sequence key={i}>
+            <Task
+              id={`batch-${i}:impl`}
+              output={outputs.impl}
+              agent={agents.smartTool}
+              timeoutMs={600_000}
+              heartbeatTimeoutMs={120_000}
+            >
+              <ImplementPrompt prompt={buildPrompt(batch)} />
+            </Task>
+            <Task
+              id={`batch-${i}:review`}
+              output={outputs.review}
+              agent={agents.smartTool}
+            >
+              <ImplementPrompt prompt={buildReviewPrompt(batch)} />
+            </Task>
+          </Sequence>
         ))}
       </Sequence>
     </Workflow>
