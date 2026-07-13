@@ -37,7 +37,7 @@ def applets : List Applet :=
     { name := "id",       run := Lentils.Id.run,       descr := "print user and group identity" },
     { name := "join",     run := Lentils.Join.run,     descr := "join lines on a common field" },
     { name := "logname",  run := Lentils.Logname.run,  descr := "print user's login name" },
-    { name := "nl",       run := Lentils.Nl.run,       descr := "number lines of input" },
+    { name := "mkdir",    run := Lentils.mkdir.run,    descr := "make directories" },
     { name := "nproc",    run := Lentils.Nproc.run,    descr := "print number of processing units" },
     { name := "od",       run := Lentils.Od.run,       descr := "dump files in octal format" },
     { name := "paste",    run := Lentils.Paste.run,    descr := "merge lines of files" },

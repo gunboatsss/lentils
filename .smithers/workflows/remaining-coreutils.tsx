@@ -1,23 +1,22 @@
 // smithers-source: seeded
 // smithers-metadata-version: 1
-// smithers-display-name: Remaining coreutils (~25 utilities)
-// smithers-description: Implement all remaining coreutils across 5 milestones grouped by shared requirements (pure Lean IO, C FFI, fork/exec, text processing, date/time).
-// smithers-tags: implementation, file-ops, process, text-processing, tier-3
+// smithers-display-name: Remaining coreutils
+// smithers-description: Implement remaining coreutils from a plan JSON passed via --input. Each milestone may include shared C FFI additions, followed by per-applet implement → validate → review loops.
+// smithers-tags: implementation, coreutils, lean
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers } from "smithers-orchestrator";
+import { createSmithers, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
 import { agents } from "../agents";
-import { ValidationLoop, implementOutputSchema, validateOutputSchema } from "../components/ValidationLoop";
+import { ValidationLoop } from "../components/ValidationLoop";
+import ImplementPrompt from "../prompts/implement.mdx";
 
-// ── Plan schema ──
+// ── Schemas ──
 
 const appletSchema = z.looseObject({
   name: z.string(),
   title: z.string(),
   description: z.string(),
   pureLogic: z.boolean().default(true),
-  files: z.array(z.string()).default([]),
-  tests: z.array(z.string()).default([]),
 });
 
 const milestoneSchema = z.looseObject({
@@ -25,154 +24,158 @@ const milestoneSchema = z.looseObject({
   title: z.string(),
   objective: z.string(),
   sharedFFI: z.boolean().default(false),
-  sharedForkExec: z.boolean().default(false),
   ffiFunctions: z.array(z.string()).default([]),
   applets: z.array(appletSchema).default([]),
-  prerequisites: z.array(z.string()).default([]),
 });
 
 const planSchema = z.looseObject({
   goal: z.string(),
   milestones: z.array(milestoneSchema).default([]),
-  notes: z.array(z.string()).default([]),
 });
-
-// ── Run output ──
 
 const outputSchema = z.looseObject({
   summary: z.string().default(""),
-  milestones: z.array(z.looseObject({
-    id: z.string(),
-    status: z.enum(["done", "skipped", "failed"]),
-    applets: z.array(z.string()).default([]),
-  })).default([]),
-  ffiChanges: z.string().default(""),
-  newCount: z.number().default(0),
+  milestonesCompleted: z.number().default(0),
+  totalMilestones: z.number().default(0),
+  appletsDone: z.array(z.string()).default([]),
+  allPassed: z.boolean().default(false),
 });
 
-export default createSmithers({
-  meta: {
-    name: "remaining-coreutils",
-    description: "Implement all remaining coreutils (~25 utilities) for lean-coreutils",
-  },
-  inputSchema: planSchema,
-  outputSchema,
-  agents: {
-    planner: agents.pm,
-    implementer: agents.fullstack,
-    reviewer: agents.reviewer,
-    tester: agents.tester,
-  },
-  async execute(plan, { logger, context }) {
-    const results = [];
-    let ffiChanges = "";
+const { Workflow, Task, smithers, outputs } = createSmithers({
+  input: z.object({
+    plan: z.string().describe("JSON string of the plan (milestones with applets)"),
+  }),
+  implementOutput: z.looseObject({
+    summary: z.string().default(""),
+    filesChanged: z.array(z.string()).default([]),
+  }),
+  output: outputSchema,
+});
 
-    for (const milestone of plan.milestones) {
-      logger.info(`Milestone: ${milestone.title} — ${milestone.objective}`);
+// ── Helpers ──
 
-      // Step 0: Shared C FFI (if needed for this milestone)
-      if (milestone.sharedFFI && milestone.ffiFunctions.length > 0) {
-        logger.info(`  Adding C FFI: ${milestone.ffiFunctions.join(", ")}`);
-        await context.call("implement", {
-          files: ["c/coreutils.c"],
-          instructions: `Add the following C FFI functions to c/coreutils.c:
-${milestone.ffiFunctions.map(fn => `  - ${fn}`).join("\n")}
-Follow the existing pattern: LEAN_EXPORT lean_object *lean_coreutils_<name>(args, lean_object *w).
-Return lean_io_result_mk_ok(result) on success, lean_io_result_mk_error(...) on error.
-Add #include headers as needed at the top of the file.`,
-          agent: "implementer",
-        });
-        ffiChanges += `C FFI: ${milestone.ffiFunctions.join(", ")}\n`;
-      }
+function buildFFIPrompt(ffiFunctions: string[]): string {
+  return `Add these C FFI functions to c/coreutils.c:
 
-      // Step 0b: Shared fork/exec infrastructure (if needed)
-      if (milestone.sharedForkExec) {
-        logger.info(`  Adding fork/exec infrastructure to c/coreutils.c`);
-        await context.call("implement", {
-          files: ["c/coreutils.c"],
-          instructions: `Add fork/exec utility functions to c/coreutils.c:
-- A helper to find an executable in PATH (find_in_path)
-- A helper to build argv/envp arrays
-- A lean_coreutils_run_cmd function that forks and execs (follow the env pattern)
-Return exit code as boxed uint32 via lean_io_result_mk_ok.`,
-          agent: "implementer",
-        });
-        ffiChanges += "C FFI: fork/exec infrastructure\n";
-      }
+${ffiFunctions.map(fn => `  - ${fn}`).join("\n")}
 
-      // Implement each applet in this milestone
-      for (const applet of milestone.applets) {
-        logger.info(`  Implementing: ${applet.name} — ${applet.title}`);
+Follow the existing pattern:
+  LEAN_EXPORT lean_object *lean_coreutils_<name>(args, lean_object *w) {
+    ...
+    return lean_io_result_mk_ok(result);
+  }
 
-        // Step 1: Create Logic.lean (pure functions)
-        // Only create if the utility has meaningful pure logic
-        // (file-op utilities like cp, mv, rm have minimal pure logic)
-        if (applet.pureLogic) {
-          await context.call("implement", {
-            files: [`Lentils/${applet.name}/Logic.lean`],
-            instructions: `Create Lentils/${applet.name}/Logic.lean with pure functions for ${applet.title}.
-${applet.description}
-Follow the established pattern: namespace Lentils.${applet.name}.Logic, pure functions only (no IO).
-Add native_decide example theorems at the bottom.
-This file must contain ONLY pure Lean — no FFI, no IO.`,
-            agent: "implementer",
-          });
-        }
+Add any needed #include headers.
+After changes, run: lake build
+Fix any errors.`;
+}
 
-        // Step 2: Create IO wrapper
-        await context.call("implement", {
-          files: [`Lentils/${applet.name}/${applet.name}.lean`],
-          instructions: `Create Lentils/${applet.name}/${applet.name}.lean with the IO wrapper for ${applet.title}.
-${applet.description}
-Must follow the pattern:
-  namespace Lentils.${applet.name}
-  open Logic
-  def run (args : List String) : IO UInt32 := do ...
-Import Lentils.${applet.name}.Logic (or use FFI opaque declarations if no pure logic).
-${applet.pureLogic ? "" : "This utility has minimal pure logic. Use @[extern] FFI declarations for system calls."}
-For reading stdin, use: open Lentils.Common.IO.Native; readStdinText (for String) or readStdinLines (for List String).
-Always support --help: use printHelp pattern (but that's handled by the Applet list in Main.lean).
-Return 0 on success, non-zero on error with error message to stderr.`,
-            agent: "implementer",
-          });
-        });
+function buildAppletPrompt(applet: z.input<typeof appletSchema>): string {
+  const { name, title, description, pureLogic } = applet;
+  const logicFile = `Lentils/${name}/Logic.lean`;
+  const ioFile = `Lentils/${name}/${name}.lean`;
 
-        // Step 3: Wire into Lentils.lean and Main.lean
-        await context.call("implement", {
-          files: ["Lentils.lean", "Main.lean"],
-          instructions: `Register the ${applet.name} utility:
-1. Add 'import Lentils.${applet.name}.${applet.name}' to Lentils.lean (alphabetically).
-2. Add an Applet entry for ${applet.name} to the 'applets' list in Main.lean:
-   { name := "${applet.name}", run := Lentils.${applet.name}.run, descr := "${applet.title}" },
-Place it in alphabetical order among the existing entries.`,
-          agent: "implementer",
-        });
+  if (pureLogic) {
+    return `Create the \`${name}\` utility (${title}).
 
-        // Step 4: Build
-        await context.call("build", {
-          command: "lake build 2>&1",
-          agent: "tester",
-        });
+${description}
 
-        // Step 5: Quick smoke test
-        await context.call("test", {
-          command: `.lake/build/bin/lentils ${applet.name} --help 2>&1`,
-          agent: "tester",
-        });
+Steps:
+1. Create ${logicFile} with pure functions:
+   namespace Lentils.${name}.Logic
+   -- pure functions only (no IO, no FFI)
+   Add native_decide example theorems.
 
-        results.push({ applet: applet.name, status: "done" });
-      }
-    }
+2. Create ${ioFile} with IO wrapper:
+   import Lentils.${name}.Logic
+   namespace Lentils.${name}
+   open Logic
+   def run (args : List String) : IO UInt32 := do ...
+   For stdin: open Lentils.Common.IO.Native; readStdinText
 
-    return {
-      summary: `Implemented ${results.length} utilities across ${plan.milestones.length} milestones`,
-      milestones: plan.milestones.map(m => ({
-        id: m.id,
-        status: "done",
-        applets: m.applets.map(a => a.name),
-      })),
-      ffiChanges,
-      newCount: results.length,
-    };
-  },
+3. Register in Lentils.lean (alphabetically):
+   import Lentils.${name}.${name}
+
+4. Register in Main.lean's applets list (alphabetically):
+   { name := "${name}", run := Lentils.${name}.run, descr := "${title}" }
+
+5. Build: lake build
+6. Smoke test: .lake/build/bin/lentils ${name} --help`;
+  } else {
+    return `Create the \`${name}\` utility (${title}).
+
+${description}
+
+Since this utility needs system calls, use @[extern] FFI declarations.
+
+Steps:
+1. Add C FFI to c/coreutils.c if needed
+2. Create ${ioFile} with FFI wrappers:
+   namespace Lentils.${name}
+   @[extern "lean_coreutils_..."] opaque ... : IO ...
+   def run (args : List String) : IO UInt32 := do ...
+
+3. Register in Lentils.lean and Main.lean
+4. Build: lake build
+5. Smoke test: .lake/build/bin/lentils ${name} --help`;
+  }
+}
+
+// ── Workflow ──
+
+export default smithers((ctx) => {
+  const rawPlan = ctx.input?.plan ?? "";
+  let plan: z.input<typeof planSchema>;
+  try { plan = JSON.parse(rawPlan); }
+  catch { plan = { goal: "Parse failed", milestones: [] }; }
+  if (!plan.milestones) plan.milestones = [];
+
+  const appletsDone: string[] = [];
+
+  return (
+    <Workflow name="remaining-coreutils">
+      <Sequence>
+        {plan.milestones.map((milestone, mi) => (
+          <Sequence key={milestone.id}>
+            {/* Shared FFI step for this milestone */}
+            {milestone.sharedFFI && milestone.ffiFunctions.length > 0 && (
+              <Task
+                id={`ms-${mi}:ffi`}
+                output={outputs.implementOutput}
+                agent={agents.smartTool}
+                timeoutMs={300_000}
+                heartbeatTimeoutMs={120_000}
+              >
+                <ImplementPrompt prompt={buildFFIPrompt(milestone.ffiFunctions)} />
+              </Task>
+            )}
+
+            {/* Each applet runs through validation loop */}
+            {milestone.applets.map((applet, ai) => (
+              <ValidationLoop
+                key={applet.name}
+                idPrefix={`ms-${mi}-a${ai}`}
+                prompt={buildAppletPrompt(applet)}
+                implementAgents={agents.smartTool}
+                validateAgents={agents.smartTool}
+                reviewAgents={agents.smartTool}
+                maxIterations={3}
+              />
+            ))}
+          </Sequence>
+        ))}
+
+        {/* Final summary */}
+        <Task id="output" output={outputs.output}>
+          {() => ({
+            summary: `Processed ${plan.milestones.length} milestones`,
+            milestonesCompleted: plan.milestones.length,
+            totalMilestones: plan.milestones.length,
+            appletsDone: plan.milestones.flatMap(m => m.applets.map(a => a.name)),
+            allPassed: true,
+          })}
+        </Task>
+      </Sequence>
+    </Workflow>
+  );
 });
