@@ -14,8 +14,11 @@ import Lentils.Id
 import Lentils.Logname
 import Lentils.Nl
 import Lentils.Nproc
+import Lentils.Od
 import Lentils.Paste
 import Lentils.Printenv
+import Lentils.Readlink
+import Lentils.Realpath
 import Lentils.Seq
 import Lentils.Shuf
 import Lentils.Tsort
@@ -35,6 +38,7 @@ import Lentils.Common.Lines
 import Lentils.Cut
 import Lentils.Dirname
 import Lentils.Echo
+import Lentils.Env
 import Lentils.Expand
 import Lentils.False
 import Lentils.Fold

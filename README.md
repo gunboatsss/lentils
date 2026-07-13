@@ -2,7 +2,7 @@
 
 A [coreutils](https://en.wikipedia.org/wiki/GNU_Core_Utilities) rewrite in [Lean 4](https://lean-lang.org/), following the toybox multi-call binary pattern. Heavily inspired by [toybox](https://landley.net/toybox/). Shoutout to Rob Landley.
 
-Each utility is implemented with a pure logic layer (formal proofs) and an IO wrapper, with differential sandbox tests against the system coreutils.
+Each utility is implemented with a pure logic layer and an IO wrapper, with differential sandbox tests against the system coreutils.
 
 ## Setup
 
@@ -23,50 +23,73 @@ lake build
 # Multi-call binary
 .lake/build/bin/lentils echo hello
 .lake/build/bin/lentils grep pattern file.txt
-
-# Or install wrapper scripts (manual only — requires LENTILS_INSTALL_SAFETY=1)
-LENTILS_INSTALL_SAFETY=1 ./scripts/install-symlinks.sh
+.lake/build/bin/lentils --help    # list all applets
+.lake/build/bin/lentils cat --help  # help for specific applet
 ```
 
-## Utilities
+## Utilities — 42 applets
 
-Total: 21 applets (20 implemented + expr planned)
+### System Info (13)
 
-### Tier 1 — Essential (complete)
+| Utility | Description | Notes |
+|---|---|---|
+| **arch** | print machine architecture | reads `/proc/sys/kernel/arch` |
+| **hostid** | print numeric host identifier | reads `/proc/sys/kernel/hostid` |
+| **logname** | print user's login name | reads `/proc/self/loginuid` → `getpwuid_r` |
+| **nproc** | print number of processing units | reads `/proc/cpuinfo` |
+| **printenv** | print environment variables | C FFI (`environ`) |
+| **seq** | print sequence of numbers | custom float parser |
+| **tty** | print terminal file name | reads `/proc/self/fd/0` |
+| **uname** | print system information | reads `/proc/sys/kernel/*` |
+| **uptime** | print system uptime | reads `/proc/uptime` |
+| **users** | print logged-in user names | C FFI (`getutxent`) |
+| **whoami** | print effective user name | reads `/proc/self/status` |
+| **groups** | print group memberships | C FFI (`getpwuid`, `getgrgid`) |
+| **id** | print user and group identity | C FFI (`getpwuid`, `getgrgid`) |
 
-| Utility | Flags | Proofs | POSIX |
-|---|---|---|---|
-| **cat** | — | — | ✅ |
-| **echo** | — | — | ✅ |
-| **true** | — | — | ✅ |
-| **false** | — | — | ✅ |
-| **pwd** | — | — | ✅ |
-| **yes** | — | — | ✅ |
-| **sleep** | — | — | ✅ |
-| **basename** | — | — | ✅ |
-| **dirname** | — | — | ✅ |
+### Text Processing (17)
 
-### Tier 2 — Streaming (complete)
+| Utility | Description | Notes |
+|---|---|---|
+| **cat** | concatenate files to stdout | — |
+| **cut** | extract sections from each line | `-c`, `-f`, `-d`, `-s`; `-b` not yet |
+| **expand** | convert tabs to spaces | — |
+| **fold** | wrap lines at a specified width | `-w`, `-s` |
+| **grep** | print lines matching a pattern | regex: `. * ^ $ [abc] [^abc] \\`; `-v`, `-e`, `-i`, `-c`, `-q`, `-n`, `-l`, `-w` |
+| **head** | output the first part of files | `-n` |
+| **join** | join lines on a common field | — |
+| **nl** | number lines of input | — |
+| **paste** | merge lines of files | `-d`, `-s` |
+| **printf** | write formatted output | `%s`, `%d`, `%%`, `\n`, `\t`, `\\` |
+| **shuf** | shuffle lines of input | uses `IO.rand` |
+| **sort** | sort lines of text files | `-r`, `-n`, `-t`, `-k`, `-u` |
+| **tail** | output the last part of files | `-n` |
+| **tr** | translate or delete characters | `-d`, `-s`, `-c`, `-C`; ranges `a-z` |
+| **tsort** | topological sort | Kahn's algorithm |
+| **unexpand** | convert spaces to tabs | — |
+| **uniq** | report or omit repeated lines | `-u`, `-d` |
+| **wc** | word, line, and byte count | `-l`, `-w`, `-c` |
 
-| Utility | Flags | Proofs | POSIX |
-|---|---|---|---|
-| **head** | `-n` | — | ✅ |
-| **tail** | `-n` | — | ✅ |
-| **wc** | `-l`, `-w`, `-c` | — | ✅ |
-| **uniq** | `-u`, `-d` | — | ✅ |
-| **tee** | `-a` | — | ✅ |
-| **printf** | `%s`, `%d`, `%%`, `\n`, `\t`, `\\` | — | ✅ |
+### Utility (7)
 
-### Tier 3 — Text Processing
+| Utility | Description | Notes |
+|---|---|---|
+| **basename** | strip directory and suffix from pathname | — |
+| **comm** | compare two sorted files | `-1`, `-2`, `-3` |
+| **dirname** | strip last component from file name | — |
+| **echo** | write arguments to stdout | — |
+| **tee** | read stdin and write to stdout and files | `-a` |
+| **test** | check file types and compare values | string/int/file ops; `[ ]` alias |
+| **yes** | repeat a string until killed | — |
 
-| Utility | Flags | Proofs | Notes |
-|---|---|---|---|
-| **cut** | `-c`, `-f`, `-d`, `-s` | `native_decide` examples | `-b` not yet implemented |
-| **tr** | translate, `-d`, `-s`, `-c` | 8 theorems | char classes and ranges not yet |
-| **sort** | `-r`, `-n`, `-t`, `-k`, `-u` | `native_decide` examples | `-c`, `-m`, `-o` not yet |
-| **test** | string/int/logic, `-f`, `-d`, `-e`, `-s`, `[ ]` | 21 theorems | `-r`/`-w`/`-x` approximate |
-| **grep** | regex (`. * ^ $ [abc] [^abc] \`), `-v`, `-e`, `-i`, `-c`, `-q`, `-n`, `-l`, `-w` | 43 theorems | `-E`, `-F`, `-r`, `-x` not yet |
-| **expr** | — | — | planned |
+### Boolean/Exit (4)
+
+| Utility | Description |
+|---|---|
+| **true** | exit with status 0 |
+| **false** | exit with status 1 |
+| **pwd** | print working directory |
+| **sleep** | suspend execution for an interval |
 
 ## Testing
 
@@ -83,11 +106,11 @@ bash tests/sandbox/run-sandbox-tests.sh sort
 
 ```
 Lentils/<Utility>/
-  Logic.lean    — pure functions + formal proofs (no IO, no sorry/admit)
+  Logic.lean    — pure functions (no IO, no sorry/admit)
   <Utility>.lean — IO wrapper (parse args, read/write files, call Logic)
 <Utility>.lean   — re-export module
 Main.lean         — multi-call dispatcher (argv[0] → utility)
-c/coreutils.c     — POSIX FFI bindings
+c/coreutils.c     — POSIX FFI bindings (environ, getpwuid, getgrgid, getutxent)
 tests/sandbox/    — differential tests against host coreutils
 wiki/posix/       — POSIX spec reference copies
 ```

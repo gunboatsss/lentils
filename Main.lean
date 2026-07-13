@@ -37,6 +37,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils nproc"
       IO.println ""
       IO.println "Print the number of processing units."
+  | "od" => do
+      IO.println "Usage: lentils od"
+      IO.println ""
+      IO.println "Dump files in octal format."
   | "paste" => do
       IO.println "Usage: lentils paste [-d delim] [-s] [file...]"
       IO.println ""
@@ -85,6 +89,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils echo [string...]"
       IO.println ""
       IO.println "Write arguments to stdout, separated by spaces."
+  | "env" => do
+      IO.println "Usage: lentils env [-i] [name=value...] [command [args...]]"
+      IO.println ""
+      IO.println "Run a command with modified environment, or list environment."
   | "expand" => do
       IO.println "Usage: lentils expand [-t tabsize]"
       IO.println ""
@@ -157,6 +165,14 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils printf format [arg...]"
       IO.println ""
       IO.println "Write formatted output. Supports %s, %d, %%, \\n, \\t, \\\\."
+  | "readlink" => do
+      IO.println "Usage: lentils readlink path"
+      IO.println ""
+      IO.println "Print the target of a symbolic link."
+  | "realpath" => do
+      IO.println "Usage: lentils realpath path"
+      IO.println ""
+      IO.println "Print the canonical absolute path."
   | "cut" => do
       IO.println "Usage: lentils cut -b list [-n] [file...]"
       IO.println "       lentils cut -c list [file...]"
@@ -266,6 +282,7 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "comm"     => if hasHelp then printHelp "comm" *> return 0 else Lentils.Comm.run args
   | "echo"     => if hasHelp then printHelp "echo" *> return 0 else Lentils.Echo.run args
   | "join"     => if hasHelp then printHelp "join" *> return 0 else Lentils.Join.run args
+  | "env"      => if hasHelp then printHelp "env" *> return 0 else Lentils.Env.run args
   | "expand"   => if hasHelp then printHelp "expand" *> return 0 else Lentils.Expand.run args
   | "fold"     => if hasHelp then printHelp "fold" *> return 0 else Lentils.Fold.run args
   | "pwd"      => if hasHelp then printHelp "pwd" *> return 0 else Lentils.Pwd.run args
@@ -288,6 +305,7 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
   | "nl"       => if hasHelp then printHelp "nl" *> return 0 else Lentils.Nl.run args
   | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
+  | "od"       => if hasHelp then printHelp "od" *> return 0 else Lentils.Od.run args
   | "paste"    => if hasHelp then printHelp "paste" *> return 0 else Lentils.Paste.run args
   | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
   | "shuf"     => if hasHelp then printHelp "shuf" *> return 0 else Lentils.Shuf.run args
@@ -303,6 +321,8 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "sleep"    => if hasHelp then printHelp "sleep" *> return 0 else Lentils.Sleep.run args
   | "tee"      => if hasHelp then printHelp "tee" *> return 0 else Lentils.Tee.run args
   | "printf"   => if hasHelp then printHelp "printf" *> return 0 else Lentils.Printf.run args
+  | "readlink" => if hasHelp then printHelp "readlink" *> return 0 else Lentils.Readlink.run args
+  | "realpath" => if hasHelp then printHelp "realpath" *> return 0 else Lentils.Realpath.run args
   | "lentils" =>
       match args with
       | [] => do
@@ -332,11 +352,15 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "  cut       — extract sections from each line of files"
           IO.println "  dirname   — strip last component from file name"
           IO.println "  echo      — write arguments to stdout"
+          IO.println "  env       — run a command with modified environment"
           IO.println "  false     — exit with status 1"
           IO.println "  grep      — print lines matching a pattern"
           IO.println "  head      — output the first part of files"
           IO.println "  printf    — write formatted output"
           IO.println "  pwd       — print working directory"
+          IO.println "  readlink  — print target of a symbolic link"
+          IO.println "  realpath  — print canonical absolute path"
+          IO.println "  od        — dump files in octal format"
           IO.println "  shuf      — shuffle lines of input"
           IO.println "  sleep     — suspend execution for an interval"
           IO.println "  sort      — sort lines of text files"
