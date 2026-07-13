@@ -20,6 +20,13 @@
 #include <limits.h>
 #include <spawn.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+// Process-wide environment pointer (POSIX). Declared extern here so the
+// fork/exec helpers can pass it to execve().
+extern char **environ;
 
 // ─── FFI write (kept for error detection) ─────────────────────────────────────
 
@@ -176,6 +183,90 @@ LEAN_EXPORT lean_object *lean_coreutils_realpath(b_lean_obj_arg path,
     return lean_io_result_mk_ok(result);
 }
 
+// ─── unlink(2) for `rm` utility ───────────────────────────────────────────
+
+// Remove a directory entry (a file or symlink). Returns an IO error on failure.
+// errno is surfaced through the Lean IO error so `rm` can report the cause.
+LEAN_EXPORT lean_object *lean_coreutils_unlink(b_lean_obj_arg path,
+                                                lean_object *w) {
+    const char *p = lean_string_cstr(path);
+    if (unlink(p) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── rmdir(2) for `rmdir` utility ─────────────────────────────────────────
+
+// Remove an empty directory. Returns an IO error on failure.
+LEAN_EXPORT lean_object *lean_coreutils_rmdir(b_lean_obj_arg path,
+                                               lean_object *w) {
+    const char *p = lean_string_cstr(path);
+    if (rmdir(p) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── symlink(2) for `ln -s` utility ───────────────────────────────────────
+
+// Create a symbolic link named `linkpath` that refers to `target`.
+// Returns an IO error on failure.
+LEAN_EXPORT lean_object *lean_coreutils_symlink(b_lean_obj_arg target,
+                                                 b_lean_obj_arg linkpath,
+                                                 lean_object *w) {
+    if (symlink(lean_string_cstr(target), lean_string_cstr(linkpath)) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── link(2) for `ln` utility ─────────────────────────────────────────────
+
+// Create a hard link named `newpath` referring to `oldpath`.
+// Returns an IO error on failure.
+LEAN_EXPORT lean_object *lean_coreutils_link(b_lean_obj_arg oldpath,
+                                              b_lean_obj_arg newpath,
+                                              lean_object *w) {
+    if (link(lean_string_cstr(oldpath), lean_string_cstr(newpath)) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── chmod(2) for `chmod` utility ─────────────────────────────────────────
+
+// Change the mode (permission bits) of `path` to `mode`.
+// Returns an IO error on failure.
+LEAN_EXPORT lean_object *lean_coreutils_chmod(b_lean_obj_arg path,
+                                               uint32_t mode,
+                                               lean_object *w) {
+    if (chmod(lean_string_cstr(path), (mode_t)mode) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── stat(2) mode bits for `chmod` symbolic modes ─────────────────────────
+
+// Return the permission (st_mode) bits of `path`. Used by the `chmod` utility
+// to compute new modes for symbolic (ug+-=) mode specifications. Returns an
+// IO error if the path cannot be stat'd.
+LEAN_EXPORT lean_object *lean_coreutils_stat_mode(b_lean_obj_arg path,
+                                                   lean_object *w) {
+    struct stat st;
+    if (stat(lean_string_cstr(path), &st) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box((uint32_t)(st.st_mode & 0xFFFF)));
+}
+
 // ─── env: run a command with modified environment ───────────────────────────
 
 // Helper: build a Lean list of strings from a null-terminated char** array.
@@ -304,6 +395,218 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
     int exit_code = WIFEXITED(status) ? WEXITSTATUS(status)
                    : WIFSIGNALED(status) ? 128 + WTERMSIG(status)
                    : 1;
+    return lean_io_result_mk_ok(lean_box((uint32_t)exit_code));
+}
+
+// ─── argv helpers (for fork/exec utilities) ────────────────────────────────
+
+// Build a NULL-terminated argv array from a Lean array of strings.
+// Caller must free with free_argv().
+static char **build_argv(b_lean_obj_arg cmd_argv, size_t *argc_out) {
+    size_t argc = lean_array_size(cmd_argv);
+    char **argv = malloc((argc + 1) * sizeof(char *));
+    if (!argv) return NULL;
+    for (size_t i = 0; i < argc; i++) {
+        lean_object *s = lean_array_get_core(cmd_argv, i);
+        argv[i] = strdup(lean_string_cstr(s));
+    }
+    argv[argc] = NULL;
+    *argc_out = argc;
+    return argv;
+}
+
+// Free an argv array produced by build_argv().
+static void free_argv(char **argv, size_t argc) {
+    if (!argv) return;
+    for (size_t k = 0; k < argc; k++) free(argv[k]);
+    free(argv);
+}
+
+// Collect a child's exit code from waitpid status.
+static uint32_t child_exit_code(int status) {
+    if (WIFEXITED(status))
+        return (uint32_t)WEXITSTATUS(status);
+    if (WIFSIGNALED(status))
+        return (uint32_t)(128 + WTERMSIG(status));
+    return 1;
+}
+
+// ─── nice: run a command with an adjusted niceness ──────────────────────────
+
+// Run `cmd_argv` in a forked child after calling nice(adjustment) in the child.
+// Returns the child's exit code (or 124/126/127 on failure).
+LEAN_EXPORT lean_object *lean_coreutils_run_nice(int32_t adjustment,
+                                                  b_lean_obj_arg cmd_argv,
+                                                  lean_object *w) {
+    (void)w;
+    if (!lean_is_array(cmd_argv))
+        return lean_io_result_mk_ok(lean_box(127));
+    size_t argc;
+    char **argv = build_argv(cmd_argv, &argc);
+    if (!argv) return lean_io_result_mk_ok(lean_box(127));
+    if (argc == 0) { free_argv(argv, argc); return lean_io_result_mk_ok(lean_box(0)); }
+    char *exe = find_in_path(argv[0]);
+    if (!exe) {
+        write(STDERR_FILENO, argv[0], strlen(argv[0]));
+        write(STDERR_FILENO, ": command not found\n", 20);
+        free_argv(argv, argc);
+        return lean_io_result_mk_ok(lean_box(127));
+    }
+    pid_t pid = fork();
+    if (pid == -1) {
+        free(exe); free_argv(argv, argc);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string("fork failed")));
+    }
+    if (pid == 0) {
+        nice((int)adjustment);
+        execve(exe, argv, environ);
+        int exit_code = (errno == ENOENT) ? 127 : 126;
+        _exit(exit_code);
+    }
+    free(exe); free_argv(argv, argc);
+    int status;
+    if (waitpid(pid, &status, 0) == -1) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string("waitpid failed")));
+    }
+    return lean_io_result_mk_ok(lean_box(child_exit_code(status)));
+}
+
+// ─── nohup: run a command immune to SIGHUP ──────────────────────────────────
+
+// Run `cmd_argv` in a forked child that ignores SIGHUP and, when stdout is a
+// terminal, redirects output to nohup.out. Returns the child's exit code.
+LEAN_EXPORT lean_object *lean_coreutils_run_nohup(b_lean_obj_arg cmd_argv,
+                                                   lean_object *w) {
+    (void)w;
+    if (!lean_is_array(cmd_argv))
+        return lean_io_result_mk_ok(lean_box(127));
+    size_t argc;
+    char **argv = build_argv(cmd_argv, &argc);
+    if (!argv) return lean_io_result_mk_ok(lean_box(127));
+    if (argc == 0) { free_argv(argv, argc); return lean_io_result_mk_ok(lean_box(0)); }
+    char *exe = find_in_path(argv[0]);
+    if (!exe) {
+        write(STDERR_FILENO, argv[0], strlen(argv[0]));
+        write(STDERR_FILENO, ": command not found\n", 20);
+        free_argv(argv, argc);
+        return lean_io_result_mk_ok(lean_box(127));
+    }
+    pid_t pid = fork();
+    if (pid == -1) {
+        free(exe); free_argv(argv, argc);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string("fork failed")));
+    }
+    if (pid == 0) {
+        signal(SIGHUP, SIG_IGN);
+        if (isatty(STDIN_FILENO)) {
+            int fd = open("/dev/null", O_RDONLY);
+            if (fd != -1) { dup2(fd, STDIN_FILENO); close(fd); }
+        }
+        if (isatty(STDOUT_FILENO)) {
+            char path[PATH_MAX + 1];
+            const char *home = getenv("HOME");
+            if (home)
+                snprintf(path, sizeof(path), "%s/nohup.out", home);
+            else
+                snprintf(path, sizeof(path), "nohup.out");
+            int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0600);
+            if (fd != -1) { dup2(fd, STDOUT_FILENO); close(fd); }
+        }
+        if (isatty(STDERR_FILENO)) {
+            dup2(STDOUT_FILENO, STDERR_FILENO);
+        }
+        execve(exe, argv, environ);
+        int exit_code = (errno == ENOENT) ? 127 : 126;
+        _exit(exit_code);
+    }
+    free(exe); free_argv(argv, argc);
+    int status;
+    if (waitpid(pid, &status, 0) == -1) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string("waitpid failed")));
+    }
+    return lean_io_result_mk_ok(lean_box(child_exit_code(status)));
+}
+
+// ─── timeout: run a command with a time limit ───────────────────────────────
+
+// Run `cmd_argv` in a forked child, sending `sig` after `seconds` elapsed.
+// If `kill_after` > 0, SIGKILL is sent that many seconds later if the child
+// is still alive. Returns the child's exit code, or 124 on timeout.
+//
+// Implemented with a polling waitpid loop (1-second granularity) rather than
+// alarm(2): the Lean runtime manages its own timer signal, so a SIGALRM-based
+// alarm would not reliably interrupt this thread's waitpid. Polling achieves
+// the same timeout semantics without interfering with the runtime.
+LEAN_EXPORT lean_object *lean_coreutils_run_timeout(uint32_t seconds,
+                                                     uint32_t sig,
+                                                     uint32_t kill_after,
+                                                     b_lean_obj_arg cmd_argv,
+                                                     lean_object *w) {
+    (void)w;
+    if (!lean_is_array(cmd_argv))
+        return lean_io_result_mk_ok(lean_box(127));
+    size_t argc;
+    char **argv = build_argv(cmd_argv, &argc);
+    if (!argv) return lean_io_result_mk_ok(lean_box(127));
+    if (argc == 0) { free_argv(argv, argc); return lean_io_result_mk_ok(lean_box(0)); }
+    char *exe = find_in_path(argv[0]);
+    if (!exe) {
+        write(STDERR_FILENO, argv[0], strlen(argv[0]));
+        write(STDERR_FILENO, ": command not found\n", 20);
+        free_argv(argv, argc);
+        return lean_io_result_mk_ok(lean_box(127));
+    }
+    pid_t pid = fork();
+    if (pid == -1) {
+        free(exe); free_argv(argv, argc);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string("fork failed")));
+    }
+    if (pid == 0) {
+        execve(exe, argv, environ);
+        int exit_code = (errno == ENOENT) ? 127 : 126;
+        _exit(exit_code);
+    }
+    free(exe); free_argv(argv, argc);
+    int status = 0;
+    int exit_code = 0;
+    int timed_out = 0;
+    uint32_t elapsed = 0;
+    pid_t r = 0;
+    while ((r = waitpid(pid, &status, WNOHANG)) == 0) {
+        if (elapsed >= seconds) {
+            // Time limit reached: deliver the requested signal.
+            kill(pid, (int)sig);
+            timed_out = 1;
+            if (kill_after > 0) {
+                uint32_t k = 0;
+                while ((r = waitpid(pid, &status, WNOHANG)) == 0) {
+                    if (k >= kill_after) {
+                        kill(pid, SIGKILL);
+                        break;
+                    }
+                    sleep(1);
+                    k++;
+                }
+            } else {
+                // Wait for the child to die from the signal.
+                waitpid(pid, &status, 0);
+            }
+            break;
+        }
+        sleep(1);
+        elapsed++;
+    }
+    if (r == pid) {
+        exit_code = (int)child_exit_code(status);
+    } else if (timed_out) {
+        exit_code = 124;
+        if (kill_after > 0) waitpid(pid, &status, 0);  // reap if SIGKILL path
+    }
     return lean_io_result_mk_ok(lean_box((uint32_t)exit_code));
 }
 

@@ -43,13 +43,11 @@ export const providers = {
 export const agents = {
   // Fast/cheap — quick turnarounds, simple tasks
   cheapFast: [
-    providers.northMiniCodeFree,
-    providers.hy3Free,
-    providers.mimoV25Free,
+    providers.deepseekFlash
   ],
   // Smart reasoning — complex logic, proofs, architecture
   smart: [
-    // providers.deepseekPro,   // out of credits
+    providers.deepseekPro,   // out of credits
     // providers.lean,          // out of credits
     providers.hy3Free,
     providers.nemotron3UltraFree,
@@ -57,27 +55,24 @@ export const agents = {
   // Tool-heavy agentic tasks
   smartTool: [
     // providers.deepseekPro,   // out of credits
-    providers.hy3Free,
+    providers.deepseekFlash,
   ],
   // Code review (nemotron: 1M ctx for full-project analysis; mimo: vision for diagrams)
   review: [
     // providers.deepseekPro,   // out of credits
     // providers.lean,          // out of credits
-    providers.nemotron3UltraFree,
-    providers.mimoV25Free,
+    providers.deepseekPro
   ],
   // Architecture & implementation planning
   planning: [
     // providers.deepseekPro,   // out of credits
     // providers.lean,          // out of credits
-    providers.nemotron3UltraFree,
-    providers.hy3Free,
+    providers.deepseekPro
   ],
   // Hands-on implementation & coding
   implement: [
     // providers.lean,          // out of credits
     // providers.deepseekPro,   // out of credits
-    providers.hy3Free,
-    providers.northMiniCodeFree,
+    providers.deepseekFlash
   ],
 } as const satisfies Record<string, AgentLike[]>;

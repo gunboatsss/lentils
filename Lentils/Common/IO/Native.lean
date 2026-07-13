@@ -144,4 +144,28 @@ def readStdinLines : IO (List String) := do
 @[extern "lean_coreutils_ignore_sigpipe"]
 opaque ignoreSigpipe : IO Unit
 
+/-- unlink(2): remove a directory entry (file or symlink). Throws on failure. -/
+@[extern "lean_coreutils_unlink"]
+opaque unlink (path : String) : IO Unit
+
+/-- rmdir(2): remove an empty directory. Throws on failure. -/
+@[extern "lean_coreutils_rmdir"]
+opaque rmdir (path : String) : IO Unit
+
+/-- symlink(2): create a symlink `linkpath` -> `target`. Throws on failure. -/
+@[extern "lean_coreutils_symlink"]
+opaque symlink (target : String) (linkpath : String) : IO Unit
+
+/-- link(2): create a hard link `newpath` -> `oldpath`. Throws on failure. -/
+@[extern "lean_coreutils_link"]
+opaque link (oldpath : String) (newpath : String) : IO Unit
+
+/-- chmod(2): change permission bits of `path` to `mode`. Throws on failure. -/
+@[extern "lean_coreutils_chmod"]
+opaque chmod (path : String) (mode : UInt32) : IO Unit
+
+/-- stat(2): return st_mode permission bits of `path`. Throws on failure. -/
+@[extern "lean_coreutils_stat_mode"]
+opaque statMode (path : String) : IO UInt32
+
 end Lentils.Common.IO.Native
