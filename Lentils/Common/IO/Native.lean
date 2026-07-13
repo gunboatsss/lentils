@@ -168,4 +168,9 @@ opaque chmod (path : String) (mode : UInt32) : IO Unit
 @[extern "lean_coreutils_stat_mode"]
 opaque statMode (path : String) : IO UInt32
 
+/-- gettimeofday(2): return current time as (seconds, microseconds) packed into UInt64.
+    The top 32 bits are microseconds, the bottom 32 bits are seconds. -/
+@[extern "lean_coreutils_gettimeofday"]
+opaque gettimeofday : IO UInt64
+
 end Lentils.Common.IO.Native

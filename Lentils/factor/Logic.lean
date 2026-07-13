@@ -11,7 +11,7 @@ namespace Lentils.factor.Logic
 Factor `n` into prime factors (ascending, with multiplicity).
 Returns `[]` for `n ≤ 1` (0 and 1 have no prime factors).
 -/
-def factorize (n : Nat) : List Nat :=
+partial def factorize (n : Nat) : List Nat :=
   if n ≤ 1 then []
   else
     let rec go (m : Nat) (p : Nat) (acc : List Nat) : List Nat :=
@@ -21,7 +21,6 @@ def factorize (n : Nat) : List Nat :=
         go (m / p) p (p :: acc)
       else
         go m (p + 1) acc
-    termination_by (2 * m + if p ≤ m then m - p else 0)
     go n 2 []
 
 /--

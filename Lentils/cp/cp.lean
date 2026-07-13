@@ -79,10 +79,7 @@ def run (args : List String) : IO UInt32 := do
       return ← exitUsage "cp" "[-frRv] SOURCE... DIRECTORY"
     let destPath := System.FilePath.mk dest
     let destIsDir : Bool ←
-      if sources.length > 1 then
-        try destPath.isDir catch _ => pure false
-      else
-        pure false
+      try destPath.isDir catch _ => pure false
     if sources.length > 1 && !destIsDir then
       IO.eprintln s!"cp: target '{dest}' is not a directory"
       return 1

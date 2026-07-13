@@ -69,14 +69,10 @@ import Lentils.Uniq.Uniq
 import Lentils.Wc.Wc
 import Lentils.Yes.Yes
 import Lentils.fmt.fmt
-import Lentils.fmt.Logic
 import Lentils.sum.sum
-import Lentils.sum.Logic
 import Lentils.cksum.cksum
-import Lentils.cksum.Logic
 import Lentils.factor.factor
-import Lentils.factor.Logic
 import Lentils.numfmt.numfmt
-import Lentils.numfmt.Logic
 import Lentils.pr.pr
-import Lentils.pr.Logic
+import Lentils.Cal.Cal
+import Lentils.Date.Date

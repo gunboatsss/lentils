@@ -26,18 +26,18 @@ def parseArgs (args : List String) : Nat × Nat × Nat × String × Bool :=
         go rest (len, cols, width, (a.drop 2).toString, showHeader)
       else if a == "-l" then
         match rest with
-        | n :: rest' => go rest' (n.toString.toNat?.getD len, cols, width, title, showHeader)
+        | n :: rest' => go rest' (n.toNat?.getD len, cols, width, title, showHeader)
         | [] => go [] (len, cols, width, title, showHeader)
       else if a.startsWith "-l" then
         go rest ((a.drop 2).toString.toNat?.getD len, cols, width, title, showHeader)
       else if a == "-w" then
         match rest with
-        | n :: rest' => go rest' (len, cols, n.toString.toNat?.getD width, title, showHeader)
+        | n :: rest' => go rest' (len, cols, n.toNat?.getD width, title, showHeader)
         | [] => go [] (len, cols, width, title, showHeader)
       else if a.startsWith "-w" then
         go rest (len, cols, (a.drop 2).toString.toNat?.getD width, title, showHeader)
       else if !a.isEmpty && a.toList.all (·.isDigit) then
-        go rest (len, a.toString.toNat?.getD cols, width, title, showHeader)
+        go rest (len, a.toNat?.getD cols, width, title, showHeader)
       else
         go rest (len, cols, width, title, showHeader)
   go args (66, 1, 72, "(standard input)", true)

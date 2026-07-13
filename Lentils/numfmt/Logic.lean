@@ -166,8 +166,11 @@ def computeStart (chars : List Char) (di : Nat) : Nat :=
 def convertAt (chars : List Char) (di : Nat) (mode : Mode) (toUnit : Option Nat) : String :=
   let start := computeStart chars di
   let endIdx := scanEnd chars di
-  let prefix := "x"
-  ""
+  let pre := String.ofList (chars.take start)
+  let numStr := String.ofList (chars.extract start endIdx)
+  let suffix := String.ofList (chars.drop endIdx)
+  let converted := convertNum numStr mode toUnit
+  pre ++ converted ++ suffix
 
 /--
 Replace the first number on a line with its converted form.

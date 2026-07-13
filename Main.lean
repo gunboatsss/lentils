@@ -83,6 +83,8 @@ def applets : List Applet :=
     { name := "factor",  run := Lentils.factor.run,  descr := "factor integers into primes" },
     { name := "numfmt",  run := Lentils.numfmt.run,  descr := "convert numbers to/from human-readable form" },
     { name := "pr",      run := Lentils.pr.run,      descr := "paginate text into pages" },
+    { name := "cal",     run := Lentils.Cal.run,     descr := "display a calendar" },
+    { name := "date",    run := Lentils.Date.run,    descr := "print or set the system date and time" },
   ]
 
 /-- Print per-utility help for the given applet.

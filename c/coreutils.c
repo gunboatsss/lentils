@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/time.h>
 
 // Process-wide environment pointer (POSIX). Declared extern here so the
 // fork/exec helpers can pass it to execve().
@@ -627,5 +628,21 @@ LEAN_EXPORT lean_object *lean_coreutils_list_env(lean_object *w) {
         lst = cons;
     }
     return lean_io_result_mk_ok(lst);
+}
+
+// ─── gettimeofday(2) for `date` utility ─────────────────────────────────────
+
+// Return the current Unix time as (seconds, microseconds).
+// Returns a Lean pair (sec : UInt64, usec : UInt64) via a boxed UInt64
+// where the top 32 bits are microseconds and the bottom 32 bits are seconds.
+LEAN_EXPORT lean_object *lean_coreutils_gettimeofday(lean_object *w) {
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    // Return as UInt64: (usec << 32) | (sec & 0xFFFFFFFF)
+    uint64_t packed = ((uint64_t)(uint32_t)tv.tv_usec << 32) | (uint64_t)(uint32_t)tv.tv_sec;
+    return lean_io_result_mk_ok(lean_box_uint64(packed));
 }
 

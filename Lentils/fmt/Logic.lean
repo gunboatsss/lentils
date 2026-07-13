@@ -9,7 +9,7 @@ namespace Lentils.fmt.Logic
 
 /-- A line is "blank" when it contains only whitespace. -/
 def isBlank (l : String) : Bool :=
-  l.trim.isEmpty
+  l.trimAscii.isEmpty
 
 /--
 Split input into paragraphs. A paragraph is a maximal run of non-blank
@@ -78,7 +78,7 @@ def wrapLine (text : String) (width : Nat) : List String :=
           let pl := pieces.length
           let init := pieces.take (pl - 1)
           let last := (pieces.drop (pl - 1)).headD ""
-          go rest last (init ++ acc1)
+          go rest last (init.reverse ++ acc1)
     (go words "" []).filter (not ·.isEmpty)
 
 /--

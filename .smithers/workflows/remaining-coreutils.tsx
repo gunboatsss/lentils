@@ -47,15 +47,18 @@ ${batch.title}
 ${batch.specialNote ? `SPECIAL NOTES:\n${batch.specialNote}\n` : ""}
 
 For each utility <name>:
-1. Create Lentils/<name>/Logic.lean with pure functions + native_decide proofs
-2. Create Lentils/<name>/<name>.lean with IO wrapper
-3. Register in Lentils.lean and Main.lean
+1. Create Lentils/<name>/Logic.lean with pure functions + proofs
+2. Create Lentils/<Name>/<Name>.lean with IO wrapper
+3. Write a test for each <name>
+4. Register in Lentils.lean and Main.lean
 
 After all utilities:
-4. Run: lake build
-5. Fix any errors
-6. Verify each: .lake/build/bin/lentils <name> --help
-7. Run: .lake/build/bin/lentils --help  # verify listing
+5. Run: lake build
+6. Fix any errors
+7. Verify each: .lake/build/bin/lentils <name> --help
+8. Run: .lake/build/bin/lentils --help  # verify listing
+
+There is a reference for Lean itself and POSIX standards in /wiki. the Lean reference manual is written in .lean files.
 
 Return the list of files changed.`;
 
@@ -69,11 +72,12 @@ function buildReviewPrompt(batch: z.input<typeof batchSchema>, impl?: z.input<ty
   const base = `Review the implementation of: ${batch.applets.join(", ")}
 
 Check:
-1. Each utility has Lentils/<name>/Logic.lean (pure functions) and Lentils/<name>/<name>.lean (IO wrapper)
+1. Each utility has Lentils/<Name>/Logic.lean (pure functions) and Lentils/<name>/<name>.lean (IO wrapper)
 2. Lentils.lean has imports for each
 3. Main.lean has Applet entries
 4. lake build succeeds
 5. Each utility responds to --help
+6. Each utility succesfully passed test and test covers all edge cases
 
 Also check code quality:
 - Pure functions are separated from IO
@@ -118,7 +122,7 @@ export default smithers((ctx) => {
           const lastImpl = impls[i];
           return (
             <Loop
-              key={i}
+              key={i.toString()}
               id={`batch-${i}`}
               until={lastReview?.approved === true}
               maxIterations={3}

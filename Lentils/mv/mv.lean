@@ -35,10 +35,7 @@ def run (args : List String) : IO UInt32 := do
       return ← exitUsage "mv" "[-finv] SOURCE... DIRECTORY"
     -- When moving multiple sources the destination must be a directory.
     let destIsDir : Bool ←
-      if sources.length > 1 then
-        try (System.FilePath.mk dest).isDir catch _ => pure false
-      else
-        pure false
+      try (System.FilePath.mk dest).isDir catch _ => pure false
     if sources.length > 1 && !destIsDir then
       IO.eprintln s!"mv: target '{dest}' is not a directory"
       return 1
