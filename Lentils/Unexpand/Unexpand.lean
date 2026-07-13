@@ -6,7 +6,7 @@ namespace Lentils.Unexpand
 
 open Logic
 
-def run (args : List String) : IO UInt32 := do
+def run (_args : List String) : IO UInt32 := do
   let input ←
     try IO.FS.readFile "/dev/stdin"
     catch _ => pure ""

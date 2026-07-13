@@ -109,7 +109,7 @@ LEAN_EXPORT lean_object *lean_coreutils_users(lean_object *w) {
             for (lean_object *it = lst; lean_is_ctor(it) && lean_ptr_tag(it) == 1; it = lean_ctor_get(it, 1)) {
                 lean_object *existing = lean_ctor_get(it, 0);
                 const char *estr = lean_string_cstr(existing);
-                if (strcmp(estr, ut->ut_user) == 0) {
+                if (strncmp(estr, ut->ut_user, __UT_NAMESIZE) == 0) {
                     dup = 1;
                     break;
                 }

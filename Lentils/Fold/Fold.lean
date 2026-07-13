@@ -11,7 +11,7 @@ def run (args : List String) : IO UInt32 := do
     match args with
     | "-w" :: n :: _ => n.toNat?.getD 80
     | _ => 80
-  let breakSpaces := args.any (· = "-s")
+  let _breakSpaces := args.any (· = "-s")  -- TODO: wire -s into fold logic
 
   let input ←
     try IO.FS.readFile "/dev/stdin"

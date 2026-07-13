@@ -6,7 +6,7 @@ namespace Lentils.Od
 
 open Logic
 
-def run (args : List String) : IO UInt32 := do
+def run (_args : List String) : IO UInt32 := do
   let data ←
     try IO.FS.readBinFile "/dev/stdin"
     catch _ => pure ByteArray.empty

@@ -10,7 +10,7 @@ open Logic
 @[extern "lean_coreutils_getgrgid"]
 opaque getgrgid (gid : UInt32) : IO String
 
-def run (args : List String) : IO UInt32 := do
+def run (_args : List String) : IO UInt32 := do
   let content ←
     try IO.FS.readFile "/proc/self/status"
     catch _ => pure ""

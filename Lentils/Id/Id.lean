@@ -18,7 +18,7 @@ def readStatus : IO String :=
   try IO.FS.readFile "/proc/self/status"
   catch _ => pure ""
 
-def run (args : List String) : IO UInt32 := do
+def run (_args : List String) : IO UInt32 := do
   let content ← readStatus
   if content.isEmpty then
     IO.eprintln "id: cannot read /proc/self/status"
