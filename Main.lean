@@ -17,6 +17,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils arch"
       IO.println ""
       IO.println "Print the machine architecture."
+  | "hostid" => do
+      IO.println "Usage: lentils hostid"
+      IO.println ""
+      IO.println "Print the numeric host identifier."
   | "logname" => do
       IO.println "Usage: lentils logname"
       IO.println ""
@@ -37,6 +41,18 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "  -r    print kernel release"
       IO.println "  -v    print kernel version"
       IO.println "  -m    print machine hardware name"
+  | "seq" => do
+      IO.println "Usage: lentils seq [FIRST [INCREMENT]] LAST"
+      IO.println ""
+      IO.println "Print a sequence of numbers."
+  | "tty" => do
+      IO.println "Usage: lentils tty"
+      IO.println ""
+      IO.println "Print the terminal file name."
+  | "uptime" => do
+      IO.println "Usage: lentils uptime"
+      IO.println ""
+      IO.println "Print the system uptime."
   | "whoami" => do
       IO.println "Usage: lentils whoami"
       IO.println ""
@@ -213,9 +229,13 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "["        => if hasHelp then printHelp "test" *> return 0 else Lentils.Test.run args
   | "grep"     => if hasHelp then printHelp "grep" *> return 0 else Lentils.Grep.run args
   | "arch"     => if hasHelp then printHelp "arch" *> return 0 else Lentils.Arch.run args
+  | "hostid"   => if hasHelp then printHelp "hostid" *> return 0 else Lentils.Hostid.run args
   | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
   | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
+  | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
+  | "tty"      => if hasHelp then printHelp "tty" *> return 0 else Lentils.Tty.run args
   | "uname"    => if hasHelp then printHelp "uname" *> return 0 else Lentils.Uname.run args
+  | "uptime"   => if hasHelp then printHelp "uptime" *> return 0 else Lentils.Uptime.run args
   | "whoami"   => if hasHelp then printHelp "whoami" *> return 0 else Lentils.Whoami.run args
   | "basename" => if hasHelp then printHelp "basename" *> return 0 else Lentils.Basename.run args
   | "dirname"  => if hasHelp then printHelp "dirname" *> return 0 else Lentils.Dirname.run args
@@ -230,9 +250,13 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "Available applets:"
           IO.println "  arch      — print machine architecture"
           IO.println "  basename  — strip directory and suffix from filenames"
+          IO.println "  hostid    — print numeric host identifier"
           IO.println "  logname   — print user's login name"
           IO.println "  nproc     — print number of processing units"
+          IO.println "  seq       — print sequence of numbers"
+          IO.println "  tty       — print terminal file name"
           IO.println "  uname     — print system information"
+          IO.println "  uptime    — print system uptime"
           IO.println "  whoami    — print effective user name"
           IO.println "  cat       — concatenate files to stdout"
           IO.println "  cut       — extract sections from each line of files"

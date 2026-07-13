@@ -7,13 +7,18 @@ Re-exports Common utilities and all applet modules.
 
 import Lentils.Arch
 import Lentils.Basename
+import Lentils.Hostid
 import Lentils.Logname
 import Lentils.Nproc
+import Lentils.Seq
+import Lentils.Tty
 import Lentils.Uname
+import Lentils.Uptime
 import Lentils.Whoami
 import Lentils.Cat
 import Lentils.Common.Bytes
 import Lentils.Common.Errors
+import Lentils.Common.Float
 import Lentils.Common.IO.Native
 import Lentils.Common.Lines
 import Lentils.Cut
