@@ -189,6 +189,22 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "  -r file   true if file is readable"
       IO.println "  -w file   true if file is writable"
       IO.println "  -x file   true if file is executable"
+  | "groups" => do
+      IO.println "Usage: lentils groups [user]"
+      IO.println ""
+      IO.println "Print group memberships for each user."
+  | "id" => do
+      IO.println "Usage: lentils id [user]"
+      IO.println ""
+      IO.println "Print user and group identity."
+  | "printenv" => do
+      IO.println "Usage: lentils printenv [name...]"
+      IO.println ""
+      IO.println "Print environment variables."
+  | "users" => do
+      IO.println "Usage: lentils users"
+      IO.println ""
+      IO.println "Print logged-in user names."
   | "grep" => do
       IO.println "Usage: lentils grep [-v] [-e pattern] pattern [file...]"
       IO.println ""
@@ -228,6 +244,10 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "test"     => if hasHelp then printHelp "test" *> return 0 else Lentils.Test.run args
   | "["        => if hasHelp then printHelp "test" *> return 0 else Lentils.Test.run args
   | "grep"     => if hasHelp then printHelp "grep" *> return 0 else Lentils.Grep.run args
+  | "groups"   => if hasHelp then printHelp "groups" *> return 0 else Lentils.Groups.run args
+  | "id"       => if hasHelp then printHelp "id" *> return 0 else Lentils.Id.run args
+  | "printenv" => if hasHelp then printHelp "printenv" *> return 0 else Lentils.Printenv.run args
+  | "users"    => if hasHelp then printHelp "users" *> return 0 else Lentils.Users.run args
   | "arch"     => if hasHelp then printHelp "arch" *> return 0 else Lentils.Arch.run args
   | "hostid"   => if hasHelp then printHelp "hostid" *> return 0 else Lentils.Hostid.run args
   | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
@@ -250,13 +270,17 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "Available applets:"
           IO.println "  arch      — print machine architecture"
           IO.println "  basename  — strip directory and suffix from filenames"
+          IO.println "  groups    — print group memberships"
           IO.println "  hostid    — print numeric host identifier"
+          IO.println "  id        — print user and group identity"
           IO.println "  logname   — print user's login name"
+          IO.println "  printenv  — print environment variables"
           IO.println "  nproc     — print number of processing units"
           IO.println "  seq       — print sequence of numbers"
           IO.println "  tty       — print terminal file name"
           IO.println "  uname     — print system information"
           IO.println "  uptime    — print system uptime"
+          IO.println "  users     — print logged-in user names"
           IO.println "  whoami    — print effective user name"
           IO.println "  cat       — concatenate files to stdout"
           IO.println "  cut       — extract sections from each line of files"

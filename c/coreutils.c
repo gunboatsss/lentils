@@ -12,6 +12,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pwd.h>
+#include <grp.h>
+#include <utmpx.h>
 
 // ─── FFI write (kept for error detection) ─────────────────────────────────────
 
@@ -40,6 +43,84 @@ LEAN_EXPORT lean_object *lean_coreutils_write(uint32_t fd,
 LEAN_EXPORT lean_object *lean_coreutils_ignore_sigpipe(lean_object *w) {
     signal(SIGPIPE, SIG_IGN);
     return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── environ (for printenv) ──────────────────────────────────────────────────
+
+// Return the environment as a Lean Array of "KEY=VALUE" strings.
+LEAN_EXPORT lean_object *lean_coreutils_environ(lean_object *w) {
+    extern char **environ;
+    size_t count = 0;
+    while (environ[count]) count++;
+    // Build a Lean list (nil is tag 0, 0 objs; cons is tag 1, 2 objs)
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    for (size_t i = count; i > 0; i--) {
+        lean_object *s = lean_mk_string(environ[i-1]);
+        lean_object *cons = lean_alloc_ctor(1, 2, 0);
+        lean_ctor_set(cons, 0, s);       // head
+        lean_ctor_set(cons, 1, lst);      // tail
+        lst = cons;
+    }
+    lean_object *arr = lean_array_mk(lst);
+    return lean_io_result_mk_ok(arr);
+}
+
+// ─── getpwuid (for id username lookup) ───────────────────────────────────────-
+
+// Look up a username by UID. Returns empty string if not found.
+LEAN_EXPORT lean_object *lean_coreutils_getpwuid(uint32_t uid,
+                                                  lean_object *w) {
+    struct passwd *pw = getpwuid((uid_t)uid);
+    if (pw == NULL) {
+        return lean_io_result_mk_ok(lean_mk_string(""));
+    }
+    return lean_io_result_mk_ok(lean_mk_string(pw->pw_name));
+}
+
+// ─── getgrgid (for id/groups group name lookup) ───────────────────────────────
+
+// Look up a group name by GID. Returns empty string if not found.
+LEAN_EXPORT lean_object *lean_coreutils_getgrgid(uint32_t gid,
+                                                  lean_object *w) {
+    struct group *gr = getgrgid((gid_t)gid);
+    if (gr == NULL) {
+        return lean_io_result_mk_ok(lean_mk_string(""));
+    }
+    return lean_io_result_mk_ok(lean_mk_string(gr->gr_name));
+}
+
+// ─── getutxent (for users logged-in list) ─────────────────────────────────────
+
+// Get a deduplicated list of logged-in usernames from utmpx.
+// Returns a Lean Array of username strings.
+LEAN_EXPORT lean_object *lean_coreutils_users(lean_object *w) {
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    setutxent();
+    struct utmpx *ut;
+    while ((ut = getutxent()) != NULL) {
+        if (ut->ut_type == USER_PROCESS && ut->ut_user[0] != '\0') {
+            // Check for duplicates by iterating the list
+            int dup = 0;
+            for (lean_object *it = lst; lean_is_ctor(it) && lean_ptr_tag(it) == 1; it = lean_ctor_get(it, 1)) {
+                lean_object *existing = lean_ctor_get(it, 0);
+                const char *estr = lean_string_cstr(existing);
+                if (strcmp(estr, ut->ut_user) == 0) {
+                    dup = 1;
+                    break;
+                }
+            }
+            if (!dup) {
+                lean_object *s = lean_mk_string(ut->ut_user);
+                lean_object *cons = lean_alloc_ctor(1, 2, 0);
+                lean_ctor_set(cons, 0, s);
+                lean_ctor_set(cons, 1, lst);
+                lst = cons;
+            }
+        }
+    }
+    endutxent();
+    lean_object *arr = lean_array_mk(lst);
+    return lean_io_result_mk_ok(arr);
 }
 
 // ─── access(2) for file-permission tests ─────────────────────────────────────
