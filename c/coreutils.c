@@ -180,36 +180,6 @@ LEAN_EXPORT lean_object *lean_coreutils_realpath(b_lean_obj_arg path,
 
 // Helper: build a Lean list of strings from a null-terminated char** array.
 // Used to reconstruct argv after fork on error paths.
-// Not used currently but kept for completeness.
-
-// Build a null-terminated char** from a Lean list of String objects.
-// Caller must free the returned array.
-static char **list_to_argv(lean_object *lst) {
-    // Count elements
-    size_t count = 0;
-    for (lean_object *it = lst; lean_is_ctor(it) && lean_ptr_tag(it) == 1;
-         it = lean_ctor_get(it, 1)) {
-        count++;
-    }
-    char **argv = malloc((count + 1) * sizeof(char *));
-    size_t i = 0;
-    for (lean_object *it = lst; lean_is_ctor(it) && lean_ptr_tag(it) == 1;
-         it = lean_ctor_get(it, 1)) {
-        lean_object *s = lean_ctor_get(it, 0);
-        argv[i++] = strdup(lean_string_cstr(s));
-    }
-    argv[count] = NULL;
-    return argv;
-}
-
-// Free a char** allocated by list_to_argv
-static void free_argv(char **argv) {
-    for (size_t i = 0; argv[i] != NULL; i++) {
-        free(argv[i]);
-    }
-    free(argv);
-}
-
 // Helper: find an executable in PATH.
 // Uses manual string parsing instead of strtok_r.
 static char *find_in_path(const char *name) {

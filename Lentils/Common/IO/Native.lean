@@ -117,6 +117,29 @@ def readStdin : IO ByteArray := do
   let f ← stdin
   readAll f
 
+/--
+Convenience: read stdin as a String.
+Returns empty string on error (e.g. no stdin).
+-/
+def readStdinText : IO String := do
+  try IO.FS.readFile "/dev/stdin"
+  catch _ => pure ""
+
+/--
+Read stdin as lines, stripping the trailing empty line
+that results from a final newline.
+Returns [] on empty input.
+-/
+def readStdinLines : IO (List String) := do
+  let input ← readStdinText
+  let lines := input.splitOn "\n"
+  pure (if lines.length > 0 then
+    let last := lines.length - 1
+    match lines.drop last with
+    | [""] => lines.take last
+    | _ => lines
+  else lines)
+
 /-- Ignore SIGPIPE so writes to closed pipes return EPIPE instead of crashing. -/
 @[extern "lean_coreutils_ignore_sigpipe"]
 opaque ignoreSigpipe : IO Unit
