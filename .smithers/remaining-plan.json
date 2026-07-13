@@ -3,8 +3,8 @@
   "milestones": [
     {
       "id": "batch-a-file-ops-pure",
-      "title": "Batch A — File Operations (Pure Lean IO)",
-      "objective": "Implement file operation utilities that need zero C FFI — use IO.FS and System.FilePath primitives",
+      "title": "Batch A \u2014 File Operations (Pure Lean IO)",
+      "objective": "Implement file operation utilities that need zero C FFI \u2014 use IO.FS and System.FilePath primitives",
       "sharedFFI": false,
       "sharedForkExec": false,
       "applets": [
@@ -38,22 +38,23 @@
           "description": "Create empty file or update access/modification time using IO.FS.Handle.mk with Mode.write.",
           "pureLogic": true
         }
-      ]
+      ],
+      "batchDescription": "Implement all 5 file operation utilities: mkdir, mv, ls, cp, touch.\n\nAll use pure Lean IO primitives \u2014 NO C FFI needed.\n\nFor each utility:\n1. Create Lentils/<name>/Logic.lean with pure functions\n2. Create Lentils/<name>/<name>.lean with IO wrapper\n3. Register in Lentils.lean and Main.lean\n\nAvailable Lean APIs:\n- IO.FS.createDirAll(path) \u2014 mkdir -p\n- IO.FS.rename(old, new) \u2014 mv\n- System.FilePath.readDir(path) \u2014 ls\n- IO.FS.readBinFile / IO.FS.writeBinFile \u2014 cp\n- IO.FS.Handle.mk(path, Mode.write) \u2014 touch\n\nRead the existing utilities (cat, head, tail, etc.) for reference on the pattern.\nAfter all 5, run: lake build && verify each with --help"
     },
     {
       "id": "batch-b-file-ops-ffi",
-      "title": "Batch B — File Operations (C FFI)",
+      "title": "Batch B \u2014 File Operations (C FFI)",
       "objective": "Implement file operation utilities that need C FFI for system calls",
       "sharedFFI": true,
       "sharedForkExec": false,
       "ffiFunctions": [
-        "lean_coreutils_unlink(path) — wraps unlink(2), returns IO Unit",
-        "lean_coreutils_rmdir(path) — wraps rmdir(2), returns IO Unit",
-        "lean_coreutils_symlink(target, linkpath) — wraps symlink(2), returns IO Unit",
-        "lean_coreutils_link(target, linkpath) — wraps link(2), returns IO Unit",
-        "lean_coreutils_chmod(path, mode) — wraps chmod(2), returns IO Unit",
-        "lean_coreutils_chown(path, uid, gid) — wraps chown(2), returns IO Unit",
-        "lean_coreutils_chgrp(path, gid) — wraps chgrp(2), returns IO Unit"
+        "lean_coreutils_unlink(path) \u2014 wraps unlink(2), returns IO Unit",
+        "lean_coreutils_rmdir(path) \u2014 wraps rmdir(2), returns IO Unit",
+        "lean_coreutils_symlink(target, linkpath) \u2014 wraps symlink(2), returns IO Unit",
+        "lean_coreutils_link(target, linkpath) \u2014 wraps link(2), returns IO Unit",
+        "lean_coreutils_chmod(path, mode) \u2014 wraps chmod(2), returns IO Unit",
+        "lean_coreutils_chown(path, uid, gid) \u2014 wraps chown(2), returns IO Unit",
+        "lean_coreutils_chgrp(path, gid) \u2014 wraps chgrp(2), returns IO Unit"
       ],
       "applets": [
         {
@@ -80,11 +81,12 @@
           "description": "Change permissions using chmod(2) FFI. Parse octal mode (e.g., 755) or symbolic mode. Apply to each argument.",
           "pureLogic": true
         }
-      ]
+      ],
+      "batchDescription": "Implement all 4 file operation utilities: rm, rmdir, ln, chmod.\n\nThese need C FFI for system calls. Add to c/coreutils.c:\n- lean_coreutils_unlink(path) \u2192 unlink(2)\n- lean_coreutils_rmdir(path) \u2192 rmdir(2)\n- lean_coreutils_symlink(target, linkpath) \u2192 symlink(2)\n- lean_coreutils_link(target, linkpath) \u2192 link(2)\n- lean_coreutils_chmod(path, mode) \u2192 chmod(2)\n\nFor each utility:\n1. Add FFI to c/coreutils.c (if not already there from previous runs)\n2. Create Lentils/<name>/<name>.lean with @[extern] FFI declarations\n3. Register in Lentils.lean and Main.lean\n\nAfter all 4, run: lake build && verify each with --help"
     },
     {
       "id": "batch-c-process",
-      "title": "Batch C — Process Utilities (fork/exec)",
+      "title": "Batch C \u2014 Process Utilities (fork/exec)",
       "objective": "Implement process-related utilities that need fork/exec infrastructure (follows the env pattern)",
       "sharedFFI": false,
       "sharedForkExec": true,
@@ -108,11 +110,12 @@
           "description": "Run a command with a time limit. Fork, set alarm in child, kill if timeout. Parse duration (s/m/h suffix).",
           "pureLogic": true
         }
-      ]
+      ],
+      "batchDescription": "Implement all 3 process utilities: nice, nohup, timeout.\n\nThese need fork/exec infrastructure (identical to the existing env utility).\nUse the same pattern as Lentils/Env/.\n\nFor each utility:\n1. Add needed fork/exec helpers to c/coreutils.c (if not already there)\n2. Create Lentils/<name>/<name>.lean with FFI + IO wrapper\n3. Register in Lentils.lean and Main.lean\n\n- nice: call nice(2) in child before exec\n- nohup: ignore SIGHUP, redirect stdout to nohup.out\n- timeout: set alarm before exec, kill child on timeout\n\nAfter all 3, run: lake build && verify each with --help"
     },
     {
       "id": "batch-d-text-processing",
-      "title": "Batch D — Text Processing (Pure Lean)",
+      "title": "Batch D \u2014 Text Processing (Pure Lean)",
       "objective": "Implement text processing utilities with pure Lean logic (no FFI)",
       "sharedFFI": false,
       "sharedForkExec": false,
@@ -153,16 +156,17 @@
           "description": "Paginate input into pages with headers, or columnate into multiple columns. Pure text transformation.",
           "pureLogic": true
         }
-      ]
+      ],
+      "batchDescription": "Implement all 6 text processing utilities: fmt, sum, cksum, factor, numfmt, pr.\n\nAll are pure text transformations \u2014 NO C FFI needed. Read from stdin, transform, write to stdout.\n\nFor each utility:\n1. Create Lentils/<name>/Logic.lean with pure functions\n2. Create Lentils/<name>/<name>.lean with IO wrapper (read stdin via readStdinText)\n3. Register in Lentils.lean and Main.lean\n\n- fmt: reflow paragraphs at -w width\n- sum: BSD 16-bit checksum\n- cksum: CRC32 + byte count\n- factor: trial division prime factorization\n- numfmt: human-readable number conversion\n- pr: paginate/columnate text\n\nAfter all 6, run: lake build && verify each with --help"
     },
     {
       "id": "batch-e-date-time",
-      "title": "Batch E — Date/Time Utilities",
+      "title": "Batch E \u2014 Date/Time Utilities",
       "objective": "Implement date and calendar utilities",
       "sharedFFI": false,
       "sharedForkExec": false,
       "ffiFunctions": [
-        "lean_coreutils_gettimeofday — wraps gettimeofday(2), returns (seconds, microseconds) as two boxed uint64"
+        "lean_coreutils_gettimeofday \u2014 wraps gettimeofday(2), returns (seconds, microseconds) as two boxed uint64"
       ],
       "applets": [
         {
@@ -177,7 +181,8 @@
           "description": "Print the current date/time using gettimeofday FFI + localtime_r, or parse format strings with +fmt.",
           "pureLogic": false
         }
-      ]
+      ],
+      "batchDescription": "Implement 2 date/time utilities: cal, date.\n\n- cal: pure Lean calendar display. Calculate day of week, month layout.\n  Create Lentils/cal/Logic.lean with date arithmetic.\n  Create Lentils/cal/cal.lean with IO wrapper.\n\n- date: needs gettimeofday(2) FFI. Add to c/coreutils.c:\n  lean_coreutils_gettimeofday \u2192 gettimeofday(2), returns (seconds, microseconds)\n  Create Lentils/date/date.lean with @[extern] FFI.\n  Support +format string (strftime-like).\n\nRegister both in Lentils.lean and Main.lean.\nAfter both, run: lake build && verify each with --help"
     }
   ],
   "notes": [
@@ -185,7 +190,7 @@
     "After Batch B, we'll have 54 applets with full file manipulation.",
     "After Batch C, we'll have 57 applets with process management.",
     "After Batch D, we'll have 63 applets with text processing.",
-    "After Batch E, we'll have 65 applets — approaching full GNU coreutils coverage.",
+    "After Batch E, we'll have 65 applets \u2014 approaching full GNU coreutils coverage.",
     "The plan file at .smithers/remaining-plan.json drives the workflow.",
     "Each utility follows the established pattern: Logic.lean (pure) + Name.lean (IO wrapper).",
     "Use open Lentils.Common.IO.Native; readStdinText for reading stdin.",

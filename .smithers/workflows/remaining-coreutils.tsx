@@ -25,6 +25,7 @@ const milestoneSchema = z.looseObject({
   objective: z.string(),
   sharedFFI: z.boolean().default(false),
   ffiFunctions: z.array(z.string()).default([]),
+  batchDescription: z.string().optional(),
   applets: z.array(appletSchema).default([]),
 });
 
@@ -150,18 +151,31 @@ export default smithers((ctx) => {
               </Task>
             )}
 
-            {/* Each applet runs through validation loop */}
-            {milestone.applets.map((applet, ai) => (
+            {/* Batch: one ValidationLoop for the whole milestone */}
+            {milestone.batchDescription ? (
               <ValidationLoop
-                key={applet.name}
-                idPrefix={`ms-${mi}-a${ai}`}
-                prompt={buildAppletPrompt(applet)}
+                key={milestone.id}
+                idPrefix={`ms-${mi}`}
+                prompt={milestone.batchDescription}
                 implementAgents={agents.smartTool}
                 validateAgents={agents.smartTool}
                 reviewAgents={agents.smartTool}
                 maxIterations={3}
               />
-            ))}
+            ) : (
+              /* Fallback: per-applet loops */
+              milestone.applets.map((applet, ai) => (
+                <ValidationLoop
+                  key={applet.name}
+                  idPrefix={`ms-${mi}-a${ai}`}
+                  prompt={buildAppletPrompt(applet)}
+                  implementAgents={agents.smartTool}
+                  validateAgents={agents.smartTool}
+                  reviewAgents={agents.smartTool}
+                  maxIterations={3}
+                />
+              ))
+            )}
           </Sequence>
         ))}
 
