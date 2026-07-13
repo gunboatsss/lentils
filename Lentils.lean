@@ -13,6 +13,7 @@ import Lentils.Join.Join
 import Lentils.Id.Id
 import Lentils.Logname.Logname
 import Lentils.mkdir.mkdir
+import Lentils.mv.mv
 import Lentils.Nl.Nl
 import Lentils.Nproc.Nproc
 import Lentils.Od.Od

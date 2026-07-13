@@ -1,194 +1,122 @@
 // smithers-source: seeded
 // smithers-metadata-version: 1
-// smithers-display-name: Remaining coreutils
-// smithers-description: Implement remaining coreutils from a plan JSON passed via --input. Each milestone may include shared C FFI additions, followed by per-applet implement → validate → review loops.
-// smithers-tags: implementation, coreutils, lean
+// smithers-display-name: Implement coreutils batches
+// smithers-description: For each batch: implement + proof + integrate + test, then review. Loop on failure.
+// smithers-tags: implementation
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Sequence } from "smithers-orchestrator";
+import { createSmithers, Loop, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
 import { agents } from "../agents";
-import { ValidationLoop } from "../components/ValidationLoop";
 import ImplementPrompt from "../prompts/implement.mdx";
 
 // ── Schemas ──
 
-const appletSchema = z.looseObject({
-  name: z.string(),
+const batchSchema = z.looseObject({
   title: z.string(),
-  description: z.string(),
-  pureLogic: z.boolean().default(true),
+  applets: z.array(z.string()),
+  specialNote: z.string().default(""),
 });
 
-const milestoneSchema = z.looseObject({
-  id: z.string(),
-  title: z.string(),
-  objective: z.string(),
-  sharedFFI: z.boolean().default(false),
-  ffiFunctions: z.array(z.string()).default([]),
-  batchDescription: z.string().optional(),
-  applets: z.array(appletSchema).default([]),
+const planSchema = z.object({
+  batches: z.array(batchSchema),
 });
 
-const planSchema = z.looseObject({
-  goal: z.string(),
-  milestones: z.array(milestoneSchema).default([]),
+const implSchema = z.object({
+  summary: z.string(),
+  filesChanged: z.array(z.string()).default([]),
+  allPassing: z.boolean().default(true),
 });
 
-const outputSchema = z.looseObject({
-  summary: z.string().default(""),
-  milestonesCompleted: z.number().default(0),
-  totalMilestones: z.number().default(0),
-  appletsDone: z.array(z.string()).default([]),
-  allPassed: z.boolean().default(false),
+const reviewSchema = z.object({
+  approved: z.boolean(),
+  feedback: z.string().default(""),
 });
 
 const { Workflow, Task, smithers, outputs } = createSmithers({
-  input: z.object({
-    plan: z.string().describe("JSON string of the plan (milestones with applets)"),
-  }),
-  implementOutput: z.looseObject({
-    summary: z.string().default(""),
-    filesChanged: z.array(z.string()).default([]),
-  }),
-  output: outputSchema,
+  input: planSchema,
+  impl: implSchema,
+  review: reviewSchema,
 });
 
-// ── Helpers ──
+function buildPrompt(batch: z.input<typeof batchSchema>): string {
+  const names = batch.applets.join(", ");
+  return `Implement these utilities: ${names}.
 
-function buildFFIPrompt(ffiFunctions: string[]): string {
-  return `Add these C FFI functions to c/coreutils.c:
+${batch.title}
 
-${ffiFunctions.map(fn => `  - ${fn}`).join("\n")}
+${batch.specialNote ? `SPECIAL NOTES:\n${batch.specialNote}\n` : ""}
 
-Follow the existing pattern:
-  LEAN_EXPORT lean_object *lean_coreutils_<name>(args, lean_object *w) {
-    ...
-    return lean_io_result_mk_ok(result);
-  }
-
-Add any needed #include headers.
-After changes, run: lake build
-Fix any errors.`;
-}
-
-function buildAppletPrompt(applet: z.input<typeof appletSchema>): string {
-  const { name, title, description, pureLogic } = applet;
-  const logicFile = `Lentils/${name}/Logic.lean`;
-  const ioFile = `Lentils/${name}/${name}.lean`;
-
-  if (pureLogic) {
-    return `Create the \`${name}\` utility (${title}).
-
-${description}
-
-Steps:
-1. Create ${logicFile} with pure functions:
-   namespace Lentils.${name}.Logic
-   -- pure functions only (no IO, no FFI)
-   Add native_decide example theorems.
-
-2. Create ${ioFile} with IO wrapper:
-   import Lentils.${name}.Logic
-   namespace Lentils.${name}
-   open Logic
-   def run (args : List String) : IO UInt32 := do ...
-   For stdin: open Lentils.Common.IO.Native; readStdinText
-
-3. Register in Lentils.lean (alphabetically):
-   import Lentils.${name}.${name}
-
-4. Register in Main.lean's applets list (alphabetically):
-   { name := "${name}", run := Lentils.${name}.run, descr := "${title}" }
-
-5. Build: lake build
-6. Smoke test: .lake/build/bin/lentils ${name} --help`;
-  } else {
-    return `Create the \`${name}\` utility (${title}).
-
-${description}
-
-Since this utility needs system calls, use @[extern] FFI declarations.
-
-Steps:
-1. Add C FFI to c/coreutils.c if needed
-2. Create ${ioFile} with FFI wrappers:
-   namespace Lentils.${name}
-   @[extern "lean_coreutils_..."] opaque ... : IO ...
-   def run (args : List String) : IO UInt32 := do ...
-
+For each utility <name>:
+1. Create Lentils/<name>/Logic.lean with pure functions + native_decide proofs
+2. Create Lentils/<name>/<name>.lean with IO wrapper
 3. Register in Lentils.lean and Main.lean
-4. Build: lake build
-5. Smoke test: .lake/build/bin/lentils ${name} --help`;
-  }
+
+After all utilities:
+4. Run: lake build
+5. Fix any errors
+6. Verify each: .lake/build/bin/lentils <name> --help
+7. Run: .lake/build/bin/lentils --help  # verify listing
+
+Return the list of files changed.`;
 }
 
-// ── Workflow ──
+function buildReviewPrompt(batch: z.input<typeof batchSchema>): string {
+  return `Review the implementation of: ${batch.applets.join(", ")}
+
+Check:
+1. Each utility has Lentils/<name>/Logic.lean (pure functions) and Lentils/<name>/<name>.lean (IO wrapper)
+2. Lentils.lean has imports for each
+3. Main.lean has Applet entries
+4. lake build succeeds
+5. Each utility responds to --help
+
+Also check code quality:
+- Pure functions are separated from IO
+- Error messages go to stderr
+- Return codes are correct (0 success, non-zero error)
+- Follows existing patterns
+
+If approved, return { approved: true }.
+If not, return { approved: false, feedback: "what needs fixing" }.`;
+}
 
 export default smithers((ctx) => {
-  const rawPlan = ctx.input?.plan ?? "";
-  let plan: z.input<typeof planSchema>;
-  try { plan = JSON.parse(rawPlan); }
-  catch { plan = { goal: "Parse failed", milestones: [] }; }
-  if (!plan.milestones) plan.milestones = [];
-
-  const appletsDone: string[] = [];
+  const batches = ctx.input?.batches ?? [];
+  if (batches.length === 0) {
+    return (
+      <Workflow name="implement-batches">
+        <Task id="noop" output={outputs.impl}>
+          {() => ({ summary: "No batches to process", allPassing: true })}
+        </Task>
+      </Workflow>
+    );
+  }
 
   return (
-    <Workflow name="remaining-coreutils">
+    <Workflow name="implement-batches">
       <Sequence>
-        {plan.milestones.map((milestone, mi) => (
-          <Sequence key={milestone.id}>
-            {/* Shared FFI step for this milestone */}
-            {milestone.sharedFFI && milestone.ffiFunctions.length > 0 && (
+        {batches.map((batch, i) => (
+          <Loop key={i} id={`batch-${i}`} maxIterations={3}>
+            <Sequence>
               <Task
-                id={`ms-${mi}:ffi`}
-                output={outputs.implementOutput}
+                id={`batch-${i}:impl`}
+                output={outputs.impl}
                 agent={agents.smartTool}
-                timeoutMs={300_000}
+                timeoutMs={600_000}
                 heartbeatTimeoutMs={120_000}
               >
-                <ImplementPrompt prompt={buildFFIPrompt(milestone.ffiFunctions)} />
+                <ImplementPrompt prompt={buildPrompt(batch)} />
               </Task>
-            )}
-
-            {/* Batch: one ValidationLoop for the whole milestone */}
-            {milestone.batchDescription ? (
-              <ValidationLoop
-                key={milestone.id}
-                idPrefix={`ms-${mi}`}
-                prompt={milestone.batchDescription}
-                implementAgents={agents.smartTool}
-                validateAgents={agents.smartTool}
-                reviewAgents={agents.smartTool}
-                maxIterations={3}
-              />
-            ) : (
-              /* Fallback: per-applet loops */
-              milestone.applets.map((applet, ai) => (
-                <ValidationLoop
-                  key={applet.name}
-                  idPrefix={`ms-${mi}-a${ai}`}
-                  prompt={buildAppletPrompt(applet)}
-                  implementAgents={agents.smartTool}
-                  validateAgents={agents.smartTool}
-                  reviewAgents={agents.smartTool}
-                  maxIterations={3}
-                />
-              ))
-            )}
-          </Sequence>
+              <Task
+                id={`batch-${i}:review`}
+                output={outputs.review}
+                agent={agents.smartTool}
+              >
+                <ImplementPrompt prompt={buildReviewPrompt(batch)} />
+              </Task>
+            </Sequence>
+          </Loop>
         ))}
-
-        {/* Final summary */}
-        <Task id="output" output={outputs.output}>
-          {() => ({
-            summary: `Processed ${plan.milestones.length} milestones`,
-            milestonesCompleted: plan.milestones.length,
-            totalMilestones: plan.milestones.length,
-            appletsDone: plan.milestones.flatMap(m => m.applets.map(a => a.name)),
-            allPassed: true,
-          })}
-        </Task>
       </Sequence>
     </Workflow>
   );
