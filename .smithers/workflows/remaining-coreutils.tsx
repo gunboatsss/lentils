@@ -4,7 +4,7 @@
 // smithers-description: For each batch: implement + proof + integrate + test, then review. Loop on failure.
 // smithers-tags: implementation
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Sequence } from "smithers-orchestrator";
+import { createSmithers, Sequence, Loop } from "smithers-orchestrator";
 import { z } from "zod/v4";
 import { agents } from "../agents";
 import ImplementPrompt from "../prompts/implement.mdx";
@@ -92,28 +92,41 @@ export default smithers((ctx) => {
     );
   }
 
+  // Check each batch's review status from the latest iteration
+  const reviews = batches.map((_, i) =>
+    ctx.outputMaybe("review", { nodeId: `batch-${i}:review` })
+  );
+
   return (
     <Workflow name="implement-batches">
       <Sequence>
         {batches.map((batch, i) => (
-          <Sequence key={i}>
-            <Task
-              id={`batch-${i}:impl`}
-              output={outputs.impl}
-              agent={agents.smartTool}
-              timeoutMs={600_000}
-              heartbeatTimeoutMs={120_000}
-            >
-              <ImplementPrompt prompt={buildPrompt(batch)} />
-            </Task>
-            <Task
-              id={`batch-${i}:review`}
-              output={outputs.review}
-              agent={agents.smartTool}
-            >
-              <ImplementPrompt prompt={buildReviewPrompt(batch)} />
-            </Task>
-          </Sequence>
+          <Loop
+            key={i}
+            id={`batch-${i}`}
+            until={reviews[i]?.approved === true}
+            maxIterations={3}
+            onMaxReached="return-last"
+          >
+            <Sequence>
+              <Task
+                id={`batch-${i}:impl`}
+                output={outputs.impl}
+                agent={agents.smartTool}
+                timeoutMs={600_000}
+                heartbeatTimeoutMs={120_000}
+              >
+                <ImplementPrompt prompt={buildPrompt(batch)} />
+              </Task>
+              <Task
+                id={`batch-${i}:review`}
+                output={outputs.review}
+                agent={agents.smartTool}
+              >
+                <ImplementPrompt prompt={buildReviewPrompt(batch)} />
+              </Task>
+            </Sequence>
+          </Loop>
         ))}
       </Sequence>
     </Workflow>
