@@ -1,0 +1,194 @@
+{
+  "goal": "Implement all remaining coreutils (~25 utilities) organized by shared requirements",
+  "milestones": [
+    {
+      "id": "batch-a-file-ops-pure",
+      "title": "Batch A — File Operations (Pure Lean IO)",
+      "objective": "Implement file operation utilities that need zero C FFI — use IO.FS and System.FilePath primitives",
+      "sharedFFI": false,
+      "sharedForkExec": false,
+      "applets": [
+        {
+          "name": "mkdir",
+          "title": "make directories",
+          "description": "Create directories using IO.FS.createDirAll (handles -p). Parse -p flag, create each argument path.",
+          "pureLogic": true
+        },
+        {
+          "name": "mv",
+          "title": "move/rename files",
+          "description": "Move or rename files using IO.FS.rename. Supports multiple sources with last arg as destination.",
+          "pureLogic": true
+        },
+        {
+          "name": "ls",
+          "title": "list directory contents",
+          "description": "List files using System.FilePath.readDir. Support -a (all), -l (long format using /proc or stat).",
+          "pureLogic": true
+        },
+        {
+          "name": "cp",
+          "title": "copy files",
+          "description": "Copy files using IO.FS.readBinFile and IO.FS.writeBinFile. Support -r for recursive directory copy, -f for force.",
+          "pureLogic": true
+        },
+        {
+          "name": "touch",
+          "title": "change file timestamps",
+          "description": "Create empty file or update access/modification time using IO.FS.Handle.mk with Mode.write.",
+          "pureLogic": true
+        }
+      ]
+    },
+    {
+      "id": "batch-b-file-ops-ffi",
+      "title": "Batch B — File Operations (C FFI)",
+      "objective": "Implement file operation utilities that need C FFI for system calls",
+      "sharedFFI": true,
+      "sharedForkExec": false,
+      "ffiFunctions": [
+        "lean_coreutils_unlink(path) — wraps unlink(2), returns IO Unit",
+        "lean_coreutils_rmdir(path) — wraps rmdir(2), returns IO Unit",
+        "lean_coreutils_symlink(target, linkpath) — wraps symlink(2), returns IO Unit",
+        "lean_coreutils_link(target, linkpath) — wraps link(2), returns IO Unit",
+        "lean_coreutils_chmod(path, mode) — wraps chmod(2), returns IO Unit",
+        "lean_coreutils_chown(path, uid, gid) — wraps chown(2), returns IO Unit",
+        "lean_coreutils_chgrp(path, gid) — wraps chgrp(2), returns IO Unit"
+      ],
+      "applets": [
+        {
+          "name": "rm",
+          "title": "remove files",
+          "description": "Remove files using unlink(2) FFI. Support -r (recursive), -f (force), -d (empty dirs). Parse flags, iterate args, unlink each.",
+          "pureLogic": true
+        },
+        {
+          "name": "rmdir",
+          "title": "remove empty directories",
+          "description": "Remove empty directories using rmdir(2) FFI. Each argument is a directory to remove.",
+          "pureLogic": true
+        },
+        {
+          "name": "ln",
+          "title": "make links",
+          "description": "Create hard/soft links using link(2)/symlink(2) FFI. Support -s (symbolic), -f (force).",
+          "pureLogic": true
+        },
+        {
+          "name": "chmod",
+          "title": "change file mode bits",
+          "description": "Change permissions using chmod(2) FFI. Parse octal mode (e.g., 755) or symbolic mode. Apply to each argument.",
+          "pureLogic": true
+        }
+      ]
+    },
+    {
+      "id": "batch-c-process",
+      "title": "Batch C — Process Utilities (fork/exec)",
+      "objective": "Implement process-related utilities that need fork/exec infrastructure (follows the env pattern)",
+      "sharedFFI": false,
+      "sharedForkExec": true,
+      "ffiFunctions": [],
+      "applets": [
+        {
+          "name": "nice",
+          "title": "run with modified scheduling priority",
+          "description": "Run a command with modified niceness using nice(2) + fork/exec. Support -n increment. Follow the env pattern for fork/exec.",
+          "pureLogic": true
+        },
+        {
+          "name": "nohup",
+          "title": "run immune to hangups",
+          "description": "Run a command ignoring SIGHUP. Redirect stdout/stderr to nohup.out if needed. Uses fork/exec infrastructure.",
+          "pureLogic": true
+        },
+        {
+          "name": "timeout",
+          "title": "run with time limit",
+          "description": "Run a command with a time limit. Fork, set alarm in child, kill if timeout. Parse duration (s/m/h suffix).",
+          "pureLogic": true
+        }
+      ]
+    },
+    {
+      "id": "batch-d-text-processing",
+      "title": "Batch D — Text Processing (Pure Lean)",
+      "objective": "Implement text processing utilities with pure Lean logic (no FFI)",
+      "sharedFFI": false,
+      "sharedForkExec": false,
+      "applets": [
+        {
+          "name": "fmt",
+          "title": "reformat paragraph text",
+          "description": "Reformat paragraphs by filling and merging lines at a given width (-w). Pure text transformation on stdin.",
+          "pureLogic": true
+        },
+        {
+          "name": "sum",
+          "title": "checksum and count blocks",
+          "description": "Compute BSD-style checksum (simple 16-bit sum) and block count. Read file or stdin, output checksum and blocks.",
+          "pureLogic": true
+        },
+        {
+          "name": "cksum",
+          "title": "CRC checksum and count bytes",
+          "description": "Compute CRC32 checksum and byte count. Pure Lean CRC32 implementation.",
+          "pureLogic": true
+        },
+        {
+          "name": "factor",
+          "title": "factor integers",
+          "description": "Factor integers into prime factors. Pure Lean number theory (trial division up to sqrt(n)).",
+          "pureLogic": true
+        },
+        {
+          "name": "numfmt",
+          "title": "convert numbers to/from human-readable",
+          "description": "Convert numbers between human-readable (1K, 2M, 3G) and numeric formats. Pure string/number processing.",
+          "pureLogic": true
+        },
+        {
+          "name": "pr",
+          "title": "paginate or columnate files",
+          "description": "Paginate input into pages with headers, or columnate into multiple columns. Pure text transformation.",
+          "pureLogic": true
+        }
+      ]
+    },
+    {
+      "id": "batch-e-date-time",
+      "title": "Batch E — Date/Time Utilities",
+      "objective": "Implement date and calendar utilities",
+      "sharedFFI": false,
+      "sharedForkExec": false,
+      "ffiFunctions": [
+        "lean_coreutils_gettimeofday — wraps gettimeofday(2), returns (seconds, microseconds) as two boxed uint64"
+      ],
+      "applets": [
+        {
+          "name": "cal",
+          "title": "display calendar",
+          "description": "Display a calendar for the current month (or specified month/year). Pure Lean date arithmetic.",
+          "pureLogic": true
+        },
+        {
+          "name": "date",
+          "title": "print/set system date and time",
+          "description": "Print the current date/time using gettimeofday FFI + localtime_r, or parse format strings with +fmt.",
+          "pureLogic": false
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "After Batch A, we'll have 49 applets and the basic file ops needed for builds.",
+    "After Batch B, we'll have 54 applets with full file manipulation.",
+    "After Batch C, we'll have 57 applets with process management.",
+    "After Batch D, we'll have 63 applets with text processing.",
+    "After Batch E, we'll have 65 applets — approaching full GNU coreutils coverage.",
+    "The plan file at .smithers/remaining-plan.json drives the workflow.",
+    "Each utility follows the established pattern: Logic.lean (pure) + Name.lean (IO wrapper).",
+    "Use open Lentils.Common.IO.Native; readStdinText for reading stdin.",
+    "Registration is now a single Applet entry in Main.lean + import in Lentils.lean."
+  ]
+}
