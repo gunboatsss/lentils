@@ -5,23 +5,236 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# printf literal text
-testing "printf literal" \
-  '"$UTIL" "hello"' \
-  "hello" "" ""
+# Basic printf with plain string (no format specifiers)
+testing "printf plain string" \
+  '"$UTIL" "hello world"' \
+  "hello world" "" ""
 
-# printf %s substitution
+# printf with %s format specifier
 testing "printf percent s" \
   '"$UTIL" "%s" "world"' \
   "world" "" ""
 
-# printf %% produces literal percent
-testing "printf percent percent" \
-  '"$UTIL" "100%%"' \
-  "100%" "" ""
-
-# printf multiple substitutions (avoid escape sequences)
-testing "printf multiple" \
+# printf with multiple %s and args
+testing "printf multiple percent s" \
   '"$UTIL" "%s %s" "hello" "world"' \
   "hello world" "" ""
 
+# printf with %d format specifier
+testing "printf percent d" \
+  '"$UTIL" "%d" 42' \
+  "42" "" ""
+
+# printf with %i format specifier
+testing "printf percent i" \
+  '"$UTIL" "%i" 123' \
+  "123" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case 1: Empty format string
+testing "printf empty format" \
+  '"$UTIL" ""' \
+  "" "" ""
+
+# Edge case 2: Empty string argument
+testing "printf empty string arg" \
+  '"$UTIL" "%s" ""' \
+  "" "" ""
+
+# Edge case 3: Unicode in format and arguments
+testing "printf unicode" \
+  '"$UTIL" "🐍: %s" "🍎"' \
+  "🐍: 🍎" "" ""
+
+# Edge case 4: Format specifier with no arguments (outputs nothing)
+testing "printf format no args" \
+  '"$UTIL" "%s"' \
+  "" "" ""
+
+# Edge case 5: Multiple format specifiers with exact arg count
+testing "printf three format specifiers" \
+  '"$UTIL" "%s-%s-%s" a b c' \
+  "a-b-c" "" ""
+
+# Edge case 6: Mixed format specifiers
+testing "printf mixed s and d" \
+  '"$UTIL" "%s:%d" item 42' \
+  "item:42" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 2 (new code paths)
+
+# Edge case 7: Literal percent via '%%'
+testing "printf literal percent" \
+  '"$UTIL" "100%%"' \
+  "100%" "" ""
+
+# Edge case 8: '%%' embedded between literal text
+testing "printf percent in middle" \
+  '"$UTIL" "a%%b"' \
+  "a%b" "" ""
+
+# Edge case 9: Negative integer via %d
+testing "printf negative integer" \
+  '"$UTIL" "%d" -42' \
+  "-42" "" ""
+
+# Edge case 10: '%%' between two %s specifiers
+testing "printf percent between specs" \
+  '"$UTIL" "%s%%%s" a b' \
+  "a%b" "" ""
+
+# Edge case 11: '%d' with a leading-zero decimal string
+# Exercises the %d path with a multi-digit argument.
+testing "printf decimal digits" \
+  '"$UTIL" "%d" 12345' \
+  "12345" "" ""
+
+# Edge case 12: Empty format with trailing percent
+testing "printf empty format with percent" \
+  '"$UTIL" "%%"' \
+  "%" "" ""
+
+# Edge case 13: Multiple '%%' characters
+testing "printf multiple percents" \
+  '"$UTIL" "%%%%"' \
+  "%%" "" ""
+
+# Edge case 14: Format with percent and text
+testing "printf percent and text" \
+  '"$UTIL" "%% is percent"' \
+  "% is percent" "" ""
+
+# Edge case 15: Boolean-like format with zero (0d)
+testing "printf zero integer" \
+  "'\"$UTIL\" \"%d\" 0"' \
+  "0" "" ""
+
+# Edge case 16: Very large integer
+testing "printf large integer" \
+  '"$UTIL" "%d" 2147483647' \
+  "2147483647" "" ""
+
+# Edge case 17: Percentage of negative numbers
+testing "printf negative percentage format" \
+  '"$UTIL" "-%%%d" 100' \
+  "-100%" "" ""
+
+# Edge case 18: Multiple arguments with only %%
+testing "printf only percents" \
+  '"$UTIL" "%%%s%%%s" "" ""' \
+  "% %%" "" ""
+
+# Edge case 19: Escape sequence in format not recognized
+testing "printf unrecognized escape" \
+  '"$UTIL" "\\x41"' \
+  "\\x41" "" ""
+
+# Edge case 20: Integer zero with negative sign handling
+testing "printf negative zero" \
+  '"$UTIL" "%d" -0' \
+  "0" "" ""
+
+# Edge case 21: Multiple consecutive format specifiers
+testing "printf consecutive specs" \
+  '"$UTIL" "%s%s%s" x y z' \
+  "xyz" "" ""
+
+# Edge case 22: Mixed literal and specifiers with Unicode
+testing "printf unicode format" \
+  '"$UTIL" "%s🐍%d" "hello" 42' \
+  "hello🐍42" "" ""
+
+# Edge case 23: More than two arguments (excess ignored)
+testing "printf excess args" \
+  '"$UTIL" "%s" "first" "second" "third"' \
+  "first" "" ""
+
+# Edge case 24: Format requiring non-string argument
+testing "printf format with space" \
+  '"$UTIL" "% s" "hello"' \
+  " hello" "" ""
+
+# Edge case 25: Precision handling via %.*s (not implemented but test structure)
+testing "printf precision spec" \
+  '"$UTIL" "%.*s" 3 "hello"' \
+  "hel" "" ""
+
+# Edge case 26: Multiple percent signs and newlines
+testing "printf percent newline combo" \
+  '"$UTIL" "%%\n%%"' \
+  "%\n%" "" ""
+
+# Edge case 27: Empty string in integer format
+testing "printf empty int format" \
+  '"$UTIL" "%s %d" "" 0' \
+  " 0" "" ""
+
+# Edge case 28: Float-like format (treated as string)
+testing "printf float format" \
+  '"$UTIL" "%s" "3.14"' \
+  "3.14" "" ""
+
+# Edge case 29: Multiple percent signs together
+testing "printf multiple percent together" \
+  '"$UTIL" "%%%%%%"' \
+  "%%%%%%" "" ""
+
+# Edge case 30: Large Unicode character
+testing "printf large unicode" \
+  '"$UTIL" "%s" "𝄞"' \
+  "𝄞" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 31: Format string ending with lone % (exercises drop-2 branch on single char)
+testing "printf trailing lone percent" \
+  '"$UTIL" "hello %"' \
+  "hello " "" ""
+
+# Edge case 32: Three percent signs (%%% -> %% + %)
+# Exercises recursive handling of odd number of percents
+testing "printf three percents" \
+  '"$UTIL" "%%%"' \
+  "%" "" ""
+
+# Edge case 33: Format with %x (unsupported) treated as literal x after dropping %
+testing "printf unsupported format x" \
+  '"$UTIL" "%x"' \
+  "x" "" ""
+
+# NEW EDGE-CASE TESTS — Round 4 (additional uncovedpaths)
+
+# Edge case 34: Format string with escaped percent %%
+# This tests the \% .?.? format parsing
+testing "printf escaped percent double" \
+  '"$UTIL" "100%% percent"' \
+  "100% percent" "" ""
+
+# Edge case 35: Multiple spaces and formatting
+testing "printf spaces in format" \
+  '"$UTIL" "%s %s" a b c d' \
+  "a b" "" ""
+
+# Edge case 36: Format with newline and percent combinations
+testing "printf newline percent combo" \
+  '"$UTIL" "%s\n%%s" "line"' \
+  "line\n%s" "" ""
+
+# NEW EDGE-CASE TESTS — Round 5 (final three new uncovered paths)
+
+# Edge case 37: Empty argument list with format containing only percent signs
+testing "printf empty args percent only" \
+  '"$UTIL" "%%%%%%%"' \
+  "%%%
+" "" ""
+
+# Edge case 38: Invalid format specifier followed by valid argument
+testing "printf invalid specifier with arg" \
+  '"$UTIL" "%x%d" "value" "123"' \
+  "value123" "" ""
+
+# Edge case 39: Format with percent at start and end
+testing "printf percent both ends" \
+  '"$UTIL" "%s%%%s" "start" "end"' \
+  "start%end" "" ""

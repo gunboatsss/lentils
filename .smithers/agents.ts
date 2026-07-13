@@ -43,9 +43,9 @@ export const providers = {
 export const agents = {
   // Fast/cheap — quick turnarounds, simple tasks
   cheapFast: [
-    providers.deepseekFlash,
-    providers.deepseekFlashFree,
     providers.northMiniCodeFree,
+    providers.hy3Free,
+    providers.mimoV25Free,
   ],
   // Smart reasoning — complex logic, proofs, architecture
   smart: [

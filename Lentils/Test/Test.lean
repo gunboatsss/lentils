@@ -8,6 +8,22 @@ namespace Lentils.Test
 
 open Logic
 
+-- POSIX access(2) mode bits.  R_OK=4, W_OK=2, X_OK=1 (from <unistd.h>).
+private def rOK : UInt32 := 4
+private def wOK : UInt32 := 2
+private def xOK : UInt32 := 1
+
+-- access(2): returns 1 if the requested mode is permitted for `path`,
+-- 0 otherwise (including EACCES / ENOENT).  This is the IO-layer wiring
+-- that populates StatContext.readable / .writable / .executable, which
+-- Lean's native IO.FS.Metadata does not surface.
+@[extern "lean_coreutils_access"]
+opaque access (path : String) (mode : UInt32) : IO UInt32
+
+def accessR (path : String) : IO Bool := do return (← access path rOK) == 1
+def accessW (path : String) : IO Bool := do return (← access path wOK) == 1
+def accessX (path : String) : IO Bool := do return (← access path xOK) == 1
+
 -- Collect all file paths from file-test expressions in the AST.
 partial def collectPaths (e : Expr) : List String :=
   match e with
@@ -23,18 +39,24 @@ partial def collectPaths (e : Expr) : List String :=
   | Expr.orExpr e1 e2 => collectPaths e1 ++ collectPaths e2
   | _ => []
 
--- Build a StatContext from Lean's native System.FilePath.metadata.
-def buildContext (md : IO.FS.Metadata) : StatContext :=
+-- Build a StatContext from Lean's native System.FilePath.metadata
+-- combined with access(2) permission checks.
+def buildContext (path : String) (md : IO.FS.Metadata) : IO StatContext := do
   let isReg := md.type == IO.FS.FileType.file
   let isDir := md.type == IO.FS.FileType.dir
-  { pathExists := true
-  , isFile := isReg
-  , isDir := isDir
-  , size := md.byteSize
-  , readable := true
-  , writable := true
-  , executable := true
-  }
+  let r ← accessR path
+  let w ← accessW path
+  let x ← accessX path
+  let ctx : StatContext :=
+    { pathExists := true
+    , isFile := isReg
+    , isDir := isDir
+    , size := md.byteSize
+    , readable := r
+    , writable := w
+    , executable := x
+    }
+  return ctx
 
 -- Stat each unique path using Lean's native metadata, building lookup pairs.
 partial def statPathList : List String → List (String × StatContext) → IO (List (String × StatContext))
@@ -42,7 +64,8 @@ partial def statPathList : List String → List (String × StatContext) → IO (
   | p :: rest, acc => do
     try
       let md ← (System.FilePath.mk p).metadata
-      statPathList rest ((p, buildContext md) :: acc)
+      let ctx ← buildContext p md
+      statPathList rest ((p, ctx) :: acc)
     catch _ =>
       statPathList rest ((p, defaultCtx) :: acc)
 

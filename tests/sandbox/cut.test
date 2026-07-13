@@ -5,38 +5,91 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# cut -c (character mode)
-testing "cut -c 1" \
-  'printf "hello\nworld\n" | "$UTIL" -c 1' \
-  "h\nw\n" "" ""
+# ─── Basic field selection ─────────────────────────────────────────────────────
 
-testing "cut -c 1-3" \
-  'printf "hello\nworld\n" | "$UTIL" -c 1-3' \
-  "hel\nwor\n" "" ""
+# Single field
+testing "cut single field" \
+  '"$UTIL" -d: -f1' \
+  "a\n" "" "a:b:c\n"
 
-testing "cut -c 2-" \
-  'printf "abc\ndef\n" | "$UTIL" -c 2-' \
-  "bc\nef\n" "" ""
+# Multiple fields in order
+testing "cut multiple fields in order" \
+  '"$UTIL" -d: -f1,2,3' \
+  "a:b:c\n" "" "a:b:c\n"
 
-# cut -f (field mode) with default tab delimiter
-testing "cut -f 1 with tab" \
-  'printf "a\tb\nc\td\n" | "$UTIL" -f 1' \
-  "a\nc\n" "" ""
+# Middle field
+testing "cut middle field" \
+  '"$UTIL" -d: -f2' \
+  "b\n" "" "a:b:c\n"
 
-testing "cut -f 2 with tab" \
-  'printf "a\tb\nc\td\n" | "$UTIL" -f 2' \
-  "b\nd\n" "" ""
+# ─── Out-of-order field selection (POSIX ordering) ─────────────────────────────
+# POSIX requires output fields follow input order, not the -f order.
 
-# cut -s (suppress lines without delimiter)
-testing "cut -s suppresses no-delim line" \
-  'printf "a:b\nno_delim\nc:d\n" | "$UTIL" -d: -f 2 -s' \
-  "b\nd\n" "" ""
+# Validation: out-of-order selection must emit field 1 then field 3
+testing "cut out-of-order fields" \
+  '"$UTIL" -d: -f3,1' \
+  "a:c\n" "" "a:b:c\n"
 
-testing "cut -s empty output when all lines lack delimiter" \
-  'printf "no_delim\n" | "$UTIL" -d: -f 2 -s' \
-  "" "" ""
+# Reverse order of -f spec must still emit fields in INPUT order (POSIX)
+testing "cut reversed -f order preserves input order" \
+  '"$UTIL" -d: -f3,2,1' \
+  "a:b:c\n" "" "a:b:c\n"
 
-testing "cut without -s passes no-delim line unchanged" \
-  'printf "no_delim\n" | "$UTIL" -d: -f 2' \
-  "no_delim\n" "" ""
+# Interleaved out-of-order selection
+testing "cut interleaved out-of-order" \
+  '"$UTIL" -d: -f4,1,3' \
+  "a:c:d\n" "" "a:b:c:d\n"
 
+# ─── Overlapping field ranges ──────────────────────────────────────────────────
+# POSIX: a field is selected if it falls in any range; duplicates ignored.
+
+# Validation: overlap between 1-3 and 2 collapses to 1,2,3
+testing "cut overlapping range" \
+  '"$UTIL" -d: -f1-3,2' \
+  "a:b:c\n" "" "a:b:c:d\n"
+
+# Fully contained sub-range
+testing "cut contained range" \
+  '"$UTIL" -d: -f1-5,2-3' \
+  "a:b:c:d:e\n" "" "a:b:c:d:e:f\n"
+
+# Two overlapping ranges
+testing "cut two overlapping ranges" \
+  '"$UTIL" -d: -f1-3,2-4' \
+  "a:b:c:d\n" "" "a:b:c:d:e\n"
+
+# Reordered list that overlaps a range (order of -f must not affect output)
+testing "cut reordered overlapping ranges" \
+  '"$UTIL" -d: -f3-4,1-2' \
+  "a:b:c:d\n" "" "a:b:c:d:e\n"
+
+# ─── Open-ended ranges ─────────────────────────────────────────────────────────
+
+# Trailing open range
+testing "cut trailing open range" \
+  '"$UTIL" -d: -f2-' \
+  "b:c:d\n" "" "a:b:c:d\n"
+
+# Leading open range
+testing "cut leading open range" \
+  '"$UTIL" -d: -f-2' \
+  "a:b\n" "" "a:b:c:d\n"
+
+# ─── Character selection parity (no reordering expected) ───────────────────────
+
+# Single char range
+testing "cut char range" \
+  '"$UTIL" -c1-3' \
+  "abc\n" "" "abcdef\n"
+
+# Out-of-order char list (chars follow position order)
+testing "cut out-of-order chars" \
+  '"$UTIL" -c3,1' \
+  "ac\n" "" "abcdef\n"
+
+# ─── No delimiter present ──────────────────────────────────────────────────────
+
+# Line without delimiter is printed whole when no field matches
+testing "cut no delimiter line" \
+  '"$UTIL" -d: -f1' \
+  "abc\n" "" "abc\n"

@@ -42,3 +42,17 @@ LEAN_EXPORT lean_object *lean_coreutils_ignore_sigpipe(lean_object *w) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
+// ─── access(2) for file-permission tests ─────────────────────────────────────
+// Used by `test` (-r/-w/-x) to populate StatContext from the real
+// filesystem permissions. mode is the POSIX access(2) bitmask:
+//   R_OK = 4, W_OK = 2, X_OK = 1.
+// Returns 1 (boxed) if the requested access is permitted, 0 otherwise
+// (this includes EACCES and ENOENT — both mean "not accessible").
+LEAN_EXPORT lean_object *lean_coreutils_access(b_lean_obj_arg path,
+                                               uint32_t mode,
+                                               lean_object *w) {
+    const char *p = lean_string_cstr(path);
+    int r = access(p, (int)mode);
+    return lean_io_result_mk_ok(lean_box((uint32_t)(r == 0 ? 1 : 0)));
+}
+

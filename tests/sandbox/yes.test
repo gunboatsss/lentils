@@ -3,24 +3,99 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh yes
 #
-# In test commands:
-#   $UTIL = the utility invocation (host: /bin/yes, ours: <OUR_BINARY> yes)
-#
-# Note: yes runs forever, so we pipe through head to limit output.
+# NOTE: `yes` loops forever, so every case pipes through `head -n N`
+# to bound output. The differential test compares our repeated string
+# against the host's for the first N lines.
 
 [ -f testing.sh ] && . testing.sh
 
-# yes with no arguments outputs "y" lines
-testing "yes default" '"$UTIL" | head -n 3' "y\ny\ny\n" "" ""
+# Default message is "y"
+testing "yes default" \
+  '"$UTIL" | head -n 3' \
+  "y\ny\ny\n" "" ""
 
-# yes with a custom string
-testing "yes custom" '"$UTIL" hello | head -n 2' "hello\nhello\n" "" ""
+# Single argument is repeated verbatim
+testing "yes single arg" \
+  '"$UTIL" hi | head -n 2' \
+  "hi\nhi\n" "" ""
 
-# yes with multiple arguments (joined with spaces)
-testing "yes multi" '"$UTIL" hello world | head -n 2' "hello world\nhello world\n" "" ""
+# ADDITIONAL EDGE-CASE TESTS
 
-# yes with empty string argument (just newlines)
-testing "yes empty arg" '"$UTIL" "" | head -n 2' "\n\n" "" ""
+# Edge case1: Multiple arguments joined with a single space
+testing "yes multiple args" \
+  '"$UTIL" a b | head -n 2' \
+  "a b\na b\n" "" ""
 
-# yes piped to another yes
-testing "yes pipeline" '"$UTIL" | head -n 1 | "$UTIL" | head -n 1' "y\n" "" ""
+# Edge case2: Empty-string operand yields empty lines
+testing "yes empty arg" \
+  '"$UTIL" "" | head -n 2' \
+  "\n\n" "" ""
+
+# Edge case3: Unicode operand is repeated byte-for-byte
+testing "yes unicode arg" \
+  '"$UTIL" "🐍" | head -n 1' \
+  "🐍\n" "" ""
+
+# Edge case4: Operand containing only dots is repeated
+testing "yes dots arg" \
+  '"$UTIL" "..." | head -n 2' \
+  "...\n...\n" "" ""
+
+# Edge case5: Larger bound still only emits the repeated message
+testing "yes multi line bound" \
+  '"$UTIL" go | head -n 4' \
+  "go\ngo\ngo\ngo\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case6: Argument with spaces (exercises intercalate with multi-word args)
+testing "yes arg with spaces" \
+  '"$UTIL" "hello world" | head -n 2' \
+  "hello world\nhello world\n" "" ""
+
+# Edge case7: Argument containing newline (exercises literal newline in output)
+testing "yes arg with newline" \
+  '"$UTIL" $'line1\nline2' | head -n 2' \
+  "line1\nline2\nline1\nline2\n" "" ""
+
+# Edge case8: Many arguments (exercises intercalate with large list)
+testing "yes many args" \
+  '"$UTIL" a b c d e | head -n 2' \
+  "a b c d e\na b c d e\n" "" ""
+
+# ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
+
+# Edge case9: Single argument with tab character (preserved in output)
+testing "yes arg with tab" \
+  '"$UTIL" $'hello\tworld' | head -n 1' \
+  "hello\tworld\n" "" ""
+
+# Edge case10: Unicode combining characters (grapheme clusters)
+testing "yes unicode combining" \
+  '"$UTIL" "café" | head -n 2' \
+  "café\ncafé\n" "" ""
+
+# Edge case11: Very long argument (exercises buffer handling)
+testing "yes very long arg" \
+  '"$UTIL" "$(printf "a%.0s" {1..1000})" | head -n 1' \
+  "$(printf "a%.0s" {1..1000})\n" "" ""
+
+# Edge case12: Multiple empty arguments (joined with spaces)
+testing "yes multiple empty args" \
+  '"$UTIL" "" "" "" | head -n 2' \
+  "  \n  \n" "" ""
+
+# Edge case13: Argument with backslash (treated literally, not as escape)
+testing "yes arg with backslash" \
+  '"$UTIL" "path\\to\\file" | head -n 1' \
+  "path\\to\\file\n" "" ""
+
+# Edge case14: Single dash as argument (not a flag)
+testing "yes dash arg" \
+  '"$UTIL" - | head -n 2' \
+  "-\n-\n" "" ""
+
+# Edge case15: Arguments with special shell characters
+testing "yes special chars" \
+  '"$UTIL" "!$%^&*()" | head -n 1' \
+  "!$%^&*()\n" "" ""

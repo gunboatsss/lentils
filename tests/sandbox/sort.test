@@ -5,33 +5,157 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# sort basic
-testing "sort stdin" \
-  'printf "c\na\nb\n" | "$UTIL"' \
-  "a\nb\nc\n" "" ""
+# Basic lexicographic sort
+testing "sort basic" \
+  '"$UTIL"' \
+  "a\nb\nc\n" "" "c\nb\na\n"
 
-# sort -r (reverse)
-testing "sort -r" \
-  'printf "a\nb\nc\n" | "$UTIL" -r' \
-  "c\nb\na\n" "" ""
+# Sort with trailing-newline input round-trips
+testing "sort single line" \
+  '"$UTIL"' \
+  "zebra\n" "" "zebra\n"
 
-# sort already sorted
-testing "sort already sorted" \
-  'printf "a\nb\n" | "$UTIL"' \
-  "a\nb\n" "" ""
+# ADDITIONAL EDGE-CASE TESTS
 
-# sort empty
-testing "sort empty" \
-  'printf "" | "$UTIL"' \
+# Edge case 1: Numeric sort reorders by integer value, not lexicographically
+testing "sort numeric" \
+  '"$UTIL" -n' \
+  "1\n2\n10\n" "" "10\n2\n1\n"
+
+# Edge case 2: Reverse the comparison order
+testing "sort reverse" \
+  '"$UTIL" -r' \
+  "c\nb\na\n" "" "c\na\nb\n"
+
+# Edge case 3: Unique keeps only the first of each adjacent equal run
+testing "sort unique" \
+  '"$UTIL" -u' \
+  "a\nb\n" "" "a\na\nb\n"
+
+# Edge case 4: Keyed sort on a delimited field (-t separator, -k field)
+testing "sort key field" \
+  '"$UTIL" -t: -k2' \
+  "b:1\nc:2\na:3\n" "" "a:3\nb:1\nc:2\n"
+
+# Edge case 5: Numeric key on a delimited field
+testing "sort numeric key" \
+  '"$UTIL" -t: -k2n' \
+  "b:2\na:30\nc:100\n" "" "a:30\nb:2\nc:100\n"
+
+# Edge case 6: Empty input produces no output
+testing "sort empty input" \
+  '"$UTIL"' \
   "" "" ""
 
-# sort -n (numeric sort)
-testing "sort -n" \
-  'printf "10\n2\n1\n" | "$UTIL" -n' \
-  "1\n2\n10\n" "" ""
+# Edge case 7: All identical lines are preserved as-is
+testing "sort all identical" \
+  '"$UTIL"' \
+  "x\nx\nx\n" "" "x\nx\nx\n"
 
-# sort -nr (numeric reverse sort)
-testing "sort -nr" \
-  'printf "10\n2\n1\n" | "$UTIL" -nr' \
-  "10\n2\n1\n" "" ""
+# Edge case 8: Leading whitespace is compared bytewise (space < letters)
+testing "sort leading whitespace" \
+  '"$UTIL"' \
+  "  b\n  c\na\n" "" "  b\na\n  c\n"
 
+# Edge case 9: Reverse numeric (combined -r/-n) flags
+testing "sort reverse numeric" \
+  '"$UTIL" -rn' \
+  "10\n2\n1\n" "" "10\n2\n1\n"
+
+# Edge case 10: Numeric key over an explicit field range (-k2,2n)
+testing "sort key range numeric" \
+  '"$UTIL" -t: -k2,2n' \
+  "b:2\na:30\nc:100\n" "" "a:30\nb:2\nc:100\n"
+
+# Edge case 11: Keyed sort where one line has an empty key field
+testing "sort key empty field" \
+  '"$UTIL" -t: -k2' \
+  "b:\nc:1\na:3\n" "" "a:3\nb:\nc:1\n"
+
+# Edge case 12: Combined numeric + unique dedups after numeric ordering
+testing "sort numeric unique" \
+  '"$UTIL" -n -u' \
+  "1\n2\n3\n" "" "3\n1\n3\n2\n1\n"
+
+# Edge case 13: Long-form --reverse flag
+testing "sort long reverse" \
+  '"$UTIL" --reverse' \
+  "c\nb\na\n" "" "c\na\nb\n"
+
+# ADDITIONAL EDGE-CASE TESTS — round 3 (3 new uncovered paths)
+
+# Edge case 14: --numeric-sort long flag
+testing "sort long numeric" \
+  '"$UTIL" --numeric-sort' \
+  "10\n2\n1\n" "" "1\n2\n10\n"
+
+# Edge case 15: Combined reverse + unique (separate flags)
+# Exercises reverse then dedup over a sorted run
+testing "sort reverse unique" \
+  '"$UTIL" -r -u' \
+  "b\na\n" "" "a\nb\na\n"
+
+# Edge case 16: Separator not present in line (key extraction returns empty)
+testing "sort key sep missing" \
+  '"$UTIL" -t: -k2' \
+  "nosep\nalsonosep\n" "" "alsonosep\nnosep\n"
+
+# Edge case 17: Empty lines in input
+testing "sort empty lines" \
+  '"$UTIL"' \
+  "\na\n\nb\n\nc\n" "" "\na\n\nb\n\nc\n"
+
+# Edge case 18: Numeric sort on lines without numbers (treated as zero)
+testing "sort numeric non-numeric" \
+  '"$UTIL" -n' \
+  "abc\n123\ndef\n456\nxyz\n" "" "123\n456\nabc\ndef\nxyz\n"
+
+# Edge case 19: Field range specification with out-of-bounds key
+testing "sort out-of-bounds key" \
+  '"$UTIL" -t: -k2,3' \
+  "a:b:c:d:e\nf:g\n" "" "f:g\na:b:c:d:e\n"
+
+# Edge case 20: Spaces and tabs mixed as whitespace in output order
+testing "sort whitespace in lines" \
+  '"$UTIL"' \
+  "  line1\nline2\n  line3\nline4\n" "" "  line1\n  line3\nline2\nline4\n"
+
+# Edge case 21: Numeric sort with negative numbers
+testing "sort numeric negative" \
+  '"$UTIL" -n' \
+  "-5\n3\n-10\n0\n" "" "-10\n-5\n0\n3\n"
+
+# Edge case 22: Reverse numeric sort with negative numbers
+testing "sort reverse numeric negative" \
+  '"$UTIL" -rn' \
+  "3\n-5\n-10\n0\n" "" "3\n0\n-5\n-10\n"
+
+# Edge case 23: Numeric sort with floating point numbers
+testing "sort numeric floating" \
+  '"$UTIL" -n' \
+  "3.14\n2.718\n1.414\n2.0\n" "" "1.414\n2.0\n2.718\n3.14\n"
+
+# Edge case 24: Large numbers in numeric sort
+testing "sort large numbers" \
+  '"$UTIL" -n' \
+  "1000000\n999999\n2000000\n1500000\n" "" "999999\n1000000\n1500000\n2000000\n"
+
+# Edge case 25: Numeric sort with exponential notation
+testing "sort scientific notation" \
+  '"$UTIL" -n' \
+  "1e3\n2e2\n5e1\n1e1\n" "" "1e1\n5e1\n2e2\n1e3\n"
+
+# Edge case 26: Numeric sort with leading zeros
+testing "sort numbers leading zeros" \
+  '"$UTIL" -n' \
+  "001\n02\n10\n005\n" "" "02\n005\n001\n10\n"
+
+# Edge case 27: Numeric sort on lines with leading zeros before other lines
+testing "sort numeric leading zeros edge" \
+  '"$UTIL" -n' \
+  "007\n5\n02\n" "" "02\n007\n5\n"
+
+# Edge case 28: Combined long-form flags
+testing "sort combined long flags" \
+  '"$UTIL" --reverse --unique' \
+  "c\nb\na\nc\nb\n" "" "c\nb\na\n"

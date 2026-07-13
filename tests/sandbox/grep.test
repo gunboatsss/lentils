@@ -5,148 +5,149 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# grep basic match
-testing "grep basic" \
-  'printf "hello\nworld\n" | "$UTIL" hello' \
-  "hello\n" "" ""
+# ─── Basic regex matching ──────────────────────────────────────────────────────
 
-# grep no match
-testing "grep no match" \
-  'printf "hello\nworld\n" | "$UTIL" nonexistent' \
-  "" "" ""
+# Basic substring match
+testing "grep basic substring" \
+  '"$UTIL" l' \
+  "hello\nworld\n" "" "hello\nworld\n"
 
-# grep -v invert
-testing "grep -v" \
-  'printf "hello\nworld\n" | "$UTIL" -v hello' \
-  "world\n" "" ""
+# Dot matches any single character (regex)
+testing "grep dot wildcard" \
+  '"$UTIL" "h.llo"' \
+  "h.llo\nhello\n" "" "h.llo\nhello\n"
 
-# grep empty pattern (matches all)
-testing "grep empty pattern" \
-  'printf "hello\nworld\n" | "$UTIL" ""' \
-  "hello\nworld\n" "" ""
-
-# grep multiple matches
-testing "grep multi" \
-  'printf "apple\nbanana\napricot\n" | "$UTIL" ap' \
-  "apple\napricot\n" "" ""
-
-# --- Regex tests ---
-
-# grep dot match
-testing "grep dot match" \
-  "printf 'cat\n' | \"\$UTIL\" 'c.t'" \
-  "cat\n" "" ""
-
-# grep dot no match
-testing "grep dot no match" \
-  "printf 'ct\n' | \"\$UTIL\" 'c.t'" \
-  "" "" ""
-
-# grep star match
-testing "grep star match" \
-  "printf 'aaa\n' | \"\$UTIL\" 'a*'" \
-  "aaa\n" "" ""
-
-# grep star backtrack
-testing "grep star backtrack" \
-  "printf 'hello world\n' | \"\$UTIL\" 'h.*d'" \
-  "hello world\n" "" ""
-
-# grep anchor start
+# Anchored start
 testing "grep anchor start" \
-  "printf 'hello\n' | \"\$UTIL\" '^hel'" \
-  "hello\n" "" ""
+  '"$UTIL" "^hello"' \
+  "hello\nworld\n" "" "hello\nworld\n"
 
-# grep anchor start fail
-testing "grep anchor start fail" \
-  "printf 'hello\n' | \"\$UTIL\" '^ell'" \
-  "" "" ""
-
-# grep anchor end
+# Anchored end
 testing "grep anchor end" \
-  "printf 'hello\n' | \"\$UTIL\" 'lo\$'" \
-  "hello\n" "" ""
+  '"$UTIL" "world$"' \
+  "hello\nworld\n" "" "hello\nworld\n"
 
-# grep anchor end fail
-testing "grep anchor end fail" \
-  "printf 'hello\n' | \"\$UTIL\" 'hel\$'" \
-  "" "" ""
+# Star (zero or more)
+testing "grep star" \
+  '"$UTIL" "he*llo"' \
+  "hello\nhllo\nhepello\n" "" "hello\nhllo\nhepello\n"
 
-# grep charclass match
-testing "grep charclass match" \
-  "printf 'cat\n' | \"\$UTIL\" '[abc]at'" \
-  "cat\n" "" ""
+# Char class
+testing "grep char class" \
+  '"$UTIL" "[aeiou]"' \
+  "sky\nhello\n" "" "hello\n"
 
-# grep charclass no match
-testing "grep charclass no match" \
-  "printf 'dog\n' | \"\$UTIL\" '[abc]og'" \
-  "" "" ""
+# Negated char class
+testing "grep negated char class" \
+  '"$UTIL" "[^aeiou]"' \
+  "a\nbc\n" "" "bc\n"
 
-# grep negated class
-testing "grep negated class" \
-  "printf 'dog\n' | \"\$UTIL\" '[^abc]og'" \
-  "dog\n" "" ""
+# No match -> empty output, exit 1
+testing "grep no match" \
+  '"$UTIL" "xyz"' \
+  "" "" "hello\nworld\n"
 
-# grep escaped bracket
-testing "grep escaped bracket" \
-  "printf 'a[b\n' | \"\$UTIL\" 'a\\['" \
-  "a[b\n" "" ""
+# ─── -i ignore case ────────────────────────────────────────────────────────────
 
-# grep combined anchors
-testing "grep combined anchors" \
-  "printf 'hello world\n' | \"\$UTIL\" '^h.*\$'" \
-  "hello world\n" "" ""
+testing "grep -i ignore case" \
+  '"$UTIL" -i "hello"' \
+  "HELLO\n" "" "HELLO\n"
 
-# grep regex with -v
-testing "grep regex with -v" \
-  "printf 'hello\nworld\n' | \"\$UTIL\" -v '^hel'" \
-  "world\n" "" ""
+testing "grep -i ignore case lowercase pattern" \
+  '"$UTIL" -i "HELLO"' \
+  "hello\n" "" "hello\n"
 
-# grep literal fallback
-testing "grep literal fallback" \
-  "printf 'hello\n' | \"\$UTIL\" hello" \
-  "hello\n" "" ""
+# ─── -c count ──────────────────────────────────────────────────────────────────
 
-# --- -i / -c / -q tests ---
-
-# grep -i case insensitive (lower matches upper)
-testing "grep -i lowercase pattern" \
-  "printf 'Hello\n' | \"\$UTIL\" -i hello" \
-  "Hello\n" "" ""
-
-# grep -i case insensitive (upper matches lower)
-testing "grep -i uppercase pattern" \
-  "printf 'hello\n' | \"\$UTIL\" -i HELLO" \
-  "hello\n" "" ""
-
-# grep -c count
 testing "grep -c count" \
-  "printf 'a\nb\na\n' | \"\$UTIL\" -c a" \
-  "2\n" "" ""
+  '"$UTIL" -c "a"' \
+  "2\n" "" "a\nb\na\n"
 
-# grep -c count no match
 testing "grep -c count no match" \
-  "printf 'a\nb\n' | \"\$UTIL\" -c x" \
-  "0\n" "" ""
+  '"$UTIL" -c "z"' \
+  "0\n" "" "a\nb\na\n"
 
-# grep -q quiet match
-testing "grep -q quiet match" \
-  "printf 'hello\n' | \"\$UTIL\" -q hello" \
-  "" "" ""
+# ─── -n line number ────────────────────────────────────────────────────────────
 
-# grep -q quiet no match
-testing "grep -q quiet no match" \
-  "printf 'hello\n' | \"\$UTIL\" -q xyz" \
-  "" "" ""
+testing "grep -n line number" \
+  '"$UTIL" -n "a"' \
+  "1:a\n3:a\n" "" "a\nb\na\n"
 
-# grep -ci combined
-testing "grep -ci combined" \
-  "printf 'Hello\nHELLO\nworld\n' | \"\$UTIL\" -ci hello" \
-  "2\n" "" ""
+# ─── -l files with matches ─────────────────────────────────────────────────────
+# With stdin, GNU grep prints "(standard input)"
+testing "grep -l files with matches (stdin)" \
+  '"$UTIL" -l "cat"' \
+  "(standard input)\n" "" "cat\ndog\n"
 
-# grep -cv invert count
-testing "grep -cv invert count" \
-  "printf 'a\nb\nc\n' | \"\$UTIL\" -cv a" \
-  "2\n" "" ""
+# ─── -q quiet ──────────────────────────────────────────────────────────────────
 
+testing "grep -q quiet match (no output)" \
+  '"$UTIL" -q "a"' \
+  "" "" "a\nb\n"
 
+testing "grep -q quiet no match (no output)" \
+  '"$UTIL" -q "z"' \
+  "" "" "a\nb\n"
+
+# ─── -v invert ─────────────────────────────────────────────────────────────────
+
+testing "grep -v invert" \
+  '"$UTIL" -v "a"' \
+  "b\n" "" "a\nb\n"
+
+# ─── -w word match ─────────────────────────────────────────────────────────────
+
+testing "grep -w word match" \
+  '"$UTIL" -w "cat"' \
+  "the cat sat\n" "" "the cat sat\ncategory\n"
+
+# ─── -e explicit pattern ───────────────────────────────────────────────────────
+
+testing "grep -e explicit pattern" \
+  '"$UTIL" -e "foo"' \
+  "foo\n" "" "foo\nbar\n"
+
+# ─── -E extended regex (same engine as basic) ──────────────────────────────────
+
+testing "grep -E extended alias dot" \
+  '"$UTIL" -E "c.t"' \
+  "cat\ncot\n" "" "cat\ncot\n"
+
+testing "grep -E behaves like basic regex" \
+  '"$UTIL" -E "h.llo"' \
+  "h.llo\nhello\n" "" "h.llo\nhello\n"
+
+# ─── -F fixed strings (literal, no regex metacharacters) ───────────────────────
+
+# Literal dot must NOT be treated as a wildcard
+testing "grep -F literal dot no match" \
+  '"$UTIL" -F "h.llo"' \
+  "" "" "hello\n"
+
+testing "grep -F literal dot match" \
+  '"$UTIL" -F "h.llo"' \
+  "h.llo\n" "" "h.llo\n"
+
+# Literal star must NOT be treated as repetition
+testing "grep -F literal star" \
+  '"$UTIL" -F "a*b"' \
+  "a*b\n" "" "a*b\naXb\n"
+
+# Literal anchors must NOT be treated as anchors
+testing "grep -F literal caret" \
+  '"$UTIL" -F "^abc"' \
+  "^abc\n" "" "^abc\nxabc\n"
+
+testing "grep -F literal dollar" \
+  '"$UTIL" -F "abc$"' \
+  "abc$\n" "" "abc$\nabcx\n"
+
+# Combined with -i: case-insensitive literal match
+testing "grep -F -i case insensitive literal" \
+  '"$UTIL" -F -i "H.LLO"' \
+  "h.llo\nH.LLO\n" "" "h.llo\nH.LLO\nhello\n"
+
+# -F combined with -v inverts literal match
+testing "grep -F -v invert literal" \
+  '"$UTIL" -F -v "h.llo"' \
+  "hello\n" "" "h.llo\nhello\n"
