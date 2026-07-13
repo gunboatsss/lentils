@@ -26,14 +26,15 @@ def parse (s : String) : Option Float :=
     match body.splitOn "." with
     | [intPart] =>
       match String.toNat? intPart with
-      | some (n : Nat) => some (if neg then -(Nat.toFloat n) else Nat.toFloat n)
+      | some (n : Nat) => some (if neg then -((UInt64.ofNat n).toFloat) else (UInt64.ofNat n).toFloat)
       | none => none
     | [intPart, fracPart] =>
       match String.toNat? intPart, String.toNat? fracPart with
       | some (int : Nat), some (frac : Nat) =>
         let fracLen := fracPart.length
-        let fracF := Nat.toFloat frac / (10.0 ^ (Nat.toFloat fracLen))
-        some (if neg then -(Nat.toFloat int + fracF) else Nat.toFloat int + fracF)
+        let intF := (UInt64.ofNat int).toFloat
+        let fracF := (UInt64.ofNat frac).toFloat / (10.0 ^ (UInt64.ofNat fracLen).toFloat)
+        some (if neg then -(intF + fracF) else intF + fracF)
       | _, _ => none
     | _ => none
 

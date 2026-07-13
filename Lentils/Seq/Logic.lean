@@ -19,13 +19,14 @@ Uses an explicit step counter (Nat) to ensure termination. -/
 def seq (first last inc : Float) : List Float :=
   if inc == 0.0 then []
   else
-    -- Estimate max steps to bound recursion
+    -- Estimate max steps (the number of values to generate)
     let diff := if inc > 0.0 then last - first else first - last
     let maxSteps : Nat :=
       if diff < 0.0 then 1
       else
         let s := (diff / (if inc < 0.0 then -inc else inc)).toUInt64
-        if s > 1000000 then 1000000 else s.toNat
+        let s := if s > 1000000 then 1000000 else s.toNat
+        s + 1  -- include both endpoints
     -- Iterate using a descending Nat counter instead of Float recursion
     let rec go (i : Nat) (cur : Float) : List Float :=
       if i = 0 then []
@@ -48,7 +49,7 @@ def formatFloat (f : Float) : String :=
       | c :: rest => c :: stripZeros rest
     let stripped := stripZeros (fracPart.toList.reverse)
     if stripped.isEmpty then intPart
-    else intPart ++ "." ++ (String.mk stripped.reverse)
+    else intPart ++ "." ++ (String.ofList stripped.reverse)
   | _ => s
 
 end Lentils.Seq.Logic

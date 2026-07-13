@@ -130,7 +130,10 @@
     }
   ],
   "notes": [
-    "5/13 done: arch, logname, whoami, nproc, uname (commit c13790b6)",
+    "9/13 done: arch, logname, whoami, nproc, uname, hostid, uptime, tty, seq (commits 4a8bc109, 9df3a112)",
+    "Remaining 4 need C FFI in coreutils.c: printenv (environ), users (getutxent), groups (getgroups), id (getuid/getpwuid)",
+    "Deprecations fixed: String.mk → String.ofList, Nat.toFloat → (UInt64.ofNat n).toFloat, custom Float parser for Lean 4.31",
+    "seq off-by-one fixed: maxSteps = floor(diff/inc) + 1 to include both endpoints",
     "13 new utilities would bring lentils from 20 → 33 utilities total",
     "Each utility needs: Logic.lean (pure), Applet.lean (IO wrapper), Name.lean (re-export), imports in Lentils.lean, dispatch+help in Main.lean",
     "FFI additions needed in c/coreutils.c: environ, getutxent, getgroups, getpwuid_r, getgrgid_r",
