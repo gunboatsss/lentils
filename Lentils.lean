@@ -17,7 +17,10 @@ import Lentils.Nproc
 import Lentils.Paste
 import Lentils.Printenv
 import Lentils.Seq
+import Lentils.Shuf
+import Lentils.Tsort
 import Lentils.Tty
+import Lentils.Unexpand
 import Lentils.Uname
 import Lentils.Uptime
 import Lentils.Users

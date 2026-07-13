@@ -57,6 +57,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils seq [FIRST [INCREMENT]] LAST"
       IO.println ""
       IO.println "Print a sequence of numbers."
+  | "shuf" => do
+      IO.println "Usage: lentils shuf"
+      IO.println ""
+      IO.println "Shuffle lines of input."
   | "tty" => do
       IO.println "Usage: lentils tty"
       IO.println ""
@@ -174,11 +178,14 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "       lentils tr -ds [-c|-C] string1 string2"
       IO.println ""
       IO.println "Translate, squeeze, or delete characters."
+  | "tsort" => do
+      IO.println "Usage: lentils tsort"
       IO.println ""
-      IO.println "Options:"
-      IO.println "  -d        delete characters in string1"
-      IO.println "  -s        squeeze repeated characters"
-      IO.println "  -c, -C    complement string1"
+      IO.println "Topological sort."
+  | "unexpand" => do
+      IO.println "Usage: lentils unexpand"
+      IO.println ""
+      IO.println "Convert spaces to tabs."
   | "sort" => do
       IO.println "Usage: lentils sort [-r] [-n] [file...]"
       IO.println ""
@@ -283,7 +290,10 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
   | "paste"    => if hasHelp then printHelp "paste" *> return 0 else Lentils.Paste.run args
   | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
+  | "shuf"     => if hasHelp then printHelp "shuf" *> return 0 else Lentils.Shuf.run args
   | "tty"      => if hasHelp then printHelp "tty" *> return 0 else Lentils.Tty.run args
+  | "tsort"    => if hasHelp then printHelp "tsort" *> return 0 else Lentils.Tsort.run args
+  | "unexpand" => if hasHelp then printHelp "unexpand" *> return 0 else Lentils.Unexpand.run args
   | "uname"    => if hasHelp then printHelp "uname" *> return 0 else Lentils.Uname.run args
   | "uptime"   => if hasHelp then printHelp "uptime" *> return 0 else Lentils.Uptime.run args
   | "whoami"   => if hasHelp then printHelp "whoami" *> return 0 else Lentils.Whoami.run args
@@ -327,6 +337,7 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "  head      — output the first part of files"
           IO.println "  printf    — write formatted output"
           IO.println "  pwd       — print working directory"
+          IO.println "  shuf      — shuffle lines of input"
           IO.println "  sleep     — suspend execution for an interval"
           IO.println "  sort      — sort lines of text files"
           IO.println "  tail      — output the last part of files"
@@ -334,6 +345,8 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "  test      — check file types and compare values"
           IO.println "  tr        — translate or delete characters"
           IO.println "  true      — exit with status 0"
+          IO.println "  tsort     — topological sort"
+          IO.println "  unexpand  — convert spaces to tabs"
           IO.println "  uniq      — report or omit repeated lines"
           IO.println "  wc        — word, line, and byte count"
           IO.println "  yes       — repeat a string until killed"
