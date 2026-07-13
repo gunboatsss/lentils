@@ -25,6 +25,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils logname"
       IO.println ""
       IO.println "Print the user's login name."
+  | "nl" => do
+      IO.println "Usage: lentils nl"
+      IO.println ""
+      IO.println "Number lines of input."
   | "nproc" => do
       IO.println "Usage: lentils nproc"
       IO.println ""
@@ -65,6 +69,14 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils echo [string...]"
       IO.println ""
       IO.println "Write arguments to stdout, separated by spaces."
+  | "expand" => do
+      IO.println "Usage: lentils expand [-t tabsize]"
+      IO.println ""
+      IO.println "Convert tabs to spaces."
+  | "fold" => do
+      IO.println "Usage: lentils fold [-w width] [-s]"
+      IO.println ""
+      IO.println "Wrap lines at a specified width."
   | "true" => do
       IO.println "Usage: lentils true"
       IO.println ""
@@ -233,6 +245,8 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "false"    => if hasHelp then printHelp "false" *> return 0 else Lentils.False.run args
   | "cat"      => if hasHelp then printHelp "cat" *> return 0 else Lentils.Cat.run args
   | "echo"     => if hasHelp then printHelp "echo" *> return 0 else Lentils.Echo.run args
+  | "expand"   => if hasHelp then printHelp "expand" *> return 0 else Lentils.Expand.run args
+  | "fold"     => if hasHelp then printHelp "fold" *> return 0 else Lentils.Fold.run args
   | "pwd"      => if hasHelp then printHelp "pwd" *> return 0 else Lentils.Pwd.run args
   | "head"     => if hasHelp then printHelp "head" *> return 0 else Lentils.Head.run args
   | "tail"     => if hasHelp then printHelp "tail" *> return 0 else Lentils.Tail.run args
@@ -251,6 +265,7 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "arch"     => if hasHelp then printHelp "arch" *> return 0 else Lentils.Arch.run args
   | "hostid"   => if hasHelp then printHelp "hostid" *> return 0 else Lentils.Hostid.run args
   | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
+  | "nl"       => if hasHelp then printHelp "nl" *> return 0 else Lentils.Nl.run args
   | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
   | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
   | "tty"      => if hasHelp then printHelp "tty" *> return 0 else Lentils.Tty.run args
@@ -273,7 +288,10 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "  groups    — print group memberships"
           IO.println "  hostid    — print numeric host identifier"
           IO.println "  id        — print user and group identity"
+          IO.println "  expand    — convert tabs to spaces"
+          IO.println "  fold      — wrap lines at a specified width"
           IO.println "  logname   — print user's login name"
+          IO.println "  nl        — number lines of input"
           IO.println "  printenv  — print environment variables"
           IO.println "  nproc     — print number of processing units"
           IO.println "  seq       — print sequence of numbers"

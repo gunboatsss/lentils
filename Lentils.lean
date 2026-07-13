@@ -11,6 +11,7 @@ import Lentils.Groups
 import Lentils.Hostid
 import Lentils.Id
 import Lentils.Logname
+import Lentils.Nl
 import Lentils.Nproc
 import Lentils.Printenv
 import Lentils.Seq
@@ -28,7 +29,9 @@ import Lentils.Common.Lines
 import Lentils.Cut
 import Lentils.Dirname
 import Lentils.Echo
+import Lentils.Expand
 import Lentils.False
+import Lentils.Fold
 import Lentils.Grep
 import Lentils.Head
 import Lentils.Printf
