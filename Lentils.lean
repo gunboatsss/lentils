@@ -9,10 +9,12 @@ import Lentils.Arch
 import Lentils.Basename
 import Lentils.Groups
 import Lentils.Hostid
+import Lentils.Join
 import Lentils.Id
 import Lentils.Logname
 import Lentils.Nl
 import Lentils.Nproc
+import Lentils.Paste
 import Lentils.Printenv
 import Lentils.Seq
 import Lentils.Tty
@@ -21,6 +23,7 @@ import Lentils.Uptime
 import Lentils.Users
 import Lentils.Whoami
 import Lentils.Cat
+import Lentils.Comm
 import Lentils.Common.Bytes
 import Lentils.Common.Errors
 import Lentils.Common.Float

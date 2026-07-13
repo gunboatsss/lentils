@@ -21,6 +21,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils hostid"
       IO.println ""
       IO.println "Print the numeric host identifier."
+  | "join" => do
+      IO.println "Usage: lentils join [file1 file2]"
+      IO.println ""
+      IO.println "Join lines of two files on a common field."
   | "logname" => do
       IO.println "Usage: lentils logname"
       IO.println ""
@@ -33,6 +37,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils nproc"
       IO.println ""
       IO.println "Print the number of processing units."
+  | "paste" => do
+      IO.println "Usage: lentils paste [-d delim] [-s] [file...]"
+      IO.println ""
+      IO.println "Merge lines of files."
   | "uname" => do
       IO.println "Usage: lentils uname [OPTION]..."
       IO.println ""
@@ -65,6 +73,10 @@ def printHelp (prog : String) : IO Unit :=
       IO.println "Usage: lentils cat [file...]"
       IO.println ""
       IO.println "Concatenate files to stdout."
+  | "comm" => do
+      IO.println "Usage: lentils comm [-123] file1 file2"
+      IO.println ""
+      IO.println "Compare two sorted files line by line."
   | "echo" => do
       IO.println "Usage: lentils echo [string...]"
       IO.println ""
@@ -244,7 +256,9 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "true"     => if hasHelp then printHelp "true" *> return 0 else Lentils.True.run args
   | "false"    => if hasHelp then printHelp "false" *> return 0 else Lentils.False.run args
   | "cat"      => if hasHelp then printHelp "cat" *> return 0 else Lentils.Cat.run args
+  | "comm"     => if hasHelp then printHelp "comm" *> return 0 else Lentils.Comm.run args
   | "echo"     => if hasHelp then printHelp "echo" *> return 0 else Lentils.Echo.run args
+  | "join"     => if hasHelp then printHelp "join" *> return 0 else Lentils.Join.run args
   | "expand"   => if hasHelp then printHelp "expand" *> return 0 else Lentils.Expand.run args
   | "fold"     => if hasHelp then printHelp "fold" *> return 0 else Lentils.Fold.run args
   | "pwd"      => if hasHelp then printHelp "pwd" *> return 0 else Lentils.Pwd.run args
@@ -267,6 +281,7 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
   | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
   | "nl"       => if hasHelp then printHelp "nl" *> return 0 else Lentils.Nl.run args
   | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
+  | "paste"    => if hasHelp then printHelp "paste" *> return 0 else Lentils.Paste.run args
   | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
   | "tty"      => if hasHelp then printHelp "tty" *> return 0 else Lentils.Tty.run args
   | "uname"    => if hasHelp then printHelp "uname" *> return 0 else Lentils.Uname.run args
@@ -288,8 +303,11 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
           IO.println "  groups    — print group memberships"
           IO.println "  hostid    — print numeric host identifier"
           IO.println "  id        — print user and group identity"
+          IO.println "  comm      — compare two sorted files"
           IO.println "  expand    — convert tabs to spaces"
           IO.println "  fold      — wrap lines at a specified width"
+          IO.println "  join      — join lines on a common field"
+          IO.println "  paste     — merge lines of files"
           IO.println "  logname   — print user's login name"
           IO.println "  nl        — number lines of input"
           IO.println "  printenv  — print environment variables"
