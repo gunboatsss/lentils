@@ -1,0 +1,21 @@
+#!/bin/bash
+# sha256sum.test — Tests for the sha256sum utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh sha256sum
+
+[ -f testing.sh ] && . testing.sh
+
+# sha256sum of empty input
+testing "sha256sum empty" \
+  'printf "" | "$UTIL"' \
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  -\n" "" ""
+
+# sha256sum of "abc"
+testing "sha256sum abc" \
+  'printf "abc" | "$UTIL"' \
+  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  -\n" "" ""
+
+# sha256sum of "hello"
+testing "sha256sum hello" \
+  'printf "hello" | "$UTIL"' \
+  "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  -\n" "" ""

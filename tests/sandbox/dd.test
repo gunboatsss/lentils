@@ -1,0 +1,56 @@
+#!/bin/bash
+# dd.test — Tests for the `dd` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh dd
+
+[ -f testing.sh ] && . testing.sh
+
+# dd basic copy stdin to stdout
+testing "dd basic copy" \
+  'printf "hello" | "$UTIL" 2>/dev/null' \
+  "hello" "" ""
+
+# dd with block size
+testing "dd block size" \
+  'printf "abcdef" | "$UTIL" bs=3 2>/dev/null' \
+  "abcdef" "" ""
+
+# dd with count
+testing "dd count" \
+  'printf "abcdefgh" | "$UTIL" bs=2 count=2 2>/dev/null' \
+  "abcd" "" ""
+
+# dd with skip
+testing "dd skip" \
+  'printf "abcdefgh" | "$UTIL" bs=2 skip=2 2>/dev/null' \
+  "efgh" "" ""
+
+# dd with ibs
+testing "dd ibs" \
+  'printf "abcdef" | "$UTIL" ibs=3 count=1 2>/dev/null' \
+  "abc" "" ""
+
+# dd with conv=lcase
+testing "dd lcase" \
+  'printf "HELLO" | "$UTIL" conv=lcase 2>/dev/null' \
+  "hello" "" ""
+
+# dd with conv=ucase
+testing "dd ucase" \
+  'printf "hello" | "$UTIL" conv=ucase 2>/dev/null' \
+  "HELLO" "" ""
+
+# dd with conv=swab
+testing "dd swab" \
+  'printf "abcdef" | "$UTIL" conv=swab bs=6 2>/dev/null' \
+  "badcfe" "" ""
+
+# dd writes status to stderr
+testing "dd status format" \
+  'printf "test" | "$UTIL" 2>/dev/null; printf "done"' \
+  "testdone" "" ""
+
+# dd read from file
+testing "dd ifile" \
+  'printf "testdata" > "$TESTDIR/dd_test_in.txt"; "$UTIL" if=dd_test_in.txt 2>/dev/null' \
+  "testdata" "" ""

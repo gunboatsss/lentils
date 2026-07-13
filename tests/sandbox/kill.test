@@ -1,0 +1,66 @@
+#!/bin/bash
+# kill.test — Tests for the `kill` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh kill
+
+[ -f testing.sh ] && . testing.sh
+
+# kill on non-existent PID → exit non-zero (both host and ours return 1)
+testing "kill non-existent pid" \
+  '"$UTIL" 9999999 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -9 on non-existent PID → exit non-zero
+testing "kill -9 on non-existent" \
+  '"$UTIL" -9 9999999 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -s with invalid signal name → exit non-zero
+testing "kill -s invalid signal" \
+  '"$UTIL" -s BOGUS 1 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -s with missing argument → exit non-zero
+testing "kill -s missing arg" \
+  '"$UTIL" -s 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill --signal with missing argument → exit non-zero
+testing "kill --signal missing arg" \
+  '"$UTIL" --signal 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill with no arguments → exit non-zero
+testing "kill no args" \
+  '"$UTIL" 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -l lists all signal names (both exit 0)
+testing "kill -l exits 0" \
+  '"$UTIL" -l >/dev/null 2>&1 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -s TERM on non-existent PID → exit non-zero
+testing "kill -s TERM non-existent" \
+  '"$UTIL" -s TERM 9999999 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill with numeric signal via -SIGNAL syntax → exit non-zero for non-existent
+testing "kill -15 non-existent" \
+  '"$UTIL" -15 9999999 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill multiple PIDs
+testing "kill multiple pids" \
+  '"$UTIL" 9999998 9999999 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill -l with exit status (both may have different output, but exit code should be 0)
+testing "kill -l exit status" \
+  '"$UTIL" -l 143 >/dev/null 2>&1 && echo "ok"' \
+  "ok\n" "" ""
+
+# kill with unknown signal name via -s
+testing "kill -s unknown signal" \
+  '"$UTIL" -s XYZZZ 1 2>/dev/null; test $? -ne 0 && echo "ok"' \
+  "ok\n" "" ""

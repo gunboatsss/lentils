@@ -1,0 +1,21 @@
+#!/bin/bash
+# sha1sum.test — Tests for the sha1sum utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh sha1sum
+
+[ -f testing.sh ] && . testing.sh
+
+# sha1sum of empty input
+testing "sha1sum empty" \
+  'printf "" | "$UTIL"' \
+  "da39a3ee5e6b4b0d3255bfef95601890afd80709  -\n" "" ""
+
+# sha1sum of "abc"
+testing "sha1sum abc" \
+  'printf "abc" | "$UTIL"' \
+  "a9993e364706816aba3e25717850c26c9cd0d89d  -\n" "" ""
+
+# sha1sum of "hello"
+testing "sha1sum hello" \
+  'printf "hello" | "$UTIL"' \
+  "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d  -\n" "" ""

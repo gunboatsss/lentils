@@ -1,0 +1,88 @@
+#!/bin/bash
+# expr.test — Tests for the `expr` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh expr
+
+[ -f testing.sh ] && . testing.sh
+
+# expr basic arithmetic
+testing "expr addition" \
+  '"$UTIL" 2 + 3' \
+  "5\n" "" ""
+
+testing "expr subtraction" \
+  '"$UTIL" 10 - 4' \
+  "6\n" "" ""
+
+testing "expr multiplication" \
+  '"$UTIL" 5 \* 3' \
+  "15\n" "" ""
+
+testing "expr division" \
+  '"$UTIL" 15 / 3' \
+  "5\n" "" ""
+
+testing "expr modulo" \
+  '"$UTIL" 17 % 5' \
+  "2\n" "" ""
+
+# expr comparison
+testing "expr equality true" \
+  '"$UTIL" 5 = 5' \
+  "1\n" "" ""
+
+testing "expr equality false" \
+  '"$UTIL" 5 = 6' \
+  "\n" "" ""
+
+testing "expr less than" \
+  '"$UTIL" 3 \< 5' \
+  "1\n" "" ""
+
+testing "expr greater than" \
+  '"$UTIL" 5 \> 3' \
+  "1\n" "" ""
+
+# expr logical
+testing "expr logical or" \
+  '"$UTIL" 0 \| 5' \
+  "5\n" "" ""
+
+testing "expr logical or truthy" \
+  '"$UTIL" 3 \| 5' \
+  "3\n" "" ""
+
+testing "expr logical and" \
+  '"$UTIL" 1 \& 5' \
+  "1\n" "" ""
+
+testing "expr logical and zero" \
+  '"$UTIL" 0 \& 5' \
+  "0\n" "" ""
+
+testing "expr logical and both zero" \
+  '"$UTIL" 0 \& 0' \
+  "0\n" "" ""
+
+# expr parentheses
+testing "expr parentheses" \
+  '"$UTIL" \( 2 + 3 \) \* 4' \
+  "20\n" "" ""
+
+# expr zero and negative
+testing "expr zero" \
+  '"$UTIL" 0' \
+  "0\n" "" ""
+
+testing "expr negative" \
+  '"$UTIL" -5' \
+  "-5\n" "" ""
+
+# expr inequality
+testing "expr not equal true" \
+  '"$UTIL" 5 != 6' \
+  "1\n" "" ""
+
+testing "expr not equal false" \
+  '"$UTIL" 5 != 5' \
+  "\n" "" ""

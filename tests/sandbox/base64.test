@@ -1,0 +1,55 @@
+#!/bin/bash
+# base64.test — Tests for the `base64` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh base64
+
+[ -f testing.sh ] && . testing.sh
+
+# base64 encode basic
+testing "base64 encode hello" \
+  'printf "hello" | "$UTIL"' \
+  "aGVsbG8=\n" "" ""
+
+testing "base64 encode empty" \
+  'printf "" | "$UTIL"' \
+  "\n" "" ""
+
+testing "base64 encode single char" \
+  'printf "h" | "$UTIL"' \
+  "aA==\n" "" ""
+
+testing "base64 encode two chars" \
+  'printf "he" | "$UTIL"' \
+  "aGU=\n" "" ""
+
+testing "base64 encode three chars" \
+  'printf "hel" | "$UTIL"' \
+  "aGVs\n" "" ""
+
+# base64 decode
+testing "base64 decode hello" \
+  'printf "aGVsbG8=" | "$UTIL" -d' \
+  "hello" "" ""
+
+testing "base64 decode single" \
+  'printf "aA==" | "$UTIL" -d' \
+  "h" "" ""
+
+testing "base64 decode two" \
+  'printf "aGU=" | "$UTIL" -d' \
+  "he" "" ""
+
+# base64 roundtrip
+testing "base64 roundtrip" \
+  'printf "hello world" | "$UTIL" | "$UTIL" -d' \
+  "hello world" "" ""
+
+# base64 with newlines
+testing "base64 encode with newline" \
+  'printf "hello\nworld" | "$UTIL"' \
+  "aGVsbG8Kd29ybGQ=\n" "" ""
+
+# base64 decode with wrapping
+testing "base64 decode with newline infix" \
+  '"$UTIL" -d' \
+  "hello" "" "aGVs\nbG8="

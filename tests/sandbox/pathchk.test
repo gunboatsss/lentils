@@ -1,0 +1,31 @@
+#!/bin/bash
+# pathchk.test — Tests for the `pathchk` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh pathchk
+
+[ -f testing.sh ] && . testing.sh
+
+# pathchk: valid path (no output = success)
+testing "pathchk valid path" \
+  '"$UTIL" /usr/bin 2>&1' \
+  "" "" ""
+
+# pathchk: valid simple name
+testing "pathchk valid name" \
+  '"$UTIL" file 2>&1' \
+  "" "" ""
+
+# pathchk: component within default length (255)
+testing "pathchk len ok" \
+  '"$UTIL" abcdefghijklmno 2>&1' \
+  "" "" ""
+
+# pathchk: portable check passes for short valid name
+testing "pathchk portable short" \
+  '"$UTIL" -p abc 2>&1' \
+  "" "" ""
+
+# pathchk: portable check with dash (valid char)
+testing "pathchk portable dash" \
+  '"$UTIL" -p "a-b" 2>&1' \
+  "" "" ""

@@ -1,0 +1,26 @@
+#!/bin/bash
+# md5sum.test — Tests for the md5sum utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh md5sum
+
+[ -f testing.sh ] && . testing.sh
+
+# md5sum of empty input
+testing "md5sum empty" \
+  'printf "" | "$UTIL"' \
+  "d41d8cd98f00b204e9800998ecf8427e  -\n" "" ""
+
+# md5sum of "hello"
+testing "md5sum hello" \
+  'printf "hello" | "$UTIL"' \
+  "5d41402abc4b2a76b9719d911017c592  -\n" "" ""
+
+# md5sum of "abc"
+testing "md5sum abc" \
+  'printf "abc" | "$UTIL"' \
+  "900150983cd24fb0d6963f7d28e17f72  -\n" "" ""
+
+# md5sum of a short string with newline
+testing "md5sum with newline" \
+  'printf "hello\n" | "$UTIL"' \
+  "b1946ac92492d2347c6235b4d2611184  -\n" "" ""

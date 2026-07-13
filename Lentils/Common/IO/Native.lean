@@ -201,4 +201,14 @@ opaque lstatAll (path : String) : IO (Array UInt64)
 @[extern "lean_coreutils_getmounts"]
 opaque getMounts : IO (Array String)
 
+/-- isatty(3): check if a file descriptor refers to a terminal.
+    Returns 1 if yes, 0 if no. -/
+@[extern "lean_coreutils_isatty"]
+opaque isatty (fd : UInt32) : IO UInt32
+
+/-- ttyname(3): return the terminal device path for a file descriptor.
+    Returns empty string if not a tty. -/
+@[extern "lean_coreutils_ttyname"]
+opaque ttyname (fd : UInt32) : IO String
+
 end Lentils.Common.IO.Native

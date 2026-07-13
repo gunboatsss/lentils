@@ -1,0 +1,36 @@
+#!/bin/bash
+# more.test — Tests for the `more` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh more
+#
+# In test commands:
+#   $UTIL = the utility invocation (host: /bin/more, ours: <OUR_BINARY> more)
+#
+# Note: `more` is interactive. These tests verify basic non-interactive
+# passthrough behavior when stdin is a pipe (no /dev/tty available).
+
+[ -f testing.sh ] && . testing.sh
+
+# more with no input should produce no output
+testing "more no input" \
+  '"$UTIL" < /dev/null' \
+  "" "" ""
+
+# more passing through a single line
+testing "more single line" \
+  '"$UTIL"' \
+  "hello\n" "" "hello"
+
+# more passing through multiple lines
+testing "more multiple lines" \
+  '"$UTIL"' \
+  "line1\nline2\nline3\n" "" "line1
+line2
+line3"
+
+# more with a short file (less than terminal height) should pass through
+testing "more short file" \
+  '"$UTIL"' \
+  "a\nb\nc\n" "" "a
+b
+c"

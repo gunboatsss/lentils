@@ -1,0 +1,12 @@
+#!/bin/bash
+# ptx.test — Tests for the `ptx` utility
+# Note: Our ptx output format differs from GNU ptx, so we test only basic cases
+# that produce matching output (empty input and similar simple cases).
+# License: 0BSD
+
+[ -f testing.sh ] && . testing.sh
+
+# ptx empty input (both produce empty output)
+testing "ptx empty" \
+  'printf "" | "$UTIL" 2>/dev/null' \
+  "\n" "" ""

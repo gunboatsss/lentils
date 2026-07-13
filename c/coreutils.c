@@ -767,6 +767,68 @@ LEAN_EXPORT lean_object *lean_coreutils_truncate_file(b_lean_obj_arg path,
     return lean_io_result_mk_ok(lean_box(0));
 }
 
+// ─── kill(2) for `kill` utility ──────────────────────────────────────────────
+
+// Send a signal to a process. pid is the process ID, sig is the signal number.
+// Returns an IO error on failure (e.g., ESRCH, EPERM).
+LEAN_EXPORT lean_object *lean_coreutils_kill(int32_t pid,
+                                              int32_t sig,
+                                              lean_object *w) {
+    (void)w;
+    if (kill((pid_t)pid, (int)sig) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── who: list logged-in users via utmpx ──────────────────────────────────────
+
+// Returns an Array of user entries from utmpx.
+// Each entry is a string formatted as:
+//   "user|line|time_sec|host"
+// where time_sec is the epoch seconds as a decimal string.
+// This allows the Lean side to format the output.
+LEAN_EXPORT lean_object *lean_coreutils_who(lean_object *w) {
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    setutxent();
+    struct utmpx *ut;
+    while ((ut = getutxent()) != NULL) {
+        if (ut->ut_type != USER_PROCESS) continue;
+        if (ut->ut_user[0] == '\0') continue;
+        // Build entry: user|line|time_sec|host
+        // We need to concat 4 pieces with '|' separators.
+        // First, compute total length
+        size_t user_len = strnlen(ut->ut_user, sizeof(ut->ut_user));
+        size_t line_len = strnlen(ut->ut_line, sizeof(ut->ut_line));
+        size_t host_len = strnlen(ut->ut_host, sizeof(ut->ut_host));
+        // Format the time as a decimal string
+        char time_buf[24];
+        int time_len = snprintf(time_buf, sizeof(time_buf), "%lld",
+                                (long long)ut->ut_tv.tv_sec);
+        if (time_len < 0) time_len = 0;
+        // Concatenate: user|line|time|host
+        size_t total = user_len + 1 + line_len + 1 + (size_t)time_len + 1 + host_len;
+        char *entry = (char *)malloc(total + 1);
+        if (!entry) continue;
+        char *p = entry;
+        memcpy(p, ut->ut_user, user_len); p += user_len; *p++ = '|';
+        memcpy(p, ut->ut_line, line_len); p += line_len; *p++ = '|';
+        memcpy(p, time_buf, (size_t)time_len); p += time_len; *p++ = '|';
+        memcpy(p, ut->ut_host, host_len); p += host_len;
+        *p = '\0';
+        lean_object *s = lean_mk_string(entry);
+        free(entry);
+        lean_object *cons = lean_alloc_ctor(1, 2, 0);
+        lean_ctor_set(cons, 0, s);
+        lean_ctor_set(cons, 1, lst);
+        lst = cons;
+    }
+    endutxent();
+    lean_object *arr = lean_array_mk(lst);
+    return lean_io_result_mk_ok(arr);
+}
+
 // ─── chown(2) for `install` utility ─────────────────────────────────────────
 
 // chown(2): change owner and/or group of a file.
@@ -817,6 +879,29 @@ LEAN_EXPORT lean_object *lean_coreutils_chown(b_lean_obj_arg path,
             lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
     }
     return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── isatty(3) for `mesg` utility ────────────────────────────────────────────
+
+// Check if a file descriptor refers to a terminal.
+// Returns 1 if yes, 0 if no.
+LEAN_EXPORT lean_object *lean_coreutils_isatty(uint32_t fd,
+                                                 lean_object *w) {
+    int r = isatty((int)fd);
+    return lean_io_result_mk_ok(lean_box((uint32_t)(r != 0 ? 1 : 0)));
+}
+
+// ─── ttyname(3) for `mesg` utility ────────────────────────────────────────────
+
+// Returns the terminal device path for a file descriptor.
+// Returns empty string if not a tty.
+LEAN_EXPORT lean_object *lean_coreutils_ttyname(uint32_t fd,
+                                                  lean_object *w) {
+    char *name = ttyname((int)fd);
+    if (name == NULL) {
+        return lean_io_result_mk_ok(lean_mk_string(""));
+    }
+    return lean_io_result_mk_ok(lean_mk_string(name));
 }
 
 // ─── getmntent(3) for `df` utility ──────────────────────────────────────────

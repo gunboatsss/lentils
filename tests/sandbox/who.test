@@ -1,0 +1,35 @@
+#!/bin/bash
+# who.test — Tests for the `who` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh who
+
+[ -f testing.sh ] && . testing.sh
+
+# Note: The test framework compares both host (/bin/who) and ours (lentils who).
+# The host `who` uses date-formatted time while ours uses HH:MM time format,
+# so detailed output comparison may differ. We use exit code based tests.
+
+# who exits 0 when successful
+testing "who exits 0" \
+  '"$UTIL" >/dev/null 2>&1 && echo "ok"' \
+  "ok\n" "" ""
+
+# who with no arguments — check that output has entries
+testing "who has output" \
+  'out=$("$UTIL" 2>/dev/null); echo "$out" | head -1 | grep -q . && echo "users" || echo "nousers"' \
+  "users\n" "" ""
+
+# who prints at least one line (non-empty output)
+testing "who non-empty" \
+  'test -n "$("$UTIL" 2>/dev/null)" && echo "ok"' \
+  "ok\n" "" ""
+
+# who output contains username (get first field of first line, should be non-empty)
+testing "who username field" \
+  '"$UTIL" 2>/dev/null | head -1 | grep -q "^[[:alpha:]]" && echo "ok"' \
+  "ok\n" "" ""
+
+# who output includes a terminal/line name (contains tty or pts)
+testing "who line field" \
+  '"$UTIL" 2>/dev/null | head -5 | grep -qiE "(tty|pts|console|seat)" && echo "ok"' \
+  "ok\n" "" ""

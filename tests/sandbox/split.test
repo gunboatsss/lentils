@@ -1,0 +1,44 @@
+#!/bin/bash
+# split.test — Tests for the `split` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh split
+#
+# Note: split creates files by design. Tests run in a sandbox via TESTDIR.
+# DESTRUCTIVE=0 means the test harness does NOT run inside bwrap.
+
+[ -f testing.sh ] && . testing.sh
+
+# split: splits on -l 2 creates output file xaa
+testing "split lines default" \
+  'printf "a\nb\nc\nd\n" | "$UTIL" -l 2 2>/dev/null; [ -f xaa ] && echo xaa_found; [ -f xab ] && echo xab_found' \
+  "xaa_found\nxab_found\n" "" ""
+
+# split: with prefix, creates files with that prefix
+testing "split prefix" \
+  'printf "a\nb\n" | "$UTIL" -l 1 mypref 2>/dev/null; [ -f myprefaa ] && echo found' \
+  "found\n" "" ""
+
+# split: numeric suffixes (-d) creates x00, x01, etc.
+testing "split numeric" \
+  'printf "a\nb\nc\n" | "$UTIL" -d -l 1 2>/dev/null; [ -f x00 ] && echo f0; [ -f x01 ] && echo f1; [ -f x02 ] && echo f2' \
+  "f0\nf1\nf2\n" "" ""
+
+# split: bytes mode
+testing "split bytes" \
+  'printf "abcdef" | "$UTIL" -b 2 2>/dev/null; [ -f xaa ] && echo f_aa; [ -f xab ] && echo f_ab; [ -f xac ] && echo f_ac' \
+  "f_aa\nf_ab\nf_ac\n" "" ""
+
+# split: suffix length with -a
+testing "split suffix length" \
+  'printf "a\n" | "$UTIL" -a 3 -l 1 2>/dev/null; [ -f xaaa ] && echo found' \
+  "found\n" "" ""
+
+# split: numeric with suffix length
+testing "split numeric suffix len" \
+  'printf "a\nb\n" | "$UTIL" -d -a 3 -l 1 2>/dev/null; [ -f x000 ] && echo f0; [ -f x001 ] && echo f1' \
+  "f0\nf1\n" "" ""
+
+# split: content check in bytes mode
+testing "split content check" \
+  'printf "hello" | "$UTIL" -b 3 2>/dev/null; [ -f xaa ] && cat xaa; echo ""; [ -f xab ] && cat xab; echo ""' \
+  "hel\nlo\n\n" "" ""
