@@ -10,6 +10,64 @@ Since Lean 4 main doesn't receive argv[0], use wrapper scripts
 
 import Lentils
 
+/-- An applet registered in the multicall binary. -/
+structure Applet where
+  name : String
+  run : List String → IO UInt32
+  descr : String
+
+/-- All registered applets. -/
+def applets : List Applet :=
+  [
+    { name := "arch",     run := Lentils.Arch.run,     descr := "print machine architecture" },
+    { name := "basename", run := Lentils.Basename.run, descr := "strip directory and suffix from filenames" },
+    { name := "cat",      run := Lentils.Cat.run,      descr := "concatenate files to stdout" },
+    { name := "comm",     run := Lentils.Comm.run,     descr := "compare two sorted files" },
+    { name := "cut",      run := Lentils.Cut.run,      descr := "extract sections from each line of files" },
+    { name := "dirname",  run := Lentils.Dirname.run,  descr := "strip last component from file name" },
+    { name := "echo",     run := Lentils.Echo.run,     descr := "write arguments to stdout" },
+    { name := "env",      run := Lentils.Env.run,      descr := "run a command with modified environment" },
+    { name := "expand",   run := Lentils.Expand.run,   descr := "convert tabs to spaces" },
+    { name := "false",    run := Lentils.False.run,    descr := "exit with status 1" },
+    { name := "fold",     run := Lentils.Fold.run,     descr := "wrap lines at a specified width" },
+    { name := "grep",     run := Lentils.Grep.run,     descr := "print lines matching a pattern" },
+    { name := "groups",   run := Lentils.Groups.run,   descr := "print group memberships" },
+    { name := "head",     run := Lentils.Head.run,     descr := "output the first part of files" },
+    { name := "hostid",   run := Lentils.Hostid.run,   descr := "print numeric host identifier" },
+    { name := "id",       run := Lentils.Id.run,       descr := "print user and group identity" },
+    { name := "join",     run := Lentils.Join.run,     descr := "join lines on a common field" },
+    { name := "logname",  run := Lentils.Logname.run,  descr := "print user's login name" },
+    { name := "nl",       run := Lentils.Nl.run,       descr := "number lines of input" },
+    { name := "nproc",    run := Lentils.Nproc.run,    descr := "print number of processing units" },
+    { name := "od",       run := Lentils.Od.run,       descr := "dump files in octal format" },
+    { name := "paste",    run := Lentils.Paste.run,    descr := "merge lines of files" },
+    { name := "printenv", run := Lentils.Printenv.run, descr := "print environment variables" },
+    { name := "printf",   run := Lentils.Printf.run,   descr := "write formatted output" },
+    { name := "pwd",      run := Lentils.Pwd.run,      descr := "print working directory" },
+    { name := "readlink", run := Lentils.Readlink.run, descr := "print target of a symbolic link" },
+    { name := "realpath", run := Lentils.Realpath.run, descr := "print canonical absolute path" },
+    { name := "seq",      run := Lentils.Seq.run,      descr := "print sequence of numbers" },
+    { name := "shuf",     run := Lentils.Shuf.run,     descr := "shuffle lines of input" },
+    { name := "sleep",    run := Lentils.Sleep.run,    descr := "suspend execution for an interval" },
+    { name := "sort",     run := Lentils.Sort.run,     descr := "sort lines of text files" },
+    { name := "tail",     run := Lentils.Tail.run,     descr := "output the last part of files" },
+    { name := "tee",      run := Lentils.Tee.run,      descr := "read stdin and write to stdout and files" },
+    { name := "test",     run := Lentils.Test.run,     descr := "check file types and compare values" },
+    { name := "[",        run := Lentils.Test.run,     descr := "check file types and compare values" },
+    { name := "tr",       run := Lentils.Tr.run,       descr := "translate or delete characters" },
+    { name := "true",     run := Lentils.True.run,     descr := "exit with status 0" },
+    { name := "tsort",    run := Lentils.Tsort.run,    descr := "topological sort" },
+    { name := "tty",      run := Lentils.Tty.run,      descr := "print terminal file name" },
+    { name := "uname",    run := Lentils.Uname.run,    descr := "print system information" },
+    { name := "unexpand", run := Lentils.Unexpand.run, descr := "convert spaces to tabs" },
+    { name := "uniq",     run := Lentils.Uniq.run,     descr := "report or omit repeated lines" },
+    { name := "uptime",   run := Lentils.Uptime.run,   descr := "print system uptime" },
+    { name := "users",    run := Lentils.Users.run,    descr := "print logged-in user names" },
+    { name := "wc",       run := Lentils.Wc.run,       descr := "word, line, and byte count" },
+    { name := "whoami",   run := Lentils.Whoami.run,   descr := "print effective user name" },
+    { name := "yes",      run := Lentils.Yes.run,      descr := "repeat a string until killed" },
+  ]
+
 /-- Print per-utility help for the given applet. -/
 def printHelp (prog : String) : IO Unit :=
   match prog with
@@ -268,112 +326,25 @@ def printHelp (prog : String) : IO Unit :=
       IO.eprintln s!"{prog}: no help available"
 
 /--
+Find an applet by name.
+-/
+def findApplet (name : String) : Option Applet :=
+  applets.find? (λ a => a.name = name)
+
+/--
 Dispatch to the appropriate utility based on the program name.
 Supports explicit invocation (`lentils cat file`).
 Symlink invocation requires wrapper scripts.
 -/
 partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
-  -- Check for --help in any utility's args
-  let hasHelp := args == ["--help"]
   match prog with
-  | "true"     => if hasHelp then printHelp "true" *> return 0 else Lentils.True.run args
-  | "false"    => if hasHelp then printHelp "false" *> return 0 else Lentils.False.run args
-  | "cat"      => if hasHelp then printHelp "cat" *> return 0 else Lentils.Cat.run args
-  | "comm"     => if hasHelp then printHelp "comm" *> return 0 else Lentils.Comm.run args
-  | "echo"     => if hasHelp then printHelp "echo" *> return 0 else Lentils.Echo.run args
-  | "join"     => if hasHelp then printHelp "join" *> return 0 else Lentils.Join.run args
-  | "env"      => if hasHelp then printHelp "env" *> return 0 else Lentils.Env.run args
-  | "expand"   => if hasHelp then printHelp "expand" *> return 0 else Lentils.Expand.run args
-  | "fold"     => if hasHelp then printHelp "fold" *> return 0 else Lentils.Fold.run args
-  | "pwd"      => if hasHelp then printHelp "pwd" *> return 0 else Lentils.Pwd.run args
-  | "head"     => if hasHelp then printHelp "head" *> return 0 else Lentils.Head.run args
-  | "tail"     => if hasHelp then printHelp "tail" *> return 0 else Lentils.Tail.run args
-  | "wc"       => if hasHelp then printHelp "wc" *> return 0 else Lentils.Wc.run args
-  | "uniq"     => if hasHelp then printHelp "uniq" *> return 0 else Lentils.Uniq.run args
-  | "cut"      => if hasHelp then printHelp "cut" *> return 0 else Lentils.Cut.run args
-  | "tr"       => if hasHelp then printHelp "tr" *> return 0 else Lentils.Tr.run args
-  | "sort"     => if hasHelp then printHelp "sort" *> return 0 else Lentils.Sort.run args
-  | "test"     => if hasHelp then printHelp "test" *> return 0 else Lentils.Test.run args
-  | "["        => if hasHelp then printHelp "test" *> return 0 else Lentils.Test.run args
-  | "grep"     => if hasHelp then printHelp "grep" *> return 0 else Lentils.Grep.run args
-  | "groups"   => if hasHelp then printHelp "groups" *> return 0 else Lentils.Groups.run args
-  | "id"       => if hasHelp then printHelp "id" *> return 0 else Lentils.Id.run args
-  | "printenv" => if hasHelp then printHelp "printenv" *> return 0 else Lentils.Printenv.run args
-  | "users"    => if hasHelp then printHelp "users" *> return 0 else Lentils.Users.run args
-  | "arch"     => if hasHelp then printHelp "arch" *> return 0 else Lentils.Arch.run args
-  | "hostid"   => if hasHelp then printHelp "hostid" *> return 0 else Lentils.Hostid.run args
-  | "logname"  => if hasHelp then printHelp "logname" *> return 0 else Lentils.Logname.run args
-  | "nl"       => if hasHelp then printHelp "nl" *> return 0 else Lentils.Nl.run args
-  | "nproc"    => if hasHelp then printHelp "nproc" *> return 0 else Lentils.Nproc.run args
-  | "od"       => if hasHelp then printHelp "od" *> return 0 else Lentils.Od.run args
-  | "paste"    => if hasHelp then printHelp "paste" *> return 0 else Lentils.Paste.run args
-  | "seq"      => if hasHelp then printHelp "seq" *> return 0 else Lentils.Seq.run args
-  | "shuf"     => if hasHelp then printHelp "shuf" *> return 0 else Lentils.Shuf.run args
-  | "tty"      => if hasHelp then printHelp "tty" *> return 0 else Lentils.Tty.run args
-  | "tsort"    => if hasHelp then printHelp "tsort" *> return 0 else Lentils.Tsort.run args
-  | "unexpand" => if hasHelp then printHelp "unexpand" *> return 0 else Lentils.Unexpand.run args
-  | "uname"    => if hasHelp then printHelp "uname" *> return 0 else Lentils.Uname.run args
-  | "uptime"   => if hasHelp then printHelp "uptime" *> return 0 else Lentils.Uptime.run args
-  | "whoami"   => if hasHelp then printHelp "whoami" *> return 0 else Lentils.Whoami.run args
-  | "basename" => if hasHelp then printHelp "basename" *> return 0 else Lentils.Basename.run args
-  | "dirname"  => if hasHelp then printHelp "dirname" *> return 0 else Lentils.Dirname.run args
-  | "yes"      => if hasHelp then printHelp "yes" *> return 0 else Lentils.Yes.run args
-  | "sleep"    => if hasHelp then printHelp "sleep" *> return 0 else Lentils.Sleep.run args
-  | "tee"      => if hasHelp then printHelp "tee" *> return 0 else Lentils.Tee.run args
-  | "printf"   => if hasHelp then printHelp "printf" *> return 0 else Lentils.Printf.run args
-  | "readlink" => if hasHelp then printHelp "readlink" *> return 0 else Lentils.Readlink.run args
-  | "realpath" => if hasHelp then printHelp "realpath" *> return 0 else Lentils.Realpath.run args
   | "lentils" =>
       match args with
       | [] => do
           IO.println "Usage: lentils <applet> [args...]"
           IO.println "Available applets:"
-          IO.println "  arch      — print machine architecture"
-          IO.println "  basename  — strip directory and suffix from filenames"
-          IO.println "  groups    — print group memberships"
-          IO.println "  hostid    — print numeric host identifier"
-          IO.println "  id        — print user and group identity"
-          IO.println "  comm      — compare two sorted files"
-          IO.println "  expand    — convert tabs to spaces"
-          IO.println "  fold      — wrap lines at a specified width"
-          IO.println "  join      — join lines on a common field"
-          IO.println "  paste     — merge lines of files"
-          IO.println "  logname   — print user's login name"
-          IO.println "  nl        — number lines of input"
-          IO.println "  printenv  — print environment variables"
-          IO.println "  nproc     — print number of processing units"
-          IO.println "  seq       — print sequence of numbers"
-          IO.println "  tty       — print terminal file name"
-          IO.println "  uname     — print system information"
-          IO.println "  uptime    — print system uptime"
-          IO.println "  users     — print logged-in user names"
-          IO.println "  whoami    — print effective user name"
-          IO.println "  cat       — concatenate files to stdout"
-          IO.println "  cut       — extract sections from each line of files"
-          IO.println "  dirname   — strip last component from file name"
-          IO.println "  echo      — write arguments to stdout"
-          IO.println "  env       — run a command with modified environment"
-          IO.println "  false     — exit with status 1"
-          IO.println "  grep      — print lines matching a pattern"
-          IO.println "  head      — output the first part of files"
-          IO.println "  printf    — write formatted output"
-          IO.println "  pwd       — print working directory"
-          IO.println "  readlink  — print target of a symbolic link"
-          IO.println "  realpath  — print canonical absolute path"
-          IO.println "  od        — dump files in octal format"
-          IO.println "  shuf      — shuffle lines of input"
-          IO.println "  sleep     — suspend execution for an interval"
-          IO.println "  sort      — sort lines of text files"
-          IO.println "  tail      — output the last part of files"
-          IO.println "  tee       — read stdin and write to stdout and files"
-          IO.println "  test      — check file types and compare values"
-          IO.println "  tr        — translate or delete characters"
-          IO.println "  true      — exit with status 0"
-          IO.println "  tsort     — topological sort"
-          IO.println "  unexpand  — convert spaces to tabs"
-          IO.println "  uniq      — report or omit repeated lines"
-          IO.println "  wc        — word, line, and byte count"
-          IO.println "  yes       — repeat a string until killed"
+          for a in applets do
+            IO.println s!"  {a.name}  — {a.descr}"
           return 0
       | "--help" :: _ => dispatch "lentils" []
       | applet :: "--help" :: _ => printHelp applet *> return 0
@@ -386,9 +357,16 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
       match args with
       | [] => dispatch "lentils" []
       | applet :: _ => printHelp applet *> return 0
-  | _ => do
-      IO.eprintln s!"{prog}: unknown applet"
-      return 127
+  | _ =>
+      match findApplet prog with
+      | some a =>
+        if args == ["--help"] then
+          printHelp a.name *> return 0
+        else
+          a.run args
+      | none => do
+          IO.eprintln s!"{prog}: unknown applet"
+          return 127
 
 /--
 Main entry point. Extracts the program name from argv[0]
