@@ -29,12 +29,15 @@ def exitError (prog : String) (file? : Option String) (msg : String) : IO UInt32
   return 1
 
 /--
-Print a usage message to stderr and return exit code 2
-(standard for usage errors per POSIX).
+Print a usage message to stderr matching GNU coreutils format:
+  prog: missing file operand
+  Try 'prog --help' for more information.
+Returns exit code 1 (GNU convention).
 -/
-def exitUsage (prog : String) (usage : String) : IO UInt32 := do
-  IO.eprintln s!"Usage: {prog} {usage}"
-  return 2
+def exitUsage (prog : String) (argMsg : String) : IO UInt32 := do
+  IO.eprintln s!"{prog}: {argMsg}"
+  IO.eprintln s!"Try '{prog} --help' for more information."
+  return 1
 
 /--
 Convert common errno values to human-readable strings.

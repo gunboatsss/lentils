@@ -1,0 +1,43 @@
+#!/bin/bash
+# du.test — Tests for the `du` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh du
+
+[ -f testing.sh ] && . testing.sh
+
+# du with no args (current dir)
+testing "du default" '"$UTIL" -s . | grep -q "\." && echo yes' "yes\n" "" ""
+
+# du -s (summarize)
+testing "du summarize" '"$UTIL" -s /tmp | head -1 | grep -q "/tmp" && echo yes' "yes\n" "" ""
+
+# du -h (human)
+testing "du human" '"$UTIL" -sh /tmp | head -1 | grep -q "/tmp" && echo yes' "yes\n" "" ""
+
+# du with non-existent file
+testing "du nonexistent" '"$UTIL" /tmp/nonexistent_file_xyz_123 2>&1; echo $?' "1\n" "" ""
+
+# du -a (all, count files)
+mkdir -p "$TESTDIR/testdir_d"
+touch "$TESTDIR/testdir_d/file_a.txt"
+echo "hello" > "$TESTDIR/testdir_d/file_a.txt"
+mkdir -p "$TESTDIR/testdir_d/sub"
+touch "$TESTDIR/testdir_d/sub/file_b.txt"
+testing "du all" '"$UTIL" -a '"$TESTDIR/testdir_d"' 2>&1 | grep -q "file_a.txt" && echo yes' "yes\n" "" ""
+
+# du with --max-depth
+testing "du max-depth" '"$UTIL" --max-depth 0 '"$TESTDIR/testdir_d"' 2>&1 | grep -q "'"$TESTDIR/testdir_d"'" && echo yes' "yes\n" "" ""
+
+# du with -B (block size)
+testing "du blocksize" '"$UTIL" -B 1024 -s '"$TESTDIR/testdir_d"' 2>&1 | grep -q "'"$TESTDIR/testdir_d"'" && echo yes' "yes\n" "" ""
+
+# du directory without summarize
+mkdir -p "$TESTDIR/testdir_d2/d1" "$TESTDIR/testdir_d2/d2"
+touch "$TESTDIR/testdir_d2/file_x.txt"
+testing "du dir" '"$UTIL" '"$TESTDIR/testdir_d2"' 2>&1 | grep -q "'"$TESTDIR/testdir_d2"'" && echo yes' "yes\n" "" ""
+
+# du of a regular file
+testing "du file" '"$UTIL" '"$TESTDIR/testdir_d/file_a.txt"' 2>&1 | grep -q "file_a.txt" && echo yes' "yes\n" "" ""
+
+# du --help
+testing "du help" '"$UTIL" --help 2>&1 | grep -q "du" && echo yes' "yes\n" "" ""

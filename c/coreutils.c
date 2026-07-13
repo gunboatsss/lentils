@@ -21,9 +21,11 @@
 #include <spawn.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <mntent.h>
 
 // Process-wide environment pointer (POSIX). Declared extern here so the
 // fork/exec helpers can pass it to execve().
@@ -644,5 +646,232 @@ LEAN_EXPORT lean_object *lean_coreutils_gettimeofday(lean_object *w) {
     // Return as UInt64: (usec << 32) | (sec & 0xFFFFFFFF)
     uint64_t packed = ((uint64_t)(uint32_t)tv.tv_usec << 32) | (uint64_t)(uint32_t)tv.tv_sec;
     return lean_io_result_mk_ok(lean_box_uint64(packed));
+}
+
+// ─── stat(2) helpers for du, df, stat utilities ───────────────────────────
+
+// Helper: build stat array from struct stat
+static lean_object *stat_to_array(const struct stat *st) {
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    uint64_t vals[10] = {
+        (uint64_t)st->st_mode,
+        (uint64_t)st->st_size,
+        (uint64_t)st->st_nlink,
+        (uint64_t)st->st_uid,
+        (uint64_t)st->st_gid,
+        (uint64_t)st->st_blocks,
+        (uint64_t)st->st_blksize,
+        (uint64_t)st->st_dev,
+        (uint64_t)st->st_ino,
+        (uint64_t)st->st_rdev
+    };
+    for (int i = 9; i >= 0; i--) {
+        lean_object *cons = lean_alloc_ctor(1, 2, 0);
+        lean_ctor_set(cons, 0, lean_box_uint64(vals[i]));
+        lean_ctor_set(cons, 1, lst);
+        lst = cons;
+    }
+    return lean_array_mk(lst);
+}
+
+// Returns stat info as a Lean Array of UInt64 values using stat(2):
+//   [mode, size, nlink, uid, gid, blocks, blksize, dev, ino, rdev]
+// Returns an IO error if the path cannot be stat'd.
+LEAN_EXPORT lean_object *lean_coreutils_stat_all(b_lean_obj_arg path,
+                                               lean_object *w) {
+    struct stat st;
+    if (stat(lean_string_cstr(path), &st) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(stat_to_array(&st));
+}
+
+// lstat(2): same as stat_all but uses lstat (does not follow symlinks).
+LEAN_EXPORT lean_object *lean_coreutils_lstat_all(b_lean_obj_arg path,
+                                                lean_object *w) {
+    struct stat st;
+    if (lstat(lean_string_cstr(path), &st) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(stat_to_array(&st));
+}
+
+// ─── statvfs(2) for `df` utility ─────────────────────────────────────────
+
+// Returns statvfs info as a Lean Array of UInt64 values:
+//   [f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_namemax]
+// Returns an IO error if the path cannot be statvfs'd.
+LEAN_EXPORT lean_object *lean_coreutils_statvfs_all(b_lean_obj_arg path,
+                                                    lean_object *w) {
+    struct statvfs sv;
+    if (statvfs(lean_string_cstr(path), &sv) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    uint64_t vals[9] = {
+        (uint64_t)sv.f_bsize,
+        (uint64_t)sv.f_frsize,
+        (uint64_t)sv.f_blocks,
+        (uint64_t)sv.f_bfree,
+        (uint64_t)sv.f_bavail,
+        (uint64_t)sv.f_files,
+        (uint64_t)sv.f_ffree,
+        (uint64_t)sv.f_favail,
+        (uint64_t)sv.f_namemax
+    };
+    for (int i = 8; i >= 0; i--) {
+        lean_object *cons = lean_alloc_ctor(1, 2, 0);
+        lean_ctor_set(cons, 0, lean_box_uint64(vals[i]));
+        lean_ctor_set(cons, 1, lst);
+        lst = cons;
+    }
+    lean_object *arr = lean_array_mk(lst);
+    return lean_io_result_mk_ok(arr);
+}
+
+// ─── truncate(2) for `truncate` utility ───────────────────────────────────
+
+// truncate(2) — fails on non-existent files
+LEAN_EXPORT lean_object *lean_coreutils_truncate(b_lean_obj_arg path,
+                                                  uint64_t size,
+                                                  lean_object *w) {
+    if (truncate(lean_string_cstr(path), (off_t)size) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// truncate with file creation: open(2) + ftruncate(2) to create non-existent files.
+// If the file does not exist, creates it with mode 0666 (umask applies).
+// If the file exists, truncates it to the given size (or extends with holes).
+LEAN_EXPORT lean_object *lean_coreutils_truncate_file(b_lean_obj_arg path,
+                                                       uint64_t size,
+                                                       lean_object *w) {
+    const char *p = lean_string_cstr(path);
+    int fd = open(p, O_CREAT | O_WRONLY, 0666);
+    if (fd < 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    if (ftruncate(fd, (off_t)size) != 0) {
+        int saved_errno = errno;
+        close(fd);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(saved_errno, lean_mk_string(strerror(saved_errno))));
+    }
+    close(fd);
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── chown(2) for `install` utility ─────────────────────────────────────────
+
+// chown(2): change owner and/or group of a file.
+// If `owner` or `group` is empty string, that component is left unchanged.
+LEAN_EXPORT lean_object *lean_coreutils_chown(b_lean_obj_arg path,
+                                               b_lean_obj_arg owner,
+                                               b_lean_obj_arg group,
+                                               lean_object *w) {
+    const char *p = lean_string_cstr(path);
+    const char *o = lean_string_cstr(owner);
+    const char *g = lean_string_cstr(group);
+    uid_t uid = (uid_t)-1;
+    gid_t gid = (gid_t)-1;
+    
+    if (o && o[0]) {
+        struct passwd *pw = getpwnam(o);
+        if (pw == NULL) {
+            // Try numeric
+            char *endptr;
+            long n = strtol(o, &endptr, 10);
+            if (*endptr == '\0') {
+                uid = (uid_t)n;
+            } else {
+                return lean_io_result_mk_error(
+                    lean_mk_io_error_other_error(EINVAL, lean_mk_string("invalid owner")));
+            }
+        } else {
+            uid = pw->pw_uid;
+        }
+    }
+    if (g && g[0]) {
+        struct group *gr = getgrnam(g);
+        if (gr == NULL) {
+            char *endptr;
+            long n = strtol(g, &endptr, 10);
+            if (*endptr == '\0') {
+                gid = (gid_t)n;
+            } else {
+                return lean_io_result_mk_error(
+                    lean_mk_io_error_other_error(EINVAL, lean_mk_string("invalid group")));
+            }
+        } else {
+            gid = gr->gr_gid;
+        }
+    }
+    if (chown(p, uid, gid) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── getmntent(3) for `df` utility ──────────────────────────────────────────
+
+// Returns a list of mounted filesystem paths as a Lean Array of strings.
+// Reads /etc/mtab (or /proc/mounts) via getmntent().
+// Returns empty array on error.
+LEAN_EXPORT lean_object *lean_coreutils_getmounts(lean_object *w) {
+    FILE *mtab = setmntent("/etc/mtab", "r");
+    if (!mtab) {
+        mtab = setmntent("/proc/mounts", "r");
+        if (!mtab) {
+            // Fallback: try reading /proc/mounts directly
+            FILE *f = fopen("/proc/mounts", "r");
+            if (!f) {
+                return lean_io_result_mk_ok(lean_array_mk(lean_alloc_ctor(0, 0, 0)));
+            }
+            // Simple parsing: second field is mount point
+            lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+            char line[4096];
+            while (fgets(line, sizeof(line), f)) {
+                char mnt[4096] = {0};
+                // Skip first field (device), get second field (mount point)
+                char *p = line;
+                while (*p && *p != ' ') p++;
+                if (*p) p++;
+                int i = 0;
+                while (*p && *p != ' ' && i < 4095) {
+                    mnt[i++] = *p++;
+                }
+                mnt[i] = '\0';
+                if (mnt[0]) {
+                    lean_object *s = lean_mk_string(mnt);
+                    lean_object *cons = lean_alloc_ctor(1, 2, 0);
+                    lean_ctor_set(cons, 0, s);
+                    lean_ctor_set(cons, 1, lst);
+                    lst = cons;
+                }
+            }
+            fclose(f);
+            return lean_io_result_mk_ok(lean_array_mk(lst));
+        }
+    }
+    lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
+    struct mntent *mnt;
+    while ((mnt = getmntent(mtab)) != NULL) {
+        if (mnt->mnt_dir && mnt->mnt_dir[0]) {
+            lean_object *s = lean_mk_string(mnt->mnt_dir);
+            lean_object *cons = lean_alloc_ctor(1, 2, 0);
+            lean_ctor_set(cons, 0, s);
+            lean_ctor_set(cons, 1, lst);
+            lst = cons;
+        }
+    }
+    endmntent(mtab);
+    return lean_io_result_mk_ok(lean_array_mk(lst));
 }
 

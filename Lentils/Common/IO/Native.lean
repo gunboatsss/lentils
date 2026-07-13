@@ -173,4 +173,32 @@ opaque statMode (path : String) : IO UInt32
 @[extern "lean_coreutils_gettimeofday"]
 opaque gettimeofday : IO UInt64
 
+/-- stat(2): return all stat fields as an Array of UInt64:
+    [mode, size, nlink, uid, gid, blocks, blksize, dev, ino, rdev].
+    Throws on failure. -/
+@[extern "lean_coreutils_stat_all"]
+opaque statAll (path : String) : IO (Array UInt64)
+
+/-- statvfs(2): return filesystem info as an Array of UInt64:
+    [f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_namemax].
+    Throws on failure. -/
+@[extern "lean_coreutils_statvfs_all"]
+opaque statvfsAll (path : String) : IO (Array UInt64)
+
+/-- truncate(2): truncate a file to a given size. Fails on non-existent files. -/
+@[extern "lean_coreutils_truncate"]
+opaque truncate (path : String) (size : UInt64) : IO Unit
+
+/-- truncate with file creation (open+ftruncate): creates non-existent files. -/
+@[extern "lean_coreutils_truncate_file"]
+opaque truncateFile (path : String) (size : UInt64) : IO Unit
+
+/-- lstat(2): same as statAll but uses lstat (does not follow symlinks). -/
+@[extern "lean_coreutils_lstat_all"]
+opaque lstatAll (path : String) : IO (Array UInt64)
+
+/-- getmntent(3): return list of mounted filesystem paths as an Array of strings. -/
+@[extern "lean_coreutils_getmounts"]
+opaque getMounts : IO (Array String)
+
 end Lentils.Common.IO.Native

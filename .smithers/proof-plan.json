@@ -1,0 +1,40 @@
+{
+  "goal": "Strengthen proofs for utilities with weak/no proofs",
+  "groups": [
+    {
+      "title": "System Info — /proc readers",
+      "note": "All read /proc files and format output. Proofs: valid output formats, /proc parsing correctness, edge cases (missing fields).",
+      "utilities": ["Arch", "Hostid", "Logname", "Nproc", "Tty", "Uname", "Uptime", "Whoami"]
+    },
+    {
+      "title": "User/Environment — FFI + string matching",
+      "note": "All use FFI (environ, getpwuid, getgrgid, getutxent) or match KEY=VALUE strings. Proofs: string matching, parsing line formats, empty/edge cases.",
+      "utilities": ["Groups", "Id", "Users", "Printenv", "Env", "Printf"]
+    },
+    {
+      "title": "Path Operations — string parsing",
+      "note": "All parse path strings. Proofs: path component extraction, edge cases (root, empty, relative).",
+      "utilities": ["Readlink", "Realpath", "Mv"]
+    },
+    {
+      "title": "Text Transform — pure string/char processing",
+      "note": "All transform text character-by-character. Proofs: length preservation, roundtrip (expand/unexpand inverse), char mapping, edge cases.",
+      "utilities": ["Expand", "Fold", "Nl", "Od", "Paste", "Seq", "Unexpand"]
+    },
+    {
+      "title": "Comparison/Merge — list operations",
+      "note": "All compare or merge sorted lists. Proofs: ordering invariants, field extraction, line counting.",
+      "utilities": ["Comm", "Join", "Cksum"]
+    },
+    {
+      "title": "Boolean — trivial",
+      "note": "True returns true, False returns false. Minimal proofs needed — just add roundtrip examples.",
+      "utilities": ["True", "False"]
+    },
+    {
+      "title": "Random/Time — IO-bound",
+      "note": "Shuf uses IO.rand (hard to prove deterministically). Uptime parses /proc/uptime (Float-based). Add what we can.",
+      "utilities": ["Shuf", "Uptime"]
+    }
+  ]
+}

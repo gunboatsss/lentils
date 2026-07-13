@@ -1,0 +1,27 @@
+#!/bin/bash
+# df.test — Tests for the `df` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh df
+
+[ -f testing.sh ] && . testing.sh
+
+# df defaults to /
+testing "df default" '"$UTIL" 2>&1 | grep -q "Filesystem" && echo yes' "yes\n" "" ""
+
+# df / (make sure it outputs something with /)
+testing "df root" '"$UTIL" / 2>&1 | grep -q "/" && echo yes' "yes\n" "" ""
+
+# df with -h
+testing "df human" '"$UTIL" -h / 2>&1 | grep -q "/" && echo yes' "yes\n" "" ""
+
+# df with -B (block size)
+testing "df blocksize" '"$UTIL" -B 4096 / 2>&1 | grep -q "/" && echo yes' "yes\n" "" ""
+
+# df with --block-size (long form)
+testing "df block-size long" '"$UTIL" --block-size 2048 / 2>&1 | grep -q "/" && echo yes' "yes\n" "" ""
+
+# df /tmp (check header is shown)
+testing "df tmp" '"$UTIL" /tmp 2>&1 | grep -q "Filesystem" && echo yes' "yes\n" "" ""
+
+# df --help
+testing "df help" '"$UTIL" --help 2>&1 | grep -q "df" && echo yes' "yes\n" "" ""

@@ -1,29 +1,29 @@
 {
   "batches": [
     {
-      "title": "Batch A — File Operations (Pure Lean IO)",
-      "applets": ["mkdir", "mv", "ls", "cp", "touch"],
-      "specialNote": "All use pure Lean IO primitives (IO.FS.createDirAll, IO.FS.rename, System.FilePath.readDir, IO.FS.readBinFile/writeBinFile, IO.FS.Handle.mk). NO C FFI needed."
+      "title": "Batch F — File System Query",
+      "applets": ["du", "df", "stat", "truncate", "install"],
+      "specialNote": "All need stat(2) or statvfs(2) FFI. Add lean_coreutils_stat(path) → returns mode/size/nlink/uid/gid. lean_coreutils_statvfs(path) → returns total/available blocks. lean_coreutils_truncate(path, size) → truncate(2). install combines cp + stat + chmod."
     },
     {
-      "title": "Batch B — File Operations (C FFI)",
-      "applets": ["rm", "rmdir", "ln", "chmod"],
-      "specialNote": "Need C FFI: unlink(2), rmdir(2), symlink(2), link(2), chmod(2). Add lean_coreutils_* functions to c/coreutils.c."
+      "title": "Batch G — Process/Signals",
+      "applets": ["kill", "who"],
+      "specialNote": "kill: needs kill(2) FFI (lean_coreutils_kill(pid, sig)). who: uses same getutxent FFI as users (already in c/coreutils.c)."
     },
     {
-      "title": "Batch C — Process Utilities (fork/exec)",
-      "applets": ["nice", "nohup", "timeout"],
-      "specialNote": "All need fork/exec infrastructure (follow env pattern). nice: nice(2) before exec. nohup: ignore SIGHUP. timeout: set alarm."
+      "title": "Batch H — Data Processing (Pure Lean)",
+      "applets": ["expr", "base64", "split", "dd", "pathchk", "ptx"],
+      "specialNote": "All pure Lean — zero FFI needed. expr: evaluate integer/string expressions (recursive descent parser). base64: encode/decode using base64 alphabet. split: split input into files by size/line count. dd: convert and copy with block size options. pathchk: check pathname validity. ptx: produce permuted index."
     },
     {
-      "title": "Batch D — Text Processing (Pure Lean)",
-      "applets": ["fmt", "sum", "cksum", "factor", "numfmt", "pr"],
-      "specialNote": "All pure text transformations. Read stdin via readStdinText, output via IO.print. NO C FFI needed."
+      "title": "Batch I — Hash Computation (Pure Lean)",
+      "applets": ["md5sum", "sha1sum", "sha256sum", "sha512sum", "b2sum"],
+      "specialNote": "All pure Lean hash implementations — zero FFI needed. Implement MD5, SHA-1, SHA-256, SHA-512, BLAKE2b as pure functions in Logic.lean. Each reads stdin or files, outputs hex hash + filename."
     },
     {
-      "title": "Batch E — Date/Time",
-      "applets": ["cal", "date"],
-      "specialNote": "cal: pure Lean date arithmetic. date: needs gettimeofday(2) FFI (lean_coreutils_gettimeofday)."
+      "title": "Batch J — Terminal/Misc (Pure Lean)",
+      "applets": ["more", "mesg"],
+      "specialNote": "more: page through stdin (read a screen, wait for key, repeat). Pure Lean IO. mesg: check/set terminal write access (needs isatty FFI + /proc/self/fd/0 check)."
     }
   ]
 }

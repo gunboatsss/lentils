@@ -1,0 +1,46 @@
+#!/bin/bash
+# install.test — Tests for the `install` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh install
+
+[ -f testing.sh ] && . testing.sh
+
+# install requires at least source and dest
+testing "install usage" '"$UTIL" 2>&1; echo $?' "1\n" "" ""
+
+# install --help
+testing "install help" '"$UTIL" --help 2>&1 | grep -q "install" && echo yes' "yes\n" "" ""
+
+# install -d requires directory args
+testing "install dir usage" '"$UTIL" -d 2>&1; echo $?' "1\n" "" ""
+
+# install -d creates directory
+testing "install mkdir" '"$UTIL" -d '"$TESTDIR/idir"' 2>&1; test -d "$TESTDIR/idir" && echo yes || echo no' "yes\n" "" ""
+
+# install -d with -m mode
+testing "install mkdir mode" '"$UTIL" -d -m 700 '"$TESTDIR/idir2"' 2>&1; test -d "$TESTDIR/idir2" && echo yes || echo no' "yes\n" "" ""
+
+# install copies a file
+echo "test content" > "$TESTDIR/src.txt"
+testing "install copy" '"$UTIL" '"$TESTDIR/src.txt"' '"$TESTDIR/dst.txt"' 2>&1; test -f "$TESTDIR/dst.txt" && echo yes || echo no' "yes\n" "" ""
+
+# install preserves content
+testing "install content" '"$UTIL" '"$TESTDIR/src.txt"' '"$TESTDIR/dst2.txt"' 2>&1; diff "$TESTDIR/src.txt" "$TESTDIR/dst2.txt" && echo yes || echo no' "yes\n" "" ""
+
+# install with -m mode
+testing "install mode" '"$UTIL" -m 644 '"$TESTDIR/src.txt"' '"$TESTDIR/dst3.txt"' 2>&1; test -f "$TESTDIR/dst3.txt" && echo yes || echo no' "yes\n" "" ""
+
+# install with -v verbose
+testing "install verbose" '"$UTIL" -v '"$TESTDIR/src.txt"' '"$TESTDIR/dst4.txt"' 2>&1 | grep -q "->" && echo yes' "yes\n" "" ""
+
+# install into directory
+mkdir -p "$TESTDIR/idest"
+testing "install to dir" '"$UTIL" '"$TESTDIR/src.txt"' '"$TESTDIR/idest/"' 2>&1; test -f "$TESTDIR/idest/src.txt" && echo yes || echo no' "yes\n" "" ""
+
+# install -C (compare, skip identical)
+testing "install compare" '"$UTIL" -C '"$TESTDIR/src.txt"' '"$TESTDIR/dst.txt"' 2>&1; echo $?' "0\n" "" ""
+
+# install -b (backup)
+echo "original" > "$TESTDIR/bak_target"
+echo "source" > "$TESTDIR/bak_src"
+testing "install backup" '"$UTIL" -b '"$TESTDIR/bak_src"' '"$TESTDIR/bak_target"' 2>&1; test -f "$TESTDIR/bak_target~" && echo yes || echo no' "yes\n" "" ""

@@ -39,6 +39,7 @@ import Lentils.Users.Users
 import Lentils.Whoami.Whoami
 import Lentils.Cat.Cat
 import Lentils.Comm.Comm
+import Lentils.Common.Array
 import Lentils.Common.Bytes
 import Lentils.Common.Errors
 import Lentils.Common.Float
@@ -76,3 +77,8 @@ import Lentils.Numfmt.Numfmt
 import Lentils.Pr.Pr
 import Lentils.Cal.Cal
 import Lentils.Date.Date
+import Lentils.Stat.Stat
+import Lentils.Df.Df
+import Lentils.Du.Du
+import Lentils.Truncate.Truncate
+import Lentils.Install.Install

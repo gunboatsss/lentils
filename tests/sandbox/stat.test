@@ -1,0 +1,45 @@
+#!/bin/bash
+# stat.test — Tests for the `stat` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh stat
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic stat on current dir
+testing "stat default" '"$UTIL" . | grep -q "File:" && echo yes' "yes\n" "" ""
+
+# Terse format
+testing "stat terse" '"$UTIL" -t . | grep -q "^\. " && echo yes' "yes\n" "" ""
+
+# stat on /tmp
+testing "stat tmp" '"$UTIL" /tmp | grep -q "File: /tmp" && echo yes' "yes\n" "" ""
+
+# stat -f (file system)
+testing "stat fs" '"$UTIL" -f / | grep -q "File:" && echo yes' "yes\n" "" ""
+
+# stat with follow (-L)
+testing "stat follow" '"$UTIL" -L . | grep -q "File:" && echo yes' "yes\n" "" ""
+
+# stat --dereference (long form)
+testing "stat deref" '"$UTIL" --dereference . | grep -q "File:" && echo yes' "yes\n" "" ""
+
+# stat with -c format
+testing "stat format" '"$UTIL" -c "%s" . | head -1 | grep -q "[0-9]" && echo yes' "yes\n" "" ""
+
+# stat symlink (create one, then stat it)
+touch "$TESTDIR/target"
+ln -sf target "$TESTDIR/link"
+testing "stat symlink" '"$UTIL" '"$TESTDIR/link"' 2>&1 | grep -q "symbolic link" && echo yes' "yes\n" "" ""
+testing "stat symlink follow" '"$UTIL" -L '"$TESTDIR/link"' 2>&1 | grep -q "regular" && echo yes' "yes\n" "" ""
+
+# stat pipe
+testing "stat pipe" 'mkfifo "$TESTDIR/fifo" 2>/dev/null; '"$UTIL"' "$TESTDIR/fifo" 2>&1 | grep -q "FIFO" && echo yes' "yes\n" "" ""
+
+# stat device
+testing "stat dev" '"$UTIL" /dev/null | grep -q "character" && echo yes' "yes\n" "" ""
+
+# stat --help
+testing "stat help" '"$UTIL" --help 2>&1 | grep -q "stat" && echo yes' "yes\n" "" ""
+
+# stat with two files
+testing "stat multi" '"$UTIL" . /tmp 2>&1 | grep -c "File:" | grep -q "[0-9]" && echo yes' "yes\n" "" ""
