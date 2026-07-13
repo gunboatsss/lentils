@@ -5,7 +5,12 @@ Lentils — Root library module for the lean-coreutils package.
 Re-exports Common utilities and all applet modules.
 -/
 
+import Lentils.Arch
 import Lentils.Basename
+import Lentils.Logname
+import Lentils.Nproc
+import Lentils.Uname
+import Lentils.Whoami
 import Lentils.Cat
 import Lentils.Common.Bytes
 import Lentils.Common.Errors
