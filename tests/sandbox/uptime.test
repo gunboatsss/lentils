@@ -7,5 +7,5 @@
 
 # Basic output (differential against /bin/uptime)
 testing "uptime" \
-  '"\$UTIL"' \
+  '"$UTIL"' \
   "" "" ""

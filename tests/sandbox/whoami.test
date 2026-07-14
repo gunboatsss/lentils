@@ -7,5 +7,5 @@
 
 # Basic output (differential against /bin/whoami)
 testing "whoami" \
-  '"\$UTIL"' \
+  '"$UTIL"' \
   "" "" ""

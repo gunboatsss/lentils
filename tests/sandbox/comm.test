@@ -143,6 +143,6 @@ rm -f f1 f2
 # Missing file (normalize stderr path: /bin/comm or /usr/bin/comm -> comm)
 printf "a\n" > f1
 testing "comm missing file" \
-  '"$UTIL" f1 nonexistent 2>commerr; cat commerr | sed "s|/[a-z]*/comm|comm|"; rm -f commerr; echo exit=$?' \
+  '"$UTIL" f1 nonexistent 2>commerr; cat commerr | sed "s|.*/comm|comm|"; rm -f commerr; echo exit=$?' \
   "comm: nonexistent: No such file or directory\nexit=1\n" "" ""
 rm -f f1

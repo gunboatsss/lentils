@@ -109,7 +109,7 @@ testing() {
   fi
 
   # Prepare host and ours versions of the command
-  # $UTIL → host: system binary (/bin/<util>), ours: our binary invocation
+  # $UTIL → host: system binary, ours: our binary invocation
   local host_cmd="${cmd//\$UTIL/$HOST_UTIL}"
   local ours_cmd="${cmd//\$UTIL/$OUR_UTIL}"
   # Also substitute $C with the binary path (same for both)

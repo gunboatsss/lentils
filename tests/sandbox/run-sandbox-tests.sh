@@ -79,7 +79,8 @@ exec "$OUR_BINARY" "$util" "\$@"
 WRAPEOF
   chmod +x "$OUR_WRAPPER"
   # $UTIL is substituted differently for host vs ours runs
-  export HOST_UTIL="/bin/$util"
+  # Use command -v to resolve the actual path (some distros put coreutils in /usr/bin)
+  export HOST_UTIL="$(command -v "$util" 2>/dev/null || echo "/bin/$util")"
   export OUR_UTIL="$OUR_WRAPPER"
   cd "$TESTDIR"
 
