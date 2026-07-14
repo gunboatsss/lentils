@@ -90,14 +90,15 @@ def formatEntry (e : Entry) (timeWidth : Nat) (showState : Bool) (showIdle : Boo
   let timePart := s!" {padRight e.timeStr timeWidth}"
   let idlePart :=
     if showIdle then
-      -- If state is '?' (not a tty), idle shows '?' too (matching GNU who -u)
       let idleStr := if e.state = "?" then "?" else formatIdle e.idleSecs
-      s!" {padLeft idleStr 5}"
+      -- GNU who -u places idle right-justified in a field (min 3 chars),
+      -- then pads the total to 10 chars, followed by PID at a fixed column
+      let minField := if idleStr.length < 3 then 3 else idleStr.length
+      let rj := padLeft idleStr minField  -- right-justify in minField
+      let idlePadded := padRight rj 12     -- pad to 12 (trailing spaces before PID)
+      s!" {idlePadded} {e.pid}"
     else ""
-  let pidPart :=
-    if showIdle then
-      s!" {padLeft e.pid 9}"
-    else ""
+  let pidPart := ""
   -- Host: wrap in parens like GNU who
   let hostPart := if e.host.isEmpty then "" else s!" ({e.host})"
   s!"{userPart}{statePart}{linePart}{timePart}{idlePart}{pidPart}{hostPart}"
