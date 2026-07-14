@@ -6,11 +6,12 @@ namespace Lentils.Hostid
 
 open Logic
 
+/-- FFI: call gethostid() and return as 8-char hex string. -/
+@[extern "lean_coreutils_gethostid"]
+opaque gethostid : IO String
+
 def run (_args : List String) : IO UInt32 := do
-  let raw ←
-    try IO.FS.readFile "/proc/sys/kernel/hostid"
-    catch _ => pure ""
-  let id := formatHostid raw
+  let id ← gethostid
   IO.println id
   return 0
 

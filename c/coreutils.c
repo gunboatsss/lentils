@@ -128,23 +128,12 @@ LEAN_EXPORT lean_object *lean_coreutils_users(lean_object *w) {
     struct utmpx *ut;
     while ((ut = getutxent()) != NULL) {
         if (ut->ut_type == USER_PROCESS && ut->ut_user[0] != '\0') {
-            // Check for duplicates by iterating the list
-            int dup = 0;
-            for (lean_object *it = lst; lean_is_ctor(it) && lean_ptr_tag(it) == 1; it = lean_ctor_get(it, 1)) {
-                lean_object *existing = lean_ctor_get(it, 0);
-                const char *estr = lean_string_cstr(existing);
-                if (strncmp(estr, ut->ut_user, __UT_NAMESIZE) == 0) {
-                    dup = 1;
-                    break;
-                }
-            }
-            if (!dup) {
-                lean_object *s = lean_mk_string(ut->ut_user);
-                lean_object *cons = lean_alloc_ctor(1, 2, 0);
-                lean_ctor_set(cons, 0, s);
-                lean_ctor_set(cons, 1, lst);
-                lst = cons;
-            }
+            // Add every login session (GNU users lists all sessions, not deduplicated)
+            lean_object *s = lean_mk_string(ut->ut_user);
+            lean_object *cons = lean_alloc_ctor(1, 2, 0);
+            lean_ctor_set(cons, 0, s);
+            lean_ctor_set(cons, 1, lst);
+            lst = cons;
         }
     }
     endutxent();
@@ -841,6 +830,16 @@ LEAN_EXPORT lean_object *lean_coreutils_who(lean_object *w) {
     endutxent();
     lean_object *arr = lean_array_mk(lst);
     return lean_io_result_mk_ok(arr);
+}
+
+// ─── gethostid(2) for `hostid` utility ───────────────────────────────────────
+
+// Return the 32-bit host identifier as a hex string (8 hex digits).
+LEAN_EXPORT lean_object *lean_coreutils_gethostid(lean_object *w) {
+    long id = gethostid();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%08lx", id);
+    return lean_io_result_mk_ok(lean_mk_string(buf));
 }
 
 // ─── chown(2) for `install` utility ─────────────────────────────────────────
