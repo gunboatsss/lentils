@@ -19,3 +19,18 @@ testing "sha1sum abc" \
 testing "sha1sum hello" \
   'printf "hello" | "$UTIL"' \
   "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d  -\n" "" ""
+
+# Multi-block input (65 bytes > 64 byte block)
+testing "sha1sum multi-block" \
+  'printf "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "$UTIL"' \
+  "11655326c708d70319be2610e8a57d9a5b959d3b  -\n" "" ""
+
+# Binary data with null bytes
+testing "sha1sum binary-null" \
+  'printf "hello\x00world" | "$UTIL"' \
+  "f85b420f1e43ebf88649dfcab302b898d889606c  -\n" "" ""
+
+# --check mode
+testing "sha1sum check" \
+  'printf "" > input; "$UTIL" input > hashout; "$UTIL" -c hashout' \
+  "input: OK\n" "" ""

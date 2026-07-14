@@ -163,10 +163,38 @@ def formatStdin (data : ByteArray) : String :=
 
 -- ─── Proofs ──────────────────────────────────────────────────────────────────
 
+-- Main hash test vector
 example : sha256 ByteArray.empty = ByteArray.mk (List.toArray
   ([0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,
     0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
     0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
     0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55] : List UInt8)) := by native_decide
+
+-- ─── Intermediate Function Proofs ─────────────────────────────────────────────
+
+-- Padding proofs
+example : (sha256Pad ByteArray.empty).size = 64 := by native_decide  -- Minimum 1 block
+example : (sha256Pad "abc".toUTF8).size = 64 := by native_decide       -- Fits in one block
+example : (sha256Pad (ByteArray.mk (List.toArray (List.replicate 55 0x41)))).size = 64 := by native_decide
+
+-- Rotation helper proofs
+example : rotr (0x00000001 : UInt32) 1 = (0x80000000 : UInt32) := by native_decide
+example : rotr (0x80000000 : UInt32) 1 = (0x40000000 : UInt32) := by native_decide
+example : rotr (0xFFFFFFFF : UInt32) 32 = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- Sigma function proofs (simple identity cases)
+example : Sigma0 (0 : UInt32) = (0 : UInt32) := by native_decide
+example : Sigma1 (0 : UInt32) = (0 : UInt32) := by native_decide
+
+-- Ch and Maj function proofs
+example : Ch (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0 : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : Ch (0 : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : Maj (0xFFFFFFFF : UInt32) (0 : UInt32) (0 : UInt32) = (0 : UInt32) := by native_decide
+
+-- Message expansion proof (expands to 64 words)
+example : (expandWords (readWords (sha256Pad "abc".toUTF8))).size = 64 := by native_decide
+
+-- Format hex proof
+example : formatHex ByteArray.empty = "" := by native_decide
 
 end Lentils.Sha256sum.Logic

@@ -147,8 +147,40 @@ def formatStdin (data : ByteArray) : String :=
 
 -- ─── Proofs ──────────────────────────────────────────────────────────────────
 
+-- Main hash test vector
 example : md5 ByteArray.empty = ByteArray.mk (List.toArray
   ([0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x00, 0xb2, 0x04,
     0xe9, 0x80, 0x09, 0x98, 0xec, 0xf8, 0x42, 0x7e] : List UInt8)) := by native_decide
+
+-- ─── Intermediate Function Proofs ─────────────────────────────────────────────
+
+-- Rotation helper proofs (rotate left)
+example : rotl (0x00000001 : UInt32) 1 = (0x00000002 : UInt32) := by native_decide
+example : rotl (0x80000000 : UInt32) 1 = (0x00000001 : UInt32) := by native_decide
+example : rotl (0xFFFFFFFF : UInt32) 32 = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- MD5 non-linear function proofs
+-- F(x,y,z) = (x AND y) OR ((NOT x) AND z)
+example : F (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0 : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : F (0 : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : F (0 : UInt32) (0 : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- G(x,y,z) = (x AND z) OR (y AND (NOT z))
+example : G (0xFFFFFFFF : UInt32) (0 : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : G (0 : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0 : UInt32) := by native_decide
+
+-- H(x,y,z) = x XOR y XOR z
+example : H (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : H (0xAAAAAAAA : UInt32) (0x55555555 : UInt32) (0xFFFFFFFF : UInt32) = (0 : UInt32) := by native_decide
+
+-- I(x,y,z) = y XOR (x OR (NOT z))
+example : I (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0 : UInt32) = (0 : UInt32) := by native_decide
+
+-- Padding proofs
+example : (md5Pad ByteArray.empty).size = 64 := by native_decide  -- Minimum 1 block
+example : (md5Pad "abc".toUTF8).size = 64 := by native_decide       -- Fits in one block
+
+-- Format hex proof
+example : formatHex ByteArray.empty = "" := by native_decide
 
 end Lentils.Md5sum.Logic

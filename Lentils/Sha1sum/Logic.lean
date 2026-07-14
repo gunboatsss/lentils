@@ -123,9 +123,42 @@ def formatStdin (data : ByteArray) : String :=
 
 -- ─── Proofs ──────────────────────────────────────────────────────────────────
 
+-- Main hash test vector
 example : sha1 ByteArray.empty = ByteArray.mk (List.toArray
   ([0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d,
     0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90,
     0xaf, 0xd8, 0x07, 0x09] : List UInt8)) := by native_decide
+
+-- ─── Intermediate Function Proofs ─────────────────────────────────────────────
+
+-- Rotation helper proofs (rotate left)
+example : rotl (0x00000001 : UInt32) 1 = (0x00000002 : UInt32) := by native_decide
+example : rotl (0x80000000 : UInt32) 1 = (0x00000001 : UInt32) := by native_decide
+example : rotl (0xFFFFFFFF : UInt32) 32 = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- Round function proofs
+-- f1 (rounds 0-19): (b AND c) OR ((NOT b) AND d) = MAJ variant
+example : f1 (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+example : f1 (0 : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- f2 (rounds 20-39, 60-79): XOR
+example : f2 (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- f3 (rounds 40-59): majority
+example : f3 (0xFFFFFFFF : UInt32) (0 : UInt32) (0 : UInt32) = (0 : UInt32) := by native_decide
+example : f3 (0xFFFFFFFF : UInt32) (0xFFFFFFFF : UInt32) (0 : UInt32) = (0xFFFFFFFF : UInt32) := by native_decide
+
+-- Round constant proofs
+example : roundConst 0 = (0x5a827999 : UInt32) := by native_decide
+example : roundConst 20 = (0x6ed9eba1 : UInt32) := by native_decide
+example : roundConst 40 = (0x8f1bbcdc : UInt32) := by native_decide
+example : roundConst 60 = (0xca62c1d6 : UInt32) := by native_decide
+
+-- Padding proofs
+example : (sha1Pad ByteArray.empty).size = 64 := by native_decide
+example : (sha1Pad "abc".toUTF8).size = 64 := by native_decide
+
+-- Format hex proof
+example : formatHex ByteArray.empty = "" := by native_decide
 
 end Lentils.Sha1sum.Logic

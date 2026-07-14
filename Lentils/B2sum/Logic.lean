@@ -188,4 +188,28 @@ def formatStdin (data : ByteArray) : String :=
 
 -- native_decide on blake2b is too heavy for the kernel; runtime verification via tests.
 
+-- ─── Intermediate Function Proofs ─────────────────────────────────────────────
+-- These proofs are kept simple to avoid kernel timeout on heavy computations
+
+-- SIGMA permutation table properties
+example : SIGMA_DATA.size = 160 := rfl  -- 10 rounds × 16 entries
+
+-- Rotation helper proofs
+example : rotr (0x0000000000000001 : UInt64) 1 = (0x8000000000000000 : UInt64) := by native_decide
+example : rotr (0x8000000000000000 : UInt64) 1 = (0x4000000000000000 : UInt64) := by native_decide
+example : rotr (0xFFFFFFFFFFFFFFFF : UInt64) 64 = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+
+-- Initialization vector proofs
+example : IV.size = 8 := rfl
+
+-- Initial state with default output length
+example : (initState 64).size = 8 := by native_decide
+
+-- Padding proofs
+example : (blake2bPad ByteArray.empty).size = 128 := by native_decide
+example : (blake2bPad (ByteArray.mk (List.toArray (List.replicate 128 0x41)))).size = 128 := by native_decide
+
+-- Format hex proof
+example : formatHex ByteArray.empty = "" := by native_decide
+
 end Lentils.B2sum.Logic

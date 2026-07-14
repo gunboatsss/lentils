@@ -5,7 +5,7 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# b2sum of empty input
+# b2sum of empty input (default 512-bit)
 testing "b2sum empty" \
   'printf "" | "$UTIL"' \
   "786a02f742015903c6c6fd852552d272912f4740e15847618a86e217f71f5419d25e1031afee585313896444934eb04b903a685b1448b755d56f701afe9be2ce  -\n" "" ""
@@ -14,3 +14,23 @@ testing "b2sum empty" \
 testing "b2sum abc" \
   'printf "abc" | "$UTIL"' \
   "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923  -\n" "" ""
+
+# Multi-block input (129 bytes > 128 byte block)
+testing "b2sum multi-block" \
+  'printf "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "$UTIL"' \
+  "55e6e0eb418149a8af92fd9ddc99254781b2f522a131b4f4d984404b71a00e1167b8124d5dcddd4c6977b299392335d6edd303da6d344d74bbef2d38101b232b  -\n" "" ""
+
+# Binary data with null bytes
+testing "b2sum binary-null" \
+  'printf "hello\x00world" | "$UTIL"' \
+  "7d8244a6c02070c6315d763b94a5c662e4fa5134fad48d8278a0d8de554e949eb2242e830cce6e93323f60e7e164c1ec724ca5ff6330c440a5a92ad315d9eaa1  -\n" "" ""
+
+# BLAKE2b-256 (256-bit = 32 bytes)
+testing "b2sum length-256" \
+  'printf "" | "$UTIL" -l 256' \
+  "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8  -\n" "" ""
+
+# --check mode (with -l flag ignored during check)
+testing "b2sum check" \
+  'printf "" > input; "$UTIL" input > hashout; "$UTIL" -c hashout' \
+  "input: OK\n" "" ""

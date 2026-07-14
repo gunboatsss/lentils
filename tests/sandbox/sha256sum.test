@@ -19,3 +19,18 @@ testing "sha256sum abc" \
 testing "sha256sum hello" \
   'printf "hello" | "$UTIL"' \
   "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  -\n" "" ""
+
+# Multi-block input (65 bytes > 64 byte block)
+testing "sha256sum multi-block" \
+  'printf "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "$UTIL"' \
+  "635361c48bb9eab14198e76ea8ab7f1a41685d6ad62aa9146d301d4f17eb0ae0  -\n" "" ""
+
+# Binary data with null bytes
+testing "sha256sum binary-null" \
+  'printf "hello\x00world" | "$UTIL"' \
+  "b206899bc103669c8e7b36de29d73f95b46795b508aa87d612b2ce84bfb29df2  -\n" "" ""
+
+# --check mode with file
+testing "sha256sum check" \
+  'printf "" > input; "$UTIL" input > hashout; "$UTIL" -c hashout' \
+  "input: OK\n" "" ""

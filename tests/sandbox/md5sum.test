@@ -24,3 +24,18 @@ testing "md5sum abc" \
 testing "md5sum with newline" \
   'printf "hello\n" | "$UTIL"' \
   "b1946ac92492d2347c6235b4d2611184  -\n" "" ""
+
+# Multi-block input (65 bytes > 64 byte block)
+testing "md5sum multi-block" \
+  'printf "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "$UTIL"' \
+  "c743a45e0d2e6a95cb859adae0248435  -\n" "" ""
+
+# Binary data with null bytes
+testing "md5sum binary-null" \
+  'printf "hello\x00world" | "$UTIL"' \
+  "838d3870873a75639041ff8940f397db  -\n" "" ""
+
+# --check mode
+testing "md5sum check" \
+  'printf "" > input; "$UTIL" input > hashout; "$UTIL" -c hashout' \
+  "input: OK\n" "" ""

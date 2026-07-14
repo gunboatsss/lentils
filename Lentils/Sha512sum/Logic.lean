@@ -190,6 +190,7 @@ def formatStdin (data : ByteArray) : String :=
 
 -- ─── Proofs ──────────────────────────────────────────────────────────────────
 
+-- Main hash test vector
 example : sha512 ByteArray.empty = ByteArray.mk (List.toArray
   ([0xcf, 0x83, 0xe1, 0x35, 0x7e, 0xef, 0xb8, 0xbd,
     0xf1, 0x54, 0x28, 0x50, 0xd6, 0x6d, 0x80, 0x07,
@@ -199,5 +200,33 @@ example : sha512 ByteArray.empty = ByteArray.mk (List.toArray
     0xff, 0x83, 0x18, 0xd2, 0x87, 0x7e, 0xec, 0x2f,
     0x63, 0xb9, 0x31, 0xbd, 0x47, 0x41, 0x7a, 0x81,
     0xa5, 0x38, 0x32, 0x7a, 0xf9, 0x27, 0xda, 0x3e] : List UInt8)) := by native_decide
+
+-- ─── Intermediate Function Proofs ─────────────────────────────────────────────
+
+-- Padding proofs
+example : (sha512Pad ByteArray.empty).size = 128 := by native_decide  -- Minimum 1 block (larger than SHA-256)
+example : (sha512Pad "abc".toUTF8).size = 128 := by native_decide      -- Fits in one block
+
+-- Rotation helper proofs (64-bit)
+example : rotr (0x0000000000000001 : UInt64) 1 = (0x8000000000000000 : UInt64) := by native_decide
+example : rotr (0x8000000000000000 : UInt64) 1 = (0x4000000000000000 : UInt64) := by native_decide
+example : rotr (0xFFFFFFFFFFFFFFFF : UInt64) 64 = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+
+-- Sigma function proofs (64-bit) - simple identity case
+example : Sigma0 (0 : UInt64) = (0 : UInt64) := by native_decide
+example : Sigma1 (0 : UInt64) = (0 : UInt64) := by native_decide
+
+-- Ch function proofs: Ch(x,y,z) = (x AND y) XOR ((NOT x) AND z)
+example : Ch (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+example : Ch (0 : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+
+-- Maj function proofs
+example : Maj (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) (0 : UInt64) = (0 : UInt64) := by native_decide
+
+-- Message expansion proof (expands to 80 words)
+example : (expandWords (readWords (sha512Pad "abc".toUTF8))).size = 80 := by native_decide
+
+-- Format hex proof
+example : formatHex ByteArray.empty = "" := by native_decide
 
 end Lentils.Sha512sum.Logic

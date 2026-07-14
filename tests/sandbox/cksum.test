@@ -1,0 +1,26 @@
+#!/bin/bash
+# cksum.test — Tests for the cksum utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh cksum
+
+[ -f testing.sh ] && . testing.sh
+
+# cksum of empty input
+testing "cksum empty" \
+  'printf "" | "$UTIL"' \
+  "4294967295 0\n" "" ""
+
+# cksum of "a"
+testing "cksum a" \
+  'printf "a" | "$UTIL"' \
+  "1220704766 1\n" "" ""
+
+# cksum of "ab"  
+testing "cksum ab" \
+  'printf "ab" | "$UTIL"' \
+  "2072780115 2\n" "" ""
+
+# cksum of "abc"
+testing "cksum abc" \
+  'printf "abc" | "$UTIL"' \
+  "1219131554 3\n" "" ""

@@ -14,3 +14,18 @@ testing "sha512sum empty" \
 testing "sha512sum abc" \
   'printf "abc" | "$UTIL"' \
   "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f  -\n" "" ""
+
+# Multi-block input (129 bytes > 128 byte block)
+testing "sha512sum multi-block" \
+  'printf "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" | "$UTIL"' \
+  "4f681e0bd53cda4b5a2041cc8a06f2eabde44fb16c951fbd5b87702f07aeab611565b19c47fde30587177ebb852e3971bbd8d3fd30da18d71037dfbd98420429  -\n" "" ""
+
+# Binary data with null bytes
+testing "sha512sum binary-null" \
+  'printf "hello\x00world" | "$UTIL"' \
+  "3858df07be68dec5e34bbdce5de57e2f36d31edb3d86bbc6c3c5a6e30a72345d0b974bb070b376eb968c46f7e54c5a25db7c0f21b4088ff2e3c388e84d1ba59d  -\n" "" ""
+
+# --check mode
+testing "sha512sum check" \
+  'printf "" > input; "$UTIL" input > hashout; "$UTIL" -c hashout' \
+  "input: OK\n" "" ""

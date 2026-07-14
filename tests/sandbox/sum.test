@@ -1,0 +1,21 @@
+#!/bin/bash
+# sum.test — Tests for the sum utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh sum
+
+[ -f testing.sh ] && . testing.sh
+
+# sum of empty input
+testing "sum empty" \
+  'printf "" | "$UTIL"' \
+  "00000     0\n" "" ""
+
+# sum of "a"
+testing "sum a" \
+  'printf "a" | "$UTIL"' \
+  "00097     1\n" "" ""
+
+# sum of "abc"
+testing "sum abc" \
+  'printf "abc" | "$UTIL"' \
+  "16556     1\n" "" ""
