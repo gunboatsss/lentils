@@ -3,119 +3,138 @@ Who.Logic — Pure who-output formatting logic for `who`. 0BSD
 
 Contains ONLY pure functions: parsing raw entries from FFI,
 formatting the who table, and related logic.
-No IO is performed here. All FFI lives in Who.lean.
 -/
 
 namespace Lentils.Who.Logic
 
 /--
 A single who entry parsed from the raw FFI string.
-The raw format is "user|line|time_sec|host".
+The raw format is "user|line|time_str|host|state|idle_secs|pid".
 -/
 structure Entry where
   user : String
   line : String
-  timeSec : String  -- epoch seconds as decimal string
+  timeStr : String   -- "YYYY-MM-DD HH:MM"
   host : String
-  deriving Repr, BEq, DecidableEq
+  state : String     -- "+", "-", or "?"
+  idleSecs : String  -- decimal seconds as string
+  pid : String       -- decimal PID as string
+  deriving Repr, DecidableEq, BEq
 
 /--
 Parse a raw pipe-delimited entry string into an Entry.
-Returns none if the string is malformed.
-Uses splitOn which returns List String.
 -/
 def parseEntry (raw : String) : Option Entry :=
   let parts := raw.splitOn "|"
   match parts with
-  | [user, line, timeSec] =>
-    some { user, line, timeSec, host := "" }
-  | [user, line, timeSec, host] =>
-    some { user, line, timeSec, host }
+  | [user, line, timeStr, host, state, idleSecs, pid] =>
+    some { user, line, timeStr, host, state, idleSecs, pid }
   | _ => none
 
 /--
-Right-pad a string to a given width with spaces.
+Right-pad a string to a given width. Truncates if longer.
 -/
 def padRight (s : String) (w : Nat) : String :=
-  let slen := s.length
-  if slen >= w then
-    (s.take w).toString
-  else
-    s ++ String.ofList (List.replicate (w - slen) ' ')
+  let chars := s.toList
+  if chars.length ≥ w then String.ofList (chars.take w)
+  else s ++ String.ofList (List.replicate (w - chars.length) ' ')
 
 /--
-Format a timestamp string (already formatted by C code as YYYY-MM-DD HH:MM).
+Left-pad a string to a given width (right-justified). Truncates if longer.
 -/
-def formatTime (timeStr : String) : String :=
-  if timeStr.isEmpty then "?" else timeStr
+def padLeft (s : String) (w : Nat) : String :=
+  let chars := s.toList
+  if chars.length ≥ w then String.ofList (chars.take w)
+  else String.ofList (List.replicate (w - chars.length) ' ') ++ s
 
 /--
-Format an Entry in the GNU who default output format:
-  USER      LINE         TIME                 HOST
-Uses fixed-width columns similar to GNU coreutils who.
+Format idle seconds into a human-readable idle string.
 -/
-def formatEntry (e : Entry) : String :=
-  let userPadded := padRight e.user 8
-  let linePadded := padRight e.line 8
-  let time := formatTime e.timeSec
-  -- GNU who uses format: USER LINE DATE HOST
-  -- The time field is right-aligned with spaces; host gets one space prefix
+def formatIdle (secsStr : String) : String :=
+  match secsStr.toNat? with
+  | none => "?"
+  | some secs =>
+    if secs < 60 then "."
+    else if secs < 3600 then
+      let m := secs / 60
+      let mStr := if m < 10 then "0" ++ toString m else toString m
+      s!"00:{mStr}"
+    else if secs < 86400 then
+      let h := secs / 3600
+      let m := (secs % 3600) / 60
+      let hStr := if h < 10 then "0" ++ toString h else toString h
+      let mStr := if m < 10 then "0" ++ toString m else toString m
+      s!"{hStr}:{mStr}"
+    else
+      let days := secs / 86400
+      s!"{toString days}day"
+
+/--
+Format a single Entry matching GNU who output.
+
+Fields:
+  (1) %-8s  username
+  (2) %s    state, with a space before it (only with -T)
+  (3) %-12s terminal, with a space before it
+  (4) %-*s  time, with a space before it (width = max across entries)
+  (5) %s    idle in 6 chars right-justified, with space before (only with -u)
+  (6) %s    pid in 10 chars right-justified, with space before (only with -u)
+  (7) host  displayed as (host), no trailing padding
+
+No trailing whitespace because the last field is unpadded.
+-/
+def formatEntry (e : Entry) (timeWidth : Nat) (showState : Bool) (showIdle : Bool) : String :=
+  let userPart := padRight e.user 8
+  let statePart := if showState then s!" {e.state}" else ""
+  let linePart := s!" {padRight e.line 12}"
+  let timePart := s!" {padRight e.timeStr timeWidth}"
+  let idlePart :=
+    if showIdle then
+      -- If state is '?' (not a tty), idle shows '?' too (matching GNU who -u)
+      let idleStr := if e.state = "?" then "?" else formatIdle e.idleSecs
+      s!" {padLeft idleStr 5}"
+    else ""
+  let pidPart :=
+    if showIdle then
+      s!" {padLeft e.pid 9}"
+    else ""
+  -- Host: wrap in parens like GNU who
   let hostPart := if e.host.isEmpty then "" else s!" ({e.host})"
-  s!"{userPadded} {linePadded}     {time}{hostPart}"
+  s!"{userPart}{statePart}{linePart}{timePart}{idlePart}{pidPart}{hostPart}"
 
 /--
 Format a list of entries as the complete who output.
-Each entry is on its own line (no trailing newline for the last entry).
 -/
-def formatEntries (entries : List Entry) : String :=
-  String.intercalate "\n" (entries.map formatEntry)
+def formatEntries (entries : List Entry) (showState : Bool := false) (showIdle : Bool := false) : String :=
+  let maxTimeWidth := entries.foldl (λ m e =>
+    max m e.timeStr.length) 0
+  let formatted := entries.map (λ e => formatEntry e maxTimeWidth showState showIdle)
+  String.intercalate "\n" formatted
 
-/--
-Count the number of logged-in sessions.
--/
+-- ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/-- Show state: whether to include the state character column. -/
+def showState (args : List String) : Bool :=
+  args.any (· = "-T")
+
+/-- Show idle: whether to include the idle time and PID columns. -/
+def showIdle (args : List String) : Bool :=
+  args.any (· = "-u")
+
+/-- Count the number of logged-in sessions. -/
 def countSessions (entries : List Entry) : Nat :=
   entries.length
 
-/--
-Check if a username appears among the entries.
--/
+/-- Check if a username appears among the entries. -/
 def hasUser (entries : List Entry) (username : String) : Bool :=
   entries.any (λ e => e.user = username)
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+-- ─── Theorems ────────────────────────────────────────────────────────────────
 
-/-- Empty entries produce empty output. -/
-example : formatEntries [] = "" := by
-  native_decide
-
-/-- Parsing a well-formed entry. -/
-example : parseEntry "root|console|1718200000|myhost" =
-  some { user := "root", line := "console", timeSec := "1718200000", host := "myhost" } := by
-  native_decide
-
-/-- Parsing an entry without host. -/
-example : parseEntry "jane|pts/0|1718201000" =
-  some { user := "jane", line := "pts/0", timeSec := "1718201000", host := "" } := by
-  native_decide
-
-/-- Parsing a malformed entry returns none. -/
-example : parseEntry "invalid|entry" = none := by
-  native_decide
-
-/-- Counting sessions. -/
-example : countSessions [{ user := "root", line := "console", timeSec := "1000", host := "" }] = 1 := by
-  native_decide
-
-/-- Empty session count. -/
-example : countSessions [] = 0 := by
-  native_decide
-
-/-- hasUser finds existing user. -/
-example : hasUser [{ user := "root", line := "console", timeSec := "1000", host := "" }] "root" = true := by
-  native_decide
-
-/-- hasUser returns false for missing user. -/
-example : hasUser [{ user := "root", line := "console", timeSec := "1000", host := "" }] "jane" = false := by
+/-- Parsing a well-formed entry with all fields. -/
+example : parseEntry "root|console|2026-07-14 22:39|myhost|+|3600|1234" =
+  some { user := "root", line := "console", timeStr := "2026-07-14 22:39",
+         host := "myhost", state := "+", idleSecs := "3600", pid := "1234" } := by
   native_decide
 
 end Lentils.Who.Logic

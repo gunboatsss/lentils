@@ -797,16 +797,15 @@ LEAN_EXPORT lean_object *lean_coreutils_who(lean_object *w) {
     lean_object *lst = lean_alloc_ctor(0, 0, 0);  // nil
     setutxent();
     struct utmpx *ut;
+    time_t now = time(NULL);
     while ((ut = getutxent()) != NULL) {
         if (ut->ut_type != USER_PROCESS) continue;
         if (ut->ut_user[0] == '\0') continue;
-        // Build entry: user|line|time_sec|host
-        // We need to concat 4 pieces with '|' separators.
-        // First, compute total length
+        // Build entry: user|line|time_str|host|state_char|idle_secs|pid
         size_t user_len = strnlen(ut->ut_user, sizeof(ut->ut_user));
         size_t line_len = strnlen(ut->ut_line, sizeof(ut->ut_line));
         size_t host_len = strnlen(ut->ut_host, sizeof(ut->ut_host));
-        // Format the time as "YYYY-MM-DD HH:MM"
+        // Format the login time as "YYYY-MM-DD HH:MM"
         char time_buf[24];
         struct tm tm_result;
         time_t t = ut->ut_tv.tv_sec;
@@ -817,15 +816,40 @@ LEAN_EXPORT lean_object *lean_coreutils_who(lean_object *w) {
             time_len = snprintf(time_buf, sizeof(time_buf), "%lld", (long long)t);
         }
         if (time_len < 0) time_len = 0;
-        // Concatenate: user|line|time|host
-        size_t total = user_len + 1 + line_len + 1 + (size_t)time_len + 1 + host_len;
+        // State: + if tty allows write, ? if not a tty, - if write denied
+        char state = '?';
+        char *line = ut->ut_line;
+        if (line[0]) {
+            char tty_path[64];
+            snprintf(tty_path, sizeof(tty_path), "/dev/%s", line);
+            if (access(tty_path, F_OK) == 0) {
+                state = access(tty_path, W_OK) == 0 ? '+' : '-';
+            }
+        }
+        char state_buf[2] = {state, '\0'};
+        // Idle time: current time minus login time
+        long idle_secs = (long)(now - ut->ut_tv.tv_sec);
+        if (idle_secs < 0) idle_secs = 0;
+        char idle_buf[24];
+        int idle_len = snprintf(idle_buf, sizeof(idle_buf), "%ld", idle_secs);
+        if (idle_len < 0) idle_len = 0;
+        // PID
+        char pid_buf[24];
+        int pid_len = snprintf(pid_buf, sizeof(pid_buf), "%u", (unsigned)ut->ut_pid);
+        if (pid_len < 0) pid_len = 0;
+        // Format: user|line|time|host|state|idle|pid
+        size_t total = user_len + 1 + line_len + 1 + (size_t)time_len + 1 + host_len + 1
+                     + 1 + 1 + (size_t)idle_len + 1 + (size_t)pid_len;
         char *entry = (char *)malloc(total + 1);
         if (!entry) continue;
         char *p = entry;
         memcpy(p, ut->ut_user, user_len); p += user_len; *p++ = '|';
         memcpy(p, ut->ut_line, line_len); p += line_len; *p++ = '|';
         memcpy(p, time_buf, (size_t)time_len); p += time_len; *p++ = '|';
-        memcpy(p, ut->ut_host, host_len); p += host_len;
+        memcpy(p, ut->ut_host, host_len); p += host_len; *p++ = '|';
+        memcpy(p, state_buf, 1); p += 1; *p++ = '|';
+        memcpy(p, idle_buf, (size_t)idle_len); p += idle_len; *p++ = '|';
+        memcpy(p, pid_buf, (size_t)pid_len); p += pid_len;
         *p = '\0';
         lean_object *s = lean_mk_string(entry);
         free(entry);
