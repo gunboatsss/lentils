@@ -50,6 +50,7 @@ def applets : List Applet :=
     { name := "mv",       run := runNoProg Lentils.Mv.run,       descr := "move (rename) files" },
     { name := "nproc",    run := runNoProg Lentils.Nproc.run,    descr := "print number of processing units" },
     { name := "nice",     run := runNoProg Lentils.Nice.run,     descr := "run a program with modified scheduling priority" },
+    { name := "nl",       run := runNoProg Lentils.Nl.run,       descr := "number lines of input" },
     { name := "nohup",    run := runNoProg Lentils.Nohup.run,    descr := "run a command immune to hangups" },
     { name := "od",       run := runNoProg Lentils.Od.run,       descr := "dump files in octal format" },
     { name := "paste",    run := runNoProg Lentils.Paste.run,    descr := "merge lines of files" },
