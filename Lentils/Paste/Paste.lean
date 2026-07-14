@@ -7,18 +7,38 @@ namespace Lentils.Paste
 open Logic
 
 def parseDelim (args : List String) : String :=
-  match args with
-  | "-d" :: d :: _ => d
-  | _ => "\t"
+  if args.contains "-d" then
+    match args with
+    | "-d" :: d :: _ => d
+    | _ => "\t"
+  else
+    -- Check for combined flags like "-d,"
+    match args.find? (·.startsWith "-d") with
+    | some a =>
+      let rest := (a.drop 2).toString
+      if rest == "" then "\t" else rest
+    | none => "\t"
 
 def isSerial (args : List String) : Bool :=
   args.any (· = "-s")
 
+/-- Split a string into lines, dropping any trailing empty line from a final newline. -/
+def splitLines (s : String) : List String :=
+  let lines := s.splitOn "\n"
+  match lines with
+  | [] => []
+  | _ :: _ =>
+    -- If the last element is empty (from a trailing newline), drop it
+    if lines.reverse.head? = some "" then
+      (lines.reverse.tail).reverse
+    else lines
+
+/-- Read a file and split into lines, dropping any trailing empty line. -/
 def readFileLines (path : String) : IO (List String) := do
   let content ←
     try IO.FS.readFile path
     catch _ => pure ""
-  pure (content.splitOn "\n")
+  pure (splitLines content)
 
 def run (args : List String) : IO UInt32 := do
   let delim := parseDelim args
@@ -33,11 +53,13 @@ def run (args : List String) : IO UInt32 := do
     let content ←
       try IO.FS.readFile "/dev/stdin"
       catch _ => pure ""
-    fileLines := [content.splitOn "\n"]
+    fileLines := [splitLines content]
   let result :=
     if serial then pasteSerial fileLines delim
     else paste fileLines delim
-  IO.print result
+  if !result.isEmpty then
+    IO.print result
+    IO.print "\n"
   return 0
 
 end Lentils.Paste

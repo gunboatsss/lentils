@@ -104,6 +104,20 @@ LEAN_EXPORT lean_object *lean_coreutils_getgrgid(uint32_t gid,
     return lean_io_result_mk_ok(lean_mk_string(gr->gr_name));
 }
 
+// ─── getpwnam (for looking up a user by name) ──────────────────────────────────
+
+// Look up a UID by username. Returns "uid:gid" or empty string if not found.
+LEAN_EXPORT lean_object *lean_coreutils_getpwnam(b_lean_obj_arg name,
+                                                   lean_object *w) {
+    struct passwd *pw = getpwnam(lean_string_cstr(name));
+    if (pw == NULL) {
+        return lean_io_result_mk_ok(lean_mk_string(""));
+    }
+    char buf[48];
+    snprintf(buf, sizeof(buf), "%u:%u", (unsigned)pw->pw_uid, (unsigned)pw->pw_gid);
+    return lean_io_result_mk_ok(lean_mk_string(buf));
+}
+
 // ─── getutxent (for users logged-in list) ─────────────────────────────────────
 
 // Get a deduplicated list of logged-in usernames from utmpx.
