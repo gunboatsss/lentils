@@ -1,0 +1,11 @@
+#!/bin/bash
+# nproc.test — Tests for the `nproc` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh nproc
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic output (differential against /bin/nproc)
+testing "nproc" \
+  '"\$UTIL"' \
+  "" "" ""

@@ -1,0 +1,81 @@
+#!/bin/bash
+# paste.test — Tests for the `paste` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh paste
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic paste of two files
+printf "a\nb\n" > f1
+printf "c\nd\n" > f2
+testing "paste basic" \
+  '"$UTIL" f1 f2' \
+  "a\tc\nb\td\n" "" ""
+rm -f f1 f2
+
+# Paste three files
+printf "a\nb\n" > f1
+printf "c\nd\n" > f2
+printf "e\nf\n" > f3
+testing "paste three files" \
+  '"$UTIL" f1 f2 f3' \
+  "a\tc\te\nb\td\tf\n" "" ""
+rm -f f1 f2 f3
+
+# Paste with custom delimiter (-d)
+printf "a\nb\n" > f1
+printf "c\nd\n" > f2
+testing "paste -d ," \
+  '"$UTIL" -d, f1 f2' \
+  "a,c\nb,d\n" "" ""
+rm -f f1 f2
+
+# Paste serial (-s)
+printf "a\nb\nc\n" > f1
+testing "paste -s single file" \
+  '"$UTIL" -s f1' \
+  "a\tb\tc\n" "" ""
+rm -f f1
+
+# Paste serial with delimiter
+printf "a\nb\nc\n" > f1
+testing "paste -s -d ," \
+  '"$UTIL" -s -d, f1' \
+  "a,b,c\n" "" ""
+rm -f f1
+
+# Paste serial multiple files
+printf "a\nb\n" > f1
+printf "c\nd\n" > f2
+testing "paste -s multiple files" \
+  '"$UTIL" -s f1 f2' \
+  "a\tb\nc\td\n" "" ""
+rm -f f1 f2
+
+# Empty file
+printf "" > f1
+printf "a\nb\n" > f2
+testing "paste empty first" \
+  '"$UTIL" f1 f2' \
+  "\ta\n\tb\n" "" ""
+rm -f f1 f2
+
+# Single file (stdin equivalent)
+printf "a\nb\nc\n" > f1
+testing "paste single file" \
+  '"$UTIL" f1' \
+  "a\tb\tc\n" "" ""
+rm -f f1
+
+# Uneven lines
+printf "a\nb\nc\n" > f1
+printf "x\n" > f2
+testing "paste uneven lines" \
+  '"$UTIL" f1 f2' \
+  "a\tx\nb\t\nc\t\n" "" ""
+rm -f f1 f2
+
+# No files (stdin)
+testing "paste stdin" \
+  '"$UTIL"' \
+  "a\tb\n" "" "a\nb\n"

@@ -1,0 +1,40 @@
+#!/bin/bash
+# pr.test — Tests for the `pr` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh pr
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic pagination (single page header)
+testing "pr basic" \
+  'printf "hello\nworld\n" | "$UTIL"' \
+  "" "" ""
+
+# Empty input
+testing "pr empty" \
+  'printf "" | "$UTIL"' \
+  "" "" ""
+
+# Multiple pages (many lines)
+many=$(printf 'line%d\n' $(seq 1 100))
+testing "pr many lines" \
+  '"$UTIL"' \
+  "" "" "$many"
+
+# Long lines
+long=$(printf 'a%.0s' $(seq 1 200))
+testing "pr long line" \
+  '"$UTIL"' \
+  "" "" "$long"
+
+# File argument
+printf "hello\nworld\n" > pr_input
+testing "pr file arg" \
+  '"$UTIL" pr_input' \
+  "" "" ""
+rm -f pr_input
+
+# Single line
+testing "pr single line" \
+  'printf "hello\n" | "$UTIL"' \
+  "" "" ""

@@ -1,0 +1,88 @@
+#!/bin/bash
+# ln.test — Tests for the `ln` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh ln
+
+[ -f testing.sh ] && . testing.sh
+
+# Create a hard link
+echo "data" > target
+testing "ln hard link" \
+  '"$UTIL" target hardlink && cat hardlink' \
+  "data\n" "" ""
+rm -f target hardlink
+
+# Create a symbolic link with -s
+echo "data" > target
+testing "ln -s symlink" \
+  '"$UTIL" -s target symlink && readlink symlink' \
+  "target\n" "" ""
+rm -f target symlink
+
+# Symlink to a non-existent target (should succeed — dangling symlink)
+testing "ln -s dangling" \
+  '"$UTIL" -s nonexistent dangling && readlink dangling' \
+  "nonexistent\n" "" ""
+rm -f dangling
+
+# Multiple hard links to same target
+echo "data" > target
+testing "ln multiple links" \
+  '"$UTIL" target link1 && "$UTIL" target link2 && cat link1 && cat link2' \
+  "data\ndata\n" "" ""
+rm -f target link1 link2
+
+# Link to directory (hard link should fail for dirs, -s should work)
+mkdir dir_target
+testing "ln -s to directory" \
+  '"$UTIL" -s dir_target dir_link && test -d dir_link; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf dir_target dir_link
+
+# -f force (overwrite existing)
+echo "data" > target
+echo "old" > existing_link
+testing "ln -f force overwrite" \
+  '"$UTIL" -f target existing_link && cat existing_link' \
+  "data\n" "" ""
+rm -f target existing_link
+
+# -n (no dereference of target)
+echo "data" > target
+ln -s target symlink
+testing "ln -s -f with symlink" \
+  '"$UTIL" -sf target2 symlink 2>&1; readlink symlink || true' \
+  "target2\n" "" ""
+rm -f target symlink target2
+
+# Link to file in another directory
+mkdir subdir
+echo "data" > subdir/target
+testing "ln target in subdir" \
+  '"$UTIL" subdir/target linkindot && cat linkindot' \
+  "data\n" "" ""
+rm -rf subdir linkindot
+
+# Verbose output with -v (if supported)
+echo "data" > target
+testing "ln -v" \
+  '"$UTIL" -v target vlink 2>&1; cat vlink' \
+  "data\n" "" ""
+rm -f target vlink
+
+# --help
+testing "ln --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Missing target
+testing "ln missing target" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "ln: missing operand\nexit=1\n" "" ""
+
+# Link to self
+echo "data" > target
+testing "ln self" \
+  '"$UTIL" target target 2>&1; echo exit=$?' \
+  "ln: target and target are the same file\nexit=1\n" "" ""
+rm -f target

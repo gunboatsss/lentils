@@ -1,0 +1,80 @@
+#!/bin/bash
+# cp.test — Tests for the `cp` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh cp
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic file copy
+echo "hello" > file1
+testing "cp basic" \
+  '"$UTIL" file1 file2 && cat file2' \
+  "hello\n" "" ""
+rm -f file1 file2
+
+# File to directory
+mkdir sub 2>/dev/null
+echo "data" > file1
+testing "cp file to dir" \
+  '"$UTIL" file1 sub && cat sub/file1' \
+  "data\n" "" ""
+rm -rf sub file1
+
+# Copy preserves content (binary round-trip)
+testing "cp binary" \
+  'printf "\x00\x01\x02\xff" > src && "$UTIL" src dst && cmp src dst && echo yes' \
+  "yes\n" "" ""
+rm -f src dst
+
+# Copy non-existent file
+testing "cp nonexistent" \
+  '"$UTIL" nonexistent dest 2>&1; echo exit=$?' \
+  "cp: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# -r recursive directory copy
+mkdir -p srcdir/a/b
+echo "hi" > srcdir/a/b/file
+testing "cp -r recursive" \
+  '"$UTIL" -r srcdir dstdir && cat dstdir/a/b/file' \
+  "hi\n" "" ""
+rm -rf srcdir dstdir
+
+# -v verbose
+echo "data" > file1
+testing "cp -v verbose" \
+  '"$UTIL" -v file1 file2 2>/dev/null || true' \
+  "file1 -> file2\n" "" ""
+rm -f file1 file2
+
+# -f force (overwrite existing)
+echo "first" > dest
+echo "second" > src
+testing "cp -f force overwrite" \
+  '"$UTIL" -f src dest && cat dest' \
+  "second\n" "" ""
+rm -f src dest
+
+# Copy to self should fail
+echo "data" > file1
+testing "cp self to self" \
+  '"$UTIL" file1 file1 2>&1; echo exit=$?' \
+  "cp: file1 and file1 are the same file\nexit=1\n" "" ""
+rm -f file1
+
+# Multiple files to directory
+echo "a" > a
+echo "b" > b
+mkdir d
+testing "cp multiple to dir" \
+  '"$UTIL" a b d && cat d/a && cat d/b' \
+  "a\nb\n" "" ""
+rm -rf d a b
+
+# Copy with -i (interactive) — non-interactive should prompt on tty, but we test it works
+# Just verify -i is accepted
+echo "old" > dest
+echo "new" > src
+testing "cp -i accepts flag" \
+  'echo "y" | "$UTIL" -i src dest 2>/dev/null; cat dest' \
+  "new\n" "" ""
+rm -f src dest

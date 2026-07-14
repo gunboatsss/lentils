@@ -1,0 +1,11 @@
+#!/bin/bash
+# users.test — Tests for the `users` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh users
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic output (differential against /bin/users)
+testing "users" \
+  '"\$UTIL"' \
+  "" "" ""

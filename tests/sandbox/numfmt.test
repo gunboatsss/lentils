@@ -1,0 +1,61 @@
+#!/bin/bash
+# numfmt.test — Tests for the `numfmt` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh numfmt
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic passthrough
+testing "numfmt basic" \
+  '"$UTIL"' \
+  "42\n" "" "42\n"
+
+# --to=si
+testing "numfmt --to=si 1000" \
+  '"$UTIL" --to=si' \
+  "1.0K\n" "" "1000\n"
+
+# --to=si 1000000
+testing "numfmt --to=si 1000000" \
+  '"$UTIL" --to=si' \
+  "1.0M\n" "" "1000000\n"
+
+# --from=si 1K
+testing "numfmt --from=si 1K" \
+  '"$UTIL" --from=si' \
+  "1000\n" "" "1K\n"
+
+# --to=iec 1024
+testing "numfmt --to=iec 1024" \
+  '"$UTIL" --to=iec' \
+  "1.0K\n" "" "1024\n"
+
+# --to=iec 1048576
+testing "numfmt --to=iec 1048576" \
+  '"$UTIL" --to=iec' \
+  "1.0M\n" "" "1048576\n"
+
+# --to=none
+testing "numfmt --to=none" \
+  '"$UTIL" --to=none' \
+  "42\n" "" "42\n"
+
+# Empty input
+testing "numfmt empty" \
+  '"$UTIL"' \
+  "\n" "" "\n"
+
+# Negative numbers
+testing "numfmt negative" \
+  '"$UTIL" --to=si' \
+  "-1.0K\n" "" "-1000\n"
+
+# Zero
+testing "numfmt 0 --to=si" \
+  '"$UTIL" --to=si' \
+  "0\n" "" "0\n"
+
+# Multiple lines
+testing "numfmt multi-line" \
+  '"$UTIL" --to=si' \
+  "1.0K\n2.0K\n" "" "1000\n2000\n"

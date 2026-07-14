@@ -1,0 +1,88 @@
+#!/bin/bash
+# rm.test — Tests for the `rm` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh rm
+
+[ -f testing.sh ] && . testing.sh
+
+# Remove a single file
+echo "data" > file1
+testing "rm single file" \
+  '"$UTIL" file1 && test -f file1; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -f file1
+
+# Remove multiple files
+echo "a" > a; echo "b" > b
+testing "rm multiple files" \
+  '"$UTIL" a b && test -f a; echo aexit=$? && test -f b; echo bexit=$?' \
+  "aexit=1\nbexit=1\n" "" ""
+rm -f a b
+
+# Non-existent file (should error but continue)
+testing "rm nonexistent" \
+  '"$UTIL" nonexistent 2>&1; echo exit=$?' \
+  "rm: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# -r recursive directory
+mkdir -p d1/d2
+echo "data" > d1/d2/f
+testing "rm -r recursive" \
+  '"$UTIL" -r d1 && test -d d1; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf d1
+
+# -f force (ignore nonexistent, suppress errors)
+testing "rm -f nonexistent" \
+  '"$UTIL" -f nonexistent; echo exit=$?' \
+  "exit=0\n" "" ""
+
+# -f combined with -r
+mkdir -p d1/d2
+echo "data" > d1/d2/f
+testing "rm -rf combined" \
+  '"$UTIL" -rf d1 && test -d d1; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf d1
+
+# Remove empty directory (without -r should fail)
+mkdir empty_dir
+testing "rm empty dir no -r" \
+  '"$UTIL" empty_dir 2>&1; echo exit=$?' \
+  "rm: empty_dir: is a directory\nexit=1\n" "" ""
+rm -rf empty_dir
+
+# Removing a file that is a symlink
+echo "target" > target
+ln -s target link
+testing "rm symlink" \
+  '"$UTIL" link && test -f link; echo linkexit=$? && test -f target; echo targetexit=$?' \
+  "linkexit=1\ntargetexit=0\n" "" ""
+rm -f target link
+
+# Glob pattern (shell expands before rm sees it)
+echo "a" > glob_a; echo "b" > glob_b
+testing "rm glob" \
+  '"$UTIL" glob_* && test -f glob_a; echo aexit=$? && test -f glob_b; echo bexit=$?' \
+  "aexit=1\nbexit=1\n" "" ""
+rm -f glob_a glob_b
+
+# Remove from subdirectory
+mkdir -p sub
+echo "data" > sub/file
+testing "rm file in subdir" \
+  '"$UTIL" sub/file && test -f sub/file; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf sub
+
+# --help flag
+testing "rm --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Remove file with special characters
+echo "data" > "file with spaces"
+testing "rm file with spaces" \
+  '"$UTIL" "file with spaces" && test -f "file with spaces"; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -f "file with spaces"

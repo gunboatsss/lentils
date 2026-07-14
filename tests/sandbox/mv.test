@@ -1,0 +1,91 @@
+#!/bin/bash
+# mv.test — Tests for the `mv` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh mv
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic rename
+echo "hello" > file1
+testing "mv basic rename" \
+  '"$UTIL" file1 file2 && test -f file1; echo src_exit=$? && cat file2' \
+  "src_exit=1\nhello\n" "" ""
+rm -f file2
+
+# Move to directory
+echo "data" > src
+mkdir destdir
+testing "mv to directory" \
+  '"$UTIL" src destdir && cat destdir/src' \
+  "data\n" "" ""
+rm -rf src destdir
+
+# Move multiple files to directory
+echo "a" > f1; echo "b" > f2
+mkdir dest
+testing "mv multiple to dir" \
+  '"$UTIL" f1 f2 dest && cat dest/f1 && cat dest/f2' \
+  "a\nb\n" "" ""
+rm -rf f1 f2 dest
+
+# Move nonexistent file
+testing "mv nonexistent" \
+  '"$UTIL" nonexistent dest 2>&1; echo exit=$?' \
+  "mv: nonexistent: No such file or directory\nexit=1\n" "" ""
+rm -f dest
+
+# Overwrite existing (should succeed by default)
+echo "old" > existing
+echo "new" > src
+testing "mv overwrite" \
+  '"$UTIL" src existing && cat existing' \
+  "new\n" "" ""
+rm -f src existing
+
+# Move across directories (rename)
+mkdir -p d1 d2
+echo "content" > d1/file
+testing "mv across dirs" \
+  '"$UTIL" d1/file d2/file && cat d2/file' \
+  "content\n" "" ""
+rm -rf d1 d2
+
+# Move directory into another directory
+mkdir -p sourcedir destdir
+echo "data" > sourcedir/file
+testing "mv dir into dir" \
+  '"$UTIL" sourcedir destdir/ && test -d destdir/sourcedir && cat destdir/sourcedir/file' \
+  "data\n" "" ""
+rm -rf destdir
+
+# Move file to self (should error)
+echo "data" > self
+testing "mv self to self" \
+  '"$UTIL" self self 2>&1; echo exit=$?' \
+  "mv: self and self are the same file\nexit=1\n" "" ""
+rm -f self
+
+# Rename with trailing slash
+echo "data" > src
+testing "mv with trailing slash on target" \
+  '"$UTIL" src renamed/ && cat renamed' \
+  "data\n" "" ""
+rm -rf src renamed
+
+# Move symlink
+echo "target" > targetfile
+ln -s targetfile link
+testing "mv symlink" \
+  '"$UTIL" link moved_link && test -f link; echo link_exit=$? && readlink moved_link' \
+  "link_exit=1\ntargetfile\n" "" ""
+rm -rf targetfile moved_link
+
+# --help flag
+testing "mv --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Invalid option
+testing "mv invalid option" \
+  '"$UTIL" --invalid-option 2>&1; echo exit=$?' \
+  "mv: Unknown option --invalid-option\n" "" ""

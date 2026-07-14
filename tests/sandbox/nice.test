@@ -1,0 +1,21 @@
+#!/bin/bash
+# nice.test — Tests for the `nice` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh nice
+
+[ -f testing.sh ] && . testing.sh
+
+# Run a command with default niceness
+testing "nice basic" \
+  '"$UTIL" echo hello' \
+  "hello\n" "" ""
+
+# Run with specific niceness
+testing "nice -n 5" \
+  '"$UTIL" -n 5 echo hello' \
+  "hello\n" "" ""
+
+# Run with negative niceness (requires appropriate privileges, skip if fails)
+testing "nice -n -5" \
+  '"$UTIL" -n -5 echo hello 2>&1 || echo hello' \
+  "hello\n" "" ""

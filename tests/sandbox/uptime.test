@@ -1,0 +1,11 @@
+#!/bin/bash
+# uptime.test — Tests for the `uptime` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh uptime
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic output (differential against /bin/uptime)
+testing "uptime" \
+  '"\$UTIL"' \
+  "" "" ""

@@ -1,0 +1,56 @@
+#!/bin/bash
+# fmt.test — Tests for the `fmt` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh fmt
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic paragraph formatting
+testing "fmt basic" \
+  '"$UTIL"' \
+  "hello world\n" "" "hello\nworld\n"
+
+# Single line passthrough
+testing "fmt single line" \
+  '"$UTIL"' \
+  "hello world\n" "" "hello world\n"
+
+# Multiple paragraphs (blank line separated)
+testing "fmt paragraphs" \
+  '"$UTIL"' \
+  "hello world\n\nfoo bar\n" "" "hello\nworld\n\nfoo\nbar\n"
+
+# Already formatted
+testing "fmt already formatted" \
+  '"$UTIL"' \
+  "hello world\n" "" "hello world\n"
+
+# Empty input
+testing "fmt empty" \
+  '"$UTIL"' \
+  "" "" ""
+
+# -w custom width
+testing "fmt -w 10" \
+  '"$UTIL" -w 10' \
+  "hello\nworld\n" "" "hello world\n"
+
+# -w with very narrow
+testing "fmt -w 5" \
+  '"$UTIL" -w 5' \
+  "hello\nworld\n" "" "hello world\n"
+
+# -w wider than line (no wrapping)
+testing "fmt -w 100" \
+  '"$UTIL" -w 100' \
+  "hello world\n" "" "hello world\n"
+
+# Leading whitespace preserved
+testing "fmt leading whitespace" \
+  '"$UTIL"' \
+  "  hello world\n" "" "  hello\n  world\n"
+
+# Multiple spaces collapsed
+testing "fmt multiple spaces" \
+  '"$UTIL"' \
+  "hello world\n" "" "hello    world\n"

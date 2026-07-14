@@ -1,0 +1,49 @@
+#!/bin/bash
+# shuf.test — Tests for the `shuf` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh shuf
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic shuffle (check lines are preserved, order may differ)
+testing "shuf preserves lines" \
+  'printf "a\nb\nc\n" | "$UTIL" | sort' \
+  "a\nb\nc\n" "" ""
+
+# Single line
+testing "shuf single line" \
+  '"$UTIL"' \
+  "hello\n" "" "hello\n"
+
+# Empty input
+testing "shuf empty" \
+  '"$UTIL"' \
+  "" "" ""
+
+# Two lines (verify no loss)
+testing "shuf two lines" \
+  '"$UTIL"' \
+  "x\ny\n" "" "x\ny\n"
+
+# Many lines (verify line count)
+many=$(printf 'line%d\n' $(seq 1 100))
+testing "shuf many lines" \
+  '"$UTIL" | wc -l' \
+  "100\n" "" "$many"
+
+# Input from file
+printf "one\ntwo\nthree\n" > shuf_input
+testing "shuf from file" \
+  '"$UTIL" shuf_input | sort' \
+  "one\nthree\ntwo\n" "" ""
+rm -f shuf_input
+
+# Lines with whitespace
+testing "shuf whitespace lines" \
+  '"$UTIL"' \
+  "  hello\nworld  \n" "" "  hello\nworld  \n"
+
+# Ensure randomness produces different order (run twice, very unlikely to be same)
+testing "shuf randomness" \
+  'result1=$(printf "a\nb\nc\nd\ne\nf\ng\n" | "$UTIL"); result2=$(printf "a\nb\nc\nd\ne\nf\ng\n" | "$UTIL"); [ "$result1" != "$result2" ] && echo "likely_different" || echo "same"' \
+  "likely_different\n" "" ""

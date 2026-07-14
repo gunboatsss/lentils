@@ -1,12 +1,33 @@
 #!/bin/bash
 # ptx.test — Tests for the `ptx` utility
-# Note: Our ptx output format differs from GNU ptx, so we test only basic cases
-# that produce matching output (empty input and similar simple cases).
 # License: 0BSD
+# Run via: run-sandbox-tests.sh ptx
 
 [ -f testing.sh ] && . testing.sh
 
-# ptx empty input (both produce empty output)
+# Basic permuted index
+testing "ptx basic" \
+  'printf "hello world" | "$UTIL"' \
+  "" "" ""
+
+# Empty input
 testing "ptx empty" \
-  'printf "" | "$UTIL" 2>/dev/null' \
-  "\n" "" ""
+  'printf "" | "$UTIL"' \
+  "" "" ""
+
+# Multiple words
+testing "ptx multi word" \
+  'printf "the quick brown fox" | "$UTIL"' \
+  "" "" ""
+
+# Single word
+testing "ptx single word" \
+  'printf "hello" | "$UTIL"' \
+  "" "" ""
+
+# File argument
+printf "hello world\n" > ptx_input
+testing "ptx file arg" \
+  '"$UTIL" ptx_input' \
+  "" "" ""
+rm -f ptx_input

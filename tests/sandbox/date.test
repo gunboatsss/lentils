@@ -1,0 +1,21 @@
+#!/bin/bash
+# date.test — Tests for the `date` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh date
+
+[ -f testing.sh ] && . testing.sh
+
+# Default output (differential against /bin/date)
+testing "date basic" \
+  '"$UTIL"' \
+  "" "" ""
+
+# -u UTC
+testing "date -u" \
+  '"$UTIL" -u' \
+  "" "" ""
+
+# Format string with +
+testing "date +%s" \
+  '"$UTIL" +%s 2>/dev/null | grep -cE "^[0-9]+$" || echo "0"' \
+  "" "" ""

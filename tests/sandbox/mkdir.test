@@ -1,0 +1,79 @@
+#!/bin/bash
+# mkdir.test — Tests for the `mkdir` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh mkdir
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic single directory
+testing "mkdir basic" \
+  '"$UTIL" mydir && test -d mydir; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf mydir
+
+# Multiple directories
+testing "mkdir multiple" \
+  '"$UTIL" d1 d2 d3 && test -d d1 && test -d d2 && test -d d3; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf d1 d2 d3
+
+# -p parent creation
+testing "mkdir -p parents" \
+  '"$UTIL" -p a/b/c/d && test -d a/b/c/d; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf a
+
+# -p with existing directory (should not error)
+mkdir existing
+testing "mkdir -p existing dir" \
+  '"$UTIL" -p existing; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf existing
+
+# Existing directory without -p (should error)
+mkdir alreadythere
+testing "mkdir existing no -p" \
+  '"$UTIL" alreadythere 2>&1; echo exit=$?' \
+  "mkdir: alreadythere: File exists\nexit=1\n" "" ""
+rm -rf alreadythere
+
+# Create dir with trailing slash
+testing "mkdir trailing slash" \
+  '"$UTIL" dirtrail/ && test -d dirtrail; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf dirtrail
+
+# Create dir inside non-existent path (without -p, should fail)
+testing "mkdir no -p in nonexistent path" \
+  '"$UTIL" nonexistent/mydir 2>&1; echo exit=$?' \
+  "mkdir: nonexistent/mydir: No such file or directory\nexit=1\n" "" ""
+
+# --help flag
+testing "mkdir --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Create dir with spaces in name
+testing "mkdir with spaces" \
+  '"$UTIL" "my dir" && test -d "my dir"; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf "my dir"
+
+# Deep nesting with -p
+testing "mkdir -p deep nesting" \
+  '"$UTIL" -p "very/deep/nested/path/structure" && test -d "very/deep/nested/path/structure"; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf very
+
+# -p with trailing slash on each component
+testing "mkdir -p with trailing slashes" \
+  '"$UTIL" -p "foo/bar/baz/" && test -d "foo/bar/baz"; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf foo
+
+# Parent already exists with -p
+mkdir parentexists
+testing "mkdir -p parent exists with child" \
+  '"$UTIL" -p parentexists/child && test -d parentexists/child; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf parentexists

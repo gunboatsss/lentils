@@ -1,0 +1,86 @@
+#!/bin/bash
+# seq.test — Tests for the `seq` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh seq
+
+[ -f testing.sh ] && . testing.sh
+
+# Single argument (last = 10)
+testing "seq single arg" \
+  '"$UTIL" 3' \
+  "1\n2\n3\n" "" ""
+
+# Two arguments (first last)
+testing "seq two args" \
+  '"$UTIL" 3 6' \
+  "3\n4\n5\n6\n" "" ""
+
+# Three arguments (first increment last)
+testing "seq three args" \
+  '"$UTIL" 2 2 8' \
+  "2\n4\n6\n8\n" "" ""
+
+# Increment of 1
+testing "seq increment 1" \
+  '"$UTIL" 1 1 5' \
+  "1\n2\n3\n4\n5\n" "" ""
+
+# Decreasing sequence
+testing "seq decreasing" \
+  '"$UTIL" 5 -1 1' \
+  "5\n4\n3\n2\n1\n" "" ""
+
+# Single value (last = first)
+testing "seq single value" \
+  '"$UTIL" 42' \
+  "42\n" "" ""
+
+# Zero step (should produce infinite or error — check behavior)
+testing "seq zero step" \
+  '"$UTIL" 1 0 5 2>&1; echo exit=$?' \
+  "seq: invalid increment 0\nexit=1\n" "" ""
+
+# Float increment
+testing "seq float increment" \
+  '"$UTIL" 0 0.5 2' \
+  "0.0\n0.5\n1.0\n1.5\n2.0\n" "" ""
+
+# Float first and last
+testing "seq float range" \
+  '"$UTIL" 1.5 2.5' \
+  "1.500000\n2.500000\n" "" ""
+
+# Negative increment
+testing "seq negative increment" \
+  '"$UTIL" 10 -3 1' \
+  "10\n7\n4\n1\n" "" ""
+
+# No arguments
+testing "seq no args" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "seq: missing operand\nexit=1\n" "" ""
+
+# Large range (first equals last, one output)
+testing "seq equal bounds" \
+  '"$UTIL" 5 5' \
+  "5\n" "" ""
+
+# Increment larger than range (only first)
+testing "seq increment larger than range" \
+  '"$UTIL" 1 10 5' \
+  "1\n" "" ""
+
+# Negative values
+testing "seq negative values" \
+  '"$UTIL" -2 2' \
+  "-2\n-1\n0\n1\n2\n" "" ""
+
+# Separator with -s (if supported)
+testing "seq -s separator" \
+  '"$UTIL" -s , 3 2>/dev/null || "$UTIL" 3' \
+  "1,2,3\n" "" ""
+
+# Equal width with -w (if supported)
+testing "seq -w equal width" \
+  '"$UTIL" -w 8 10 2>/dev/null || "$UTIL" 8 10' \
+  "08\n09\n10\n" "" ""

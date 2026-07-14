@@ -1,0 +1,79 @@
+#!/bin/bash
+# tsort.test — Tests for the `tsort` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh tsort
+
+[ -f testing.sh ] && . testing.sh
+
+# Simple linear order
+testing "tsort linear" \
+  '"$UTIL"' \
+  "a\nb\nc\n" "" "a b\nb c\n"
+
+# Reverse order
+testing "tsort reverse" \
+  '"$UTIL"' \
+  "b\na\n" "" "b a\na b\n"
+
+# Diamond dependency: a -> b, a -> c, b -> d, c -> d
+# Valid orders: a b c d or a c b d
+testing "tsort diamond" \
+  '"$UTIL"' \
+  "a\nb\nc\nd\n" "" "a b\na c\nb d\nc d\n"
+
+# Single node (no edges)
+testing "tsort single node" \
+  '"$UTIL"' \
+  "a\n" "" "a\n"
+
+# Two independent nodes (no relation)
+testing "tsort independent" \
+  '"$UTIL"' \
+  "a\nb\n" "" "a\nb\n"
+
+# Chain of 4
+testing "tsort chain" \
+  '"$UTIL"' \
+  "w\nx\ny\nz\n" "" "w x\nx y\ny z\n"
+
+# Self-loop (cyclic dependency)
+testing "tsort self-loop" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "" "" "a a\n"
+
+# Simple cycle a -> b -> a
+testing "tsort cycle" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "" "" "a b\nb a\n"
+
+# Empty input
+testing "tsort empty" \
+  '"$UTIL"' \
+  "" "" ""
+
+# One file argument
+printf "a b\nb c\n" > tsort_input
+testing "tsort file arg" \
+  '"$UTIL" tsort_input' \
+  "a\nb\nc\n" "" ""
+rm -f tsort_input
+
+# Nodes with numeric names
+testing "tsort numeric" \
+  '"$UTIL"' \
+  "1\n2\n3\n" "" "1 2\n2 3\n"
+
+# Multiple edges from same source
+testing "tsort multi-edge" \
+  '"$UTIL"' \
+  "a\nb\nc\n" "" "a b\na c\n"
+
+# Disconnected components
+testing "tsort disconnected" \
+  '"$UTIL"' \
+  "a\nb\nc\nd\n" "" "a b\nc d\n"
+
+# Single edge
+testing "tsort single edge" \
+  '"$UTIL"' \
+  "x\ny\n" "" "x y\n"

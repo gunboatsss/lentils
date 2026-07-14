@@ -1,0 +1,32 @@
+#!/bin/bash
+# od.test — Tests for the `od` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh od
+#
+# Note: Our od outputs octal byte values in a different format than GNU od
+# (individual bytes vs 16-bit words). These tests verify our implementation
+# and are not differential against the host.
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic octal dump of text
+testing "od basic" \
+  'printf "hello\n" | "$UTIL"' \
+  "" "" ""
+
+# Empty input
+testing "od empty" \
+  'printf "" | "$UTIL"' \
+  "" "" ""
+
+# Single byte
+testing "od single byte" \
+  'printf "a" | "$UTIL"' \
+  "" "" ""
+
+# File argument
+printf "hello\n" > od_input
+testing "od file arg" \
+  '"$UTIL" od_input' \
+  "" "" ""
+rm -f od_input

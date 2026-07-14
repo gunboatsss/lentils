@@ -1,0 +1,89 @@
+#!/bin/bash
+# touch.test — Tests for the `touch` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh touch
+
+[ -f testing.sh ] && . testing.sh
+
+# Create a new file
+testing "touch create" \
+  '"$UTIL" newfile && test -f newfile; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f newfile
+
+# Update timestamp on existing file
+echo "data" > existing
+old_mtime=$(stat -c '%Y' existing 2>/dev/null || echo 0)
+sleep 1
+testing "touch update mtime" \
+  '"$UTIL" existing && new_mtime=$(stat -c "%Y" existing) && [ "$new_mtime" -gt "'"$old_mtime"'" ]; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f existing
+
+# Touch multiple files
+testing "touch multiple" \
+  '"$UTIL" a b c && test -f a && test -f b && test -f c; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f a b c
+
+# Touch with -c (no create) — should NOT create a new file
+testing "touch -c no create" \
+  '"$UTIL" -c shouldnotexist && test -f shouldnotexist; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -f shouldnotexist
+
+# Touch with -c on existing file (should still update)
+echo "data" > existing_c
+old_ctime=$(stat -c '%Y' existing_c 2>/dev/null || echo 0)
+sleep 1
+testing "touch -c existing" \
+  '"$UTIL" -c existing_c && test -f existing_c; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f existing_c
+
+# Touch with -a (access time only)
+echo "data" > acc_file
+testing "touch -a flag accepted" \
+  '"$UTIL" -a acc_file && test -f acc_file; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f acc_file
+
+# Touch with -m (modification time only)
+echo "data" > mod_file
+testing "touch -m flag accepted" \
+  '"$UTIL" -m mod_file && test -f mod_file; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f mod_file
+
+# Touch file with spaces
+testing "touch with spaces" \
+  '"$UTIL" "file with spaces" && test -f "file with spaces"; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f "file with spaces"
+
+# Touch in subdirectory
+mkdir -p subdir
+testing "touch in subdir" \
+  '"$UTIL" subdir/nested && test -f subdir/nested; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -rf subdir
+
+# Touch existing file does not truncate
+echo "content" > preserve
+testing "touch preserve content" \
+  '"$UTIL" preserve && cat preserve' \
+  "content\n" "" ""
+rm -f preserve
+
+# --help flag
+testing "touch --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Touch with -r reference file
+echo "refdata" > reffile
+echo "targetdata" > targetfile
+testing "touch -r reference" \
+  '"$UTIL" -r reffile targetfile && test -f targetfile; echo exit=$?' \
+  "exit=0\n" "" ""
+rm -f reffile targetfile

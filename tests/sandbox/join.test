@@ -1,0 +1,85 @@
+#!/bin/bash
+# join.test — Tests for the `join` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh join
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic join on first field
+printf "a 1\nb 2\n" > f1
+printf "a x\nb y\n" > f2
+testing "join basic" \
+  '"$UTIL" f1 f2' \
+  "a 1 x\nb 2 y\n" "" ""
+rm -f f1 f2
+
+# Join with no common field
+printf "a 1\n" > f1
+printf "b x\n" > f2
+testing "join no common" \
+  '"$UTIL" f1 f2' \
+  "" "" ""
+rm -f f1 f2
+
+# Empty files
+printf "" > f1
+printf "a x\n" > f2
+testing "join empty first" \
+  '"$UTIL" f1 f2' \
+  "" "" ""
+rm -f f1 f2
+
+# Both empty
+printf "" > f1
+printf "" > f2
+testing "join both empty" \
+  '"$UTIL" f1 f2' \
+  "" "" ""
+rm -f f1 f2
+
+# Single common line
+printf "a 1\n" > f1
+printf "a x\n" > f2
+testing "join single common" \
+  '"$UTIL" f1 f2' \
+  "a 1 x\n" "" ""
+rm -f f1 f2
+
+# Multiple fields per file
+printf "a 1 2 3\nb 4 5 6\n" > f1
+printf "a x y z\nb p q r\n" > f2
+testing "join multi-field" \
+  '"$UTIL" f1 f2' \
+  "a 1 2 3 x y z\nb 4 5 6 p q r\n" "" ""
+rm -f f1 f2
+
+# Unmatched lines (first file has extra)
+printf "a 1\nb 2\nc 3\n" > f1
+printf "a x\n" > f2
+testing "join extra in first" \
+  '"$UTIL" f1 f2' \
+  "a 1 x\n" "" ""
+rm -f f1 f2
+
+# Join tab-separated
+printf "a\t1\nb\t2\n" > f1
+printf "a\tx\nb\ty\n" > f2
+testing "join tab-sep" \
+  '"$UTIL" f1 f2' \
+  "a\t1\tx\nb\t2\ty\n" "" ""
+rm -f f1 f2
+
+# Non-existent file
+printf "a 1\n" > f1
+testing "join nonexistent" \
+  '"$UTIL" f1 nonexistent 2>&1; echo exit=$?' \
+  "a 1\n\nexit=0\n" "" ""
+rm -f f1
+
+# All different keys
+printf "a 1\nb 2\n" > f1
+printf "c x\nd y\n" > f2
+testing "join no matching keys" \
+  '"$UTIL" f1 f2' \
+  "" "" ""
+rm -f f1 f2

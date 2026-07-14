@@ -1,0 +1,26 @@
+#!/bin/bash
+# timeout.test — Tests for the `timeout` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh timeout
+
+[ -f testing.sh ] && . testing.sh
+
+# Run a quick command (should succeed before timeout)
+testing "timeout quick command" \
+  '"$UTIL" 2 echo hello' \
+  "hello\n" "" ""
+
+# Run something that would timeout and check it gets killed
+testing "timeout terminates" \
+  '"$UTIL" 1 sleep 5; echo exit=$?' \
+  "exit=124\n" "" ""
+
+# Fractional seconds
+testing "timeout fractional" \
+  '"$UTIL" 0.5 echo hello' \
+  "hello\n" "" ""
+
+# No timeout value should error
+testing "timeout missing duration" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "timeout: missing duration\nexit=1\n" "" ""

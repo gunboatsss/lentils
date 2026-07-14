@@ -1,0 +1,148 @@
+#!/bin/bash
+# comm.test — Tests for the `comm` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh comm
+
+[ -f testing.sh ] && . testing.sh
+
+# Both files identical
+printf "a\nb\nc\n" > f1
+printf "a\nb\nc\n" > f2
+testing "comm identical" \
+  '"$UTIL" f1 f2' \
+  "		a\n		b\n		c\n" "" ""
+rm -f f1 f2
+
+# First file has unique lines
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm unique in first" \
+  '"$UTIL" f1 f2' \
+  "a\n		b\n		c\n	d\n" "" ""
+rm -f f1 f2
+
+# Suppress column 1 (-1)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -1 suppress col 1" \
+  '"$UTIL" -1 f1 f2' \
+  "		b\n		c\n	d\n" "" ""
+rm -f f1 f2
+
+# Suppress column 2 (-2)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -2 suppress col 2" \
+  '"$UTIL" -2 f1 f2' \
+  "a\n		b\n		c\n" "" ""
+rm -f f1 f2
+
+# Suppress column 3 (-3)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -3 suppress col 3" \
+  '"$UTIL" -3 f1 f2' \
+  "a\n	d\n" "" ""
+rm -f f1 f2
+
+# Suppress all columns (-123) — no output
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -123 suppress all" \
+  '"$UTIL" -123 f1 f2' \
+  "" "" ""
+rm -f f1 f2
+
+# Both files empty
+printf "" > f1
+printf "" > f2
+testing "comm both empty" \
+  '"$UTIL" f1 f2' \
+  "" "" ""
+rm -f f1 f2
+
+# One file empty
+printf "a\nb\n" > f1
+printf "" > f2
+testing "comm first non-empty, second empty" \
+  '"$UTIL" f1 f2' \
+  "a\nb\n" "" ""
+rm -f f1 f2
+
+# Second file empty
+printf "" > f1
+printf "a\nb\n" > f2
+testing "comm first empty, second non-empty" \
+  '"$UTIL" f1 f2' \
+  "	a\n	b\n" "" ""
+rm -f f1 f2
+
+# Files with no common lines
+printf "a\nb\n" > f1
+printf "c\nd\n" > f2
+testing "comm no common" \
+  '"$UTIL" f1 f2' \
+  "a\nb\n	c\n	d\n" "" ""
+rm -f f1 f2
+
+# Single line files
+printf "hello\n" > f1
+printf "hello\n" > f2
+testing "comm single line identical" \
+  '"$UTIL" f1 f2' \
+  "		hello\n" "" ""
+rm -f f1 f2
+
+# Duplicate lines within a file
+printf "a\na\nb\n" > f1
+printf "a\nb\n" > f2
+testing "comm duplicates in first" \
+  '"$UTIL" f1 f2' \
+  "a\n		a\n		b\n" "" ""
+rm -f f1 f2
+
+# Files from stdin (using - for file)
+printf "a\nb\n" > f1
+testing "comm stdin as second file" \
+  '"$UTIL" f1 -' \
+  "		a\n		b\n" "" "a\nb\n"
+rm -f f1
+
+# Combined -12 (only common lines)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -12 common only" \
+  '"$UTIL" -12 f1 f2' \
+  "b\nc\n" "" ""
+rm -f f1 f2
+
+# Combined -13 (only lines unique to second)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -13 second only" \
+  '"$UTIL" -13 f1 f2' \
+  "d\n" "" ""
+rm -f f1 f2
+
+# Combined -23 (only lines unique to first)
+printf "a\nb\nc\n" > f1
+printf "b\nc\nd\n" > f2
+testing "comm -23 first only" \
+  '"$UTIL" -23 f1 f2' \
+  "a\n" "" ""
+rm -f f1 f2
+
+# Files with numeric content
+printf "1\n2\n3\n" > f1
+printf "2\n3\n4\n" > f2
+testing "comm numeric" \
+  '"$UTIL" f1 f2' \
+  "1\n	2\n	3\n	4\n" "" ""
+rm -f f1 f2
+
+# Missing file
+printf "a\n" > f1
+testing "comm missing file" \
+  '"$UTIL" f1 nonexistent 2>&1; echo exit=$?' \
+  "comm: nonexistent: No such file or directory\nexit=1\n" "" ""
+rm -f f1

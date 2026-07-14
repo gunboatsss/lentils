@@ -5,15 +5,29 @@
 
 [ -f testing.sh ] && . testing.sh
 
-# tee writes to stdout and file
-testing "tee stdout and file" \
-  'printf "hello\n" | "$UTIL" test_tee_out && cat test_tee_out' \
-  "hello\nhello\n" "" ""
+# Basic tee to stdout only (stdin passes through to stdout)
+testing "tee stdin to stdout" \
+  '"$UTIL"' \
+  "hello\n" "" "hello\n"
 
-# tee -a appends
-testing "tee append" \
-  'printf "line1\n" > test_tee_append; printf "line2\n" | "$UTIL" -a test_tee_append && cat test_tee_append' \
-  "line2\nline1\nline2\n" "" ""
+# Tee to a file (stdout also gets a copy)
+testing "tee to file and stdout" \
+  '"$UTIL" outfile && cat outfile' \
+  "data\ndata\n" "" "data\n"
 
-rm -f test_tee_out test_tee_append
+# Tee to multiple files
+testing "tee multiple files" \
+  '"$UTIL" f1 f2 && cat f1 && echo . && cat f2' \
+  "hello\n.\nhello\n" "" "hello\n"
 
+# Tee with -a (append to existing file)
+printf "original\n" > appendfile
+testing "tee -a append" \
+  '"$UTIL" -a appendfile > /dev/null && cat appendfile' \
+  "original\nappended\n" "" "appended\n"
+rm -f appendfile
+
+# Empty input
+testing "tee empty input" \
+  '"$UTIL"' \
+  "" "" ""

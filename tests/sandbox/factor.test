@@ -1,0 +1,56 @@
+#!/bin/bash
+# factor.test — Tests for the `factor` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh factor
+
+[ -f testing.sh ] && . testing.sh
+
+# Factor small number
+testing "factor 12" \
+  '"$UTIL" 12' \
+  "12: 2 2 3\n" "" ""
+
+# Factor prime
+testing "factor prime" \
+  '"$UTIL" 17' \
+  "17: 17\n" "" ""
+
+# Factor 1 (no factors)
+testing "factor 1" \
+  '"$UTIL" 1' \
+  "1: \n" "" ""
+
+# Factor 0
+testing "factor 0" \
+  '"$UTIL" 0' \
+  "0: \n" "" ""
+
+# Factor -1 (negatives)
+testing "factor negative" \
+  '"$UTIL" -1 2>&1; echo exit=$?' \
+  "factor: -1 is not a positive integer\nexit=1\n" "" ""
+
+# Factor stdin (each line is a number)
+testing "factor stdin" \
+  '"$UTIL"' \
+  "6: 2 3\n8: 2 2 2\n" "" "6\n8\n"
+
+# Factor multiple arguments
+testing "factor multiple args" \
+  '"$UTIL" 6 8 12' \
+  "6: 2 3\n8: 2 2 2\n12: 2 2 3\n" "" ""
+
+# Factor 100
+testing "factor 100" \
+  '"$UTIL" 100' \
+  "100: 2 2 5 5\n" "" ""
+
+# Factor large number
+testing "factor 65537" \
+  '"$UTIL" 65537' \
+  "65537: 65537\n" "" ""
+
+# Factor composite large
+testing "factor 999999" \
+  '"$UTIL" 999999' \
+  "999999: 3 3 3 7 11 13 37\n" "" ""

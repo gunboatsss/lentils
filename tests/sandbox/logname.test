@@ -1,0 +1,11 @@
+#!/bin/bash
+# logname.test — Tests for the `logname` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh logname
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic logname output (differential against /bin/logname)
+testing "logname" \
+  '"$UTIL"' \
+  "" "" ""

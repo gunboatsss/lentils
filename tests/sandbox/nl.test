@@ -1,0 +1,80 @@
+#!/bin/bash
+# nl.test — Tests for the `nl` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh nl
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic line numbering
+testing "nl basic" \
+  '"$UTIL"' \
+  "     1\thello\n     2\tworld\n" "" "hello\nworld\n"
+
+# Empty input
+testing "nl empty" \
+  '"$UTIL"' \
+  "" "" ""
+
+# Single line
+testing "nl single line" \
+  '"$UTIL"' \
+  "     1\tsingle\n" "" "single\n"
+
+# Empty lines are not numbered (passed through)
+testing "nl empty lines unnumbered" \
+  '"$UTIL"' \
+  "     1\thello\n\n     2\tworld\n" "" "hello\n\nworld\n"
+
+# All empty lines
+testing "nl all empty" \
+  '"$UTIL"' \
+  "\n\n" "" "\n\n"
+
+# Lines with trailing newline
+testing "nl trailing newline" \
+  '"$UTIL"' \
+  "     1\thello\n     2\tworld\n" "" "hello\nworld\n"
+
+# Lines without trailing newline
+testing "nl no trailing newline" \
+  'printf "hello\nworld" | "$UTIL"' \
+  "     1\thello\n     2\tworld\n" "" ""
+
+# Mixed empty and non-empty
+testing "nl mixed content" \
+  '"$UTIL"' \
+  "     1\ta\n\n     2\tb\n     3\tc\n\n     4\td\n" "" "a\n\nb\nc\n\nd\n"
+
+# Single character lines
+testing "nl single char lines" \
+  '"$UTIL"' \
+  "     1\ta\n     2\tb\n     3\tc\n" "" "a\nb\nc\n"
+
+# Numbered lines have right-justified 6-column number + tab
+testing "nl format check" \
+  '"$UTIL"' \
+  "     1\tx\n" "" "x\n"
+
+# File input (via stdin redirection)
+printf "one\ntwo\nthree\n" > nl_input.txt
+testing "nl file input" \
+  '"$UTIL" < nl_input.txt' \
+  "     1\tone\n     2\ttwo\n     3\tthree\n" "" ""
+rm -f nl_input.txt
+
+# Many lines
+many=$(printf 'line\n%.0s' $(seq 1 10))
+expected=$(printf '     1\tline\n     2\tline\n     3\tline\n     4\tline\n     5\tline\n     6\tline\n     7\tline\n     8\tline\n     9\tline\n    10\tline\n')
+testing "nl many lines" \
+  '"$UTIL"' \
+  "$expected" "" "$many"
+
+# Lines starting with whitespace
+testing "nl whitespace prefix" \
+  '"$UTIL"' \
+  "     1\t  hello\n     2\t  world\n" "" "  hello\n  world\n"
+
+# Unicode content
+testing "nl unicode" \
+  '"$UTIL"' \
+  "     1\tcafé\n     2\tüber\n" "" "café\nüber\n"

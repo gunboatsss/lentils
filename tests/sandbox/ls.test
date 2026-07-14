@@ -1,0 +1,100 @@
+#!/bin/bash
+# ls.test — Tests for the `ls` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh ls
+
+[ -f testing.sh ] && . testing.sh
+
+# Set up a test directory
+setup_testdir() {
+  mkdir -p "$1"
+  echo "aaa" > "$1/aaa"
+  echo "bbb" > "$1/bbb"
+  touch "$1/.hidden"
+}
+
+# Basic listing (file names only, default)
+setup_testdir td1
+testing "ls basic" \
+  '"$UTIL" td1 | sort' \
+  "aaa\nbbb\n" "" ""
+rm -rf td1
+
+# Empty directory
+mkdir td_empty
+testing "ls empty dir" \
+  '"$UTIL" td_empty' \
+  "" "" ""
+rm -rf td_empty
+
+# Non-existent directory
+testing "ls nonexistent" \
+  '"$UTIL" nonexistent_dir 2>&1; echo exit=$?' \
+  "ls: nonexistent_dir: No such file or directory\nexit=1\n" "" ""
+
+# Single file argument
+echo "data" > single
+testing "ls single file" \
+  '"$UTIL" single' \
+  "single\n" "" ""
+rm -f single
+
+# Multiple file arguments
+echo "a" > f1; echo "b" > f2
+testing "ls multiple files" \
+  '"$UTIL" f1 f2 | sort' \
+  "f1\nf2\n" "" ""
+rm -f f1 f2
+
+# --help flag
+testing "ls --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Directory with trailing slash
+setup_testdir td2
+testing "ls dir with trailing slash" \
+  '"$UTIL" td2/ | sort' \
+  "aaa\nbbb\n" "" ""
+rm -rf td2
+
+# File with spaces in name
+mkdir td_spc
+touch "td_spc/file with spaces"
+testing "ls files with spaces" \
+  '"$UTIL" td_spc' \
+  "file with spaces\n" "" ""
+rm -rf td_spc
+
+# Symlink in listing (if supported)
+mkdir td_ln
+echo "target" > td_ln/target
+ln -s target td_ln/link 2>/dev/null || true
+testing "ls symlink" \
+  '"$UTIL" td_ln | sort' \
+  "link\ntarget\n" "" ""
+rm -rf td_ln
+
+# Directory with many entries
+mkdir td_many
+for i in $(seq 1 20); do touch "td_many/file$i"; done
+testing "ls many entries" \
+  '"$UTIL" td_many | wc -l' \
+  "20\n" "" ""
+rm -rf td_many
+
+# Path with .. component
+mkdir -p td_parent/sub
+touch td_parent/sub/file
+testing "ls with .. path" \
+  '"$UTIL" td_parent/sub/.. | sort' \
+  "sub\n" "" ""
+rm -rf td_parent
+
+# Multiple directories
+mkdir d1 d2
+touch d1/a d2/b
+testing "ls multiple dirs" \
+  '"$UTIL" d1 d2 | sort' \
+  "d1/a\nd2/b\n" "" ""
+rm -rf d1 d2

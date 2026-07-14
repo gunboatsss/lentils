@@ -1,0 +1,31 @@
+#!/bin/bash
+# cal.test — Tests for the `cal` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh cal
+
+[ -f testing.sh ] && . testing.sh
+
+# Current month (just check it outputs something)
+testing "cal current month" \
+  '"$UTIL" | head -1 | grep -cE "Sun|Mon"' \
+  "1\n" "" ""
+
+# Specific month and year
+testing "cal 01 2024" \
+  '"$UTIL" 1 2024 | head -1' \
+  "January 2024\n" "" ""
+
+# Year only
+testing "cal 2024" \
+  '"$UTIL" 2024 | head -1' \
+  "2024\n" "" ""
+
+# -3 flag (prev/current/next month)
+testing "cal -3" \
+  '"$UTIL" -3 2>/dev/null | head -3' \
+  "" "" ""
+
+# -j (Julian day)
+testing "cal -j" \
+  '"$UTIL" -j 2>/dev/null | head -1' \
+  "" "" ""

@@ -1,0 +1,86 @@
+#!/bin/bash
+# rmdir.test — Tests for the `rmdir` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh rmdir
+
+[ -f testing.sh ] && . testing.sh
+
+# Remove empty directory
+mkdir emptydir
+testing "rmdir basic" \
+  '"$UTIL" emptydir && test -d emptydir; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf emptydir
+
+# Remove multiple empty directories
+mkdir d1 d2 d3
+testing "rmdir multiple" \
+  '"$UTIL" d1 d2 d3 && test -d d1; echo d1exit=$? && test -d d2; echo d2exit=$? && test -d d3; echo d3exit=$?' \
+  "d1exit=1\nd2exit=1\nd3exit=1\n" "" ""
+rm -rf d1 d2 d3
+
+# Non-empty directory (should fail)
+mkdir nonempty
+echo "data" > nonempty/file
+testing "rmdir nonempty" \
+  '"$UTIL" nonempty 2>&1; echo exit=$?' \
+  "rmdir: nonempty: Directory not empty\nexit=1\n" "" ""
+rm -rf nonempty
+
+# Non-existent directory
+testing "rmdir nonexistent" \
+  '"$UTIL" nonexistent 2>&1; echo exit=$?' \
+  "rmdir: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# Remove directory with trailing slash
+mkdir trail
+testing "rmdir trailing slash" \
+  '"$UTIL" trail/ && test -d trail; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf trail
+
+# -p parent removal (remove dir and its empty parents)
+mkdir -p a/b/c
+testing "rmdir -p parents" \
+  '"$UTIL" -p a/b/c && test -d a/b/c; echo cexit=$? && test -d a/b; echo bexit=$? && test -d a; echo aexit=$?' \
+  "cexit=1\nbexit=1\naexit=1\n" "" ""
+rm -rf a
+
+# -p when parent is non-empty (should stop at non-empty parent)
+mkdir -p parent/child
+echo "data" > parent/other
+testing "rmdir -p nonempty parent" \
+  '"$UTIL" -p parent/child 2>&1; echo exit=$?' \
+  "rmdir: parent: Directory not empty\nexit=1\n" "" ""
+rm -rf parent
+
+# -p with multiple directories
+mkdir -p d1/d2 d3/d4
+testing "rmdir -p multiple" \
+  '"$UTIL" -p d1/d2 d3/d4 && test -d d1; echo d1exit=$? && test -d d3; echo d3exit=$?' \
+  "d1exit=1\nd3exit=1\n" "" ""
+rm -rf d1 d3
+
+# File instead of directory (should fail)
+echo "data" > file1
+testing "rmdir file" \
+  '"$UTIL" file1 2>&1; echo exit=$?' \
+  "rmdir: file1: Not a directory\nexit=1\n" "" ""
+rm -f file1
+
+# --help
+testing "rmdir --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Deep empty dirs
+mkdir -p very/deep/empty
+testing "rmdir deep" \
+  '"$UTIL" very/deep/empty && test -d very/deep/empty; echo exit=$?' \
+  "exit=1\n" "" ""
+rm -rf very
+
+# No arguments
+testing "rmdir no args" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "rmdir: missing operand\nexit=1\n" "" ""

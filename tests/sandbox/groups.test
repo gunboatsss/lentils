@@ -1,0 +1,16 @@
+#!/bin/bash
+# groups.test — Tests for the `groups` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh groups
+
+[ -f testing.sh ] && . testing.sh
+
+# Current user's groups (differential against /bin/groups)
+testing "groups current user" \
+  '"$UTIL"' \
+  "" "" ""
+
+# Specific user (root should always exist)
+testing "groups root" \
+  '"$UTIL" root' \
+  "" "" ""

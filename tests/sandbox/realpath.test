@@ -1,0 +1,100 @@
+#!/bin/bash
+# realpath.test — Tests for the `realpath` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh realpath
+
+[ -f testing.sh ] && . testing.sh
+
+# Real path for a file
+echo "data" > file1
+testing "realpath file" \
+  '"$UTIL" file1' \
+  "$(pwd)/file1\n" "" ""
+rm -f file1
+
+# Real path for a directory
+mkdir dir1
+testing "realpath directory" \
+  '"$UTIL" dir1' \
+  "$(pwd)/dir1\n" "" ""
+rm -rf dir1
+
+# Real path with .. component
+mkdir -p dir/sub
+echo "data" > dir/sub/file
+testing "realpath with .." \
+  '"$UTIL" dir/sub/../file' \
+  "$(pwd)/dir/file\n" "" ""
+rm -rf dir
+
+# Real path with . component
+echo "data" > file1
+testing "realpath with ." \
+  '"$UTIL" ./file1' \
+  "$(pwd)/file1\n" "" ""
+rm -f file1
+
+# Real path for root
+testing "realpath root" \
+  '"$UTIL" /' \
+  "/\n" "" ""
+
+# Real path for current directory
+testing "realpath ." \
+  '"$UTIL" .' \
+  "$(pwd)\n" "" ""
+
+# Missing file
+testing "realpath nonexistent" \
+  '"$UTIL" nonexistent 2>&1; echo exit=$?' \
+  "realpath: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# No arguments
+testing "realpath no args" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "Usage: lentils realpath path\nexit=1\n" "" ""
+
+# Symlink resolution
+echo "data" > target
+ln -s target link
+testing "realpath symlink" \
+  '"$UTIL" link' \
+  "$(pwd)/target\n" "" ""
+rm -f target link
+
+# Symlink to dir
+mkdir dir_target
+ln -s dir_target dir_link
+testing "realpath symlink to dir" \
+  '"$UTIL" dir_link' \
+  "$(pwd)/dir_target\n" "" ""
+rm -rf dir_target dir_link
+
+# Multiple path components
+mkdir -p a/b/c
+testing "realpath nested" \
+  '"$UTIL" a/b/c' \
+  "$(pwd)/a/b/c\n" "" ""
+rm -rf a
+
+# Absolute path input
+testing "realpath absolute input" \
+  '"$UTIL" /tmp' \
+  "/tmp\n" "" ""
+
+# Path with symlink in middle
+mkdir mid_dir
+ln -s mid_dir link_to_mid
+mkdir -p link_to_mid/sub
+echo "data" > link_to_mid/sub/file
+testing "realpath symlink in path" \
+  '"$UTIL" link_to_mid/sub/file' \
+  "$(pwd)/mid_dir/sub/file\n" "" ""
+rm -rf mid_dir link_to_mid
+
+# Relative path with trailing slash
+mkdir trailing_dir
+testing "realpath trailing slash" \
+  '"$UTIL" trailing_dir/' \
+  "$(pwd)/trailing_dir\n" "" ""
+rm -rf trailing_dir

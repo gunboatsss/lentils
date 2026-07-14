@@ -1,0 +1,68 @@
+#!/bin/bash
+# expand.test — Tests for the `expand` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh expand
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic tab expansion (default 8-column stops)
+testing "expand basic" \
+  'printf "a\tb" | "$UTIL"' \
+  "a       b\n" "" ""
+
+# Tab at start of line
+testing "expand leading tab" \
+  'printf "\tlead" | "$UTIL"' \
+  "        lead\n" "" ""
+
+# Multiple tabs
+testing "expand multiple tabs" \
+  'printf "a\t\tb" | "$UTIL"' \
+  "a               b\n" "" ""
+
+# No tabs (passthrough)
+testing "expand no tabs" \
+  'printf "hello world" | "$UTIL"' \
+  "hello world\n" "" ""
+
+# Tab at position aligned to tab stop
+# At stop 8: "1234567\t" should expand to 8 chars (tab + 1 space)
+testing "expand tab after 7 chars" \
+  'printf "1234567\ta" | "$UTIL"' \
+  "1234567 a\n" "" ""
+
+# Tab at position exactly at tab stop
+# At stop 8: "12345678\t" should be 16 chars (8 + 8)
+testing "expand tab at stop" \
+  'printf "12345678\ta" | "$UTIL"' \
+  "12345678        a\n" "" ""
+
+# Tabs separated by exact multiples
+testing "expand exact multiples" \
+  'printf "a\tb\tc" | "$UTIL"' \
+  "a       b       c\n" "" ""
+
+# Empty input
+testing "expand empty" \
+  'printf "" | "$UTIL"' \
+  "" "" ""
+
+# Tab-only input
+testing "expand tabs only" \
+  'printf "\t\t" | "$UTIL"' \
+  "                \n" "" ""
+
+# Single character before tab
+testing "expand 1 char then tab" \
+  'printf "a\tb" | "$UTIL"' \
+  "a       b\n" "" ""
+
+# Long text with embedded tabs
+testing "expand long text" \
+  'printf "short\t\t\tend" | "$UTIL"' \
+  "short                           end\n" "" ""
+
+# Multiple lines with tabs
+testing "expand multi-line" \
+  'printf "a\tb\nc\td\n" | "$UTIL"' \
+  "a       b\nc       d\n" "" ""

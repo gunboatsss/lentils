@@ -1,0 +1,66 @@
+#!/bin/bash
+# unexpand.test — Tests for the `unexpand` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh unexpand
+
+[ -f testing.sh ] && . testing.sh
+
+# Basic space-to-tab conversion (8-space aligned)
+testing "unexpand basic" \
+  'printf "a       b" | "$UTIL"' \
+  "a\tb\n" "" ""
+
+# Leading spaces converted
+testing "unexpand leading spaces" \
+  'printf "        lead" | "$UTIL"' \
+  "\tlead\n" "" ""
+
+# Multiple groups
+testing "unexpand multiple groups" \
+  'printf "a       b       c" | "$UTIL"' \
+  "a\tb\tc\n" "" ""
+
+# No spaces (passthrough)
+testing "unexpand no spaces" \
+  'printf "hello" | "$UTIL"' \
+  "hello\n" "" ""
+
+# Spaces not aligned to tab stop should remain
+testing "unexpand non-aligned" \
+  'printf "a    b" | "$UTIL"' \
+  "a    b\n" "" ""
+
+# Mixed tabs and spaces (already has tabs)
+testing "unexpand mixed" \
+  'printf "a\tb       c" | "$UTIL"' \
+  "a\tb\tc\n" "" ""
+
+# Empty input
+testing "unexpand empty" \
+  'printf "" | "$UTIL"' \
+  "" "" ""
+
+# Exactly 8 spaces
+testing "unexpand 8 spaces" \
+  'printf "        a" | "$UTIL"' \
+  "\ta\n" "" ""
+
+# 7 spaces (should stay as spaces)
+testing "unexpand 7 spaces" \
+  'printf "       a" | "$UTIL"' \
+  "       a\n" "" ""
+
+# 16 spaces (two tabs)
+testing "unexpand 16 spaces" \
+  'printf "                a" | "$UTIL"' \
+  "\t\ta\n" "" ""
+
+# Multiple lines with spaces
+testing "unexpand multi-line" \
+  'printf "a       b\nc       d\n" | "$UTIL"' \
+  "a\tb\nc\td\n" "" ""
+
+# Spaces-only line (8 spaces)
+testing "unexpand spaces-only line" \
+  'printf "        \n" | "$UTIL"' \
+  "\t\n" "" ""

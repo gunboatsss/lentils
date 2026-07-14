@@ -1,0 +1,16 @@
+#!/bin/bash
+# id.test — Tests for the `id` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh id
+
+[ -f testing.sh ] && . testing.sh
+
+# Current user (differential against /bin/id)
+testing "id current user" \
+  '"$UTIL"' \
+  "" "" ""
+
+# id root
+testing "id root" \
+  '"$UTIL" root' \
+  "" "" ""

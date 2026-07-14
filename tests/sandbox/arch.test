@@ -1,0 +1,16 @@
+#!/bin/bash
+# arch.test — Tests for the `arch` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh arch
+
+[ -f testing.sh ] && . testing.sh
+
+# Check that arch outputs something non-empty and matches host /bin/arch
+testing "arch output" \
+  '"$UTIL"' \
+  "" "" ""
+
+# Output should be a single line, no trailing whitespace issues
+testing "arch single line" \
+  '"$UTIL" | wc -l' \
+  "1\n" "" ""

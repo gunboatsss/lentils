@@ -1,0 +1,21 @@
+#!/bin/bash
+# nohup.test — Tests for the `nohup` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh nohup
+
+[ -f testing.sh ] && . testing.sh
+
+# Run a command
+testing "nohup basic" \
+  '"$UTIL" echo hello' \
+  "hello\n" "" ""
+
+# Run with multiple args
+testing "nohup multiple args" \
+  '"$UTIL" printf "one\ntwo\n"' \
+  "one\ntwo\n" "" ""
+
+# Run a command that exits with specific code
+testing "nohup exit code" \
+  '"$UTIL" sh -c "exit 42"; echo exit=$?' \
+  "exit=42\n" "" ""

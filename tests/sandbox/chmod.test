@@ -1,0 +1,102 @@
+#!/bin/bash
+# chmod.test — Tests for the `chmod` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh chmod
+
+[ -f testing.sh ] && . testing.sh
+
+# Change to numeric mode (755)
+echo "data" > file1
+testing "chmod numeric 755" \
+  '"$UTIL" 755 file1 && stat -c "%a" file1' \
+  "755\n" "" ""
+rm -f file1
+
+# Change to numeric mode (644)
+echo "data" > file1
+testing "chmod numeric 644" \
+  '"$UTIL" 644 file1 && stat -c "%a" file1' \
+  "644\n" "" ""
+rm -f file1
+
+# Symbolic mode: u+x
+echo "data" > file1
+chmod 644 file1
+testing "chmod u+x" \
+  '"$UTIL" u+x file1 && stat -c "%a" file1' \
+  "744\n" "" ""
+rm -f file1
+
+# Symbolic mode: g+w
+echo "data" > file1
+chmod 644 file1
+testing "chmod g+w" \
+  '"$UTIL" g+w file1 && stat -c "%a" file1' \
+  "664\n" "" ""
+rm -f file1
+
+# Symbolic mode: o-r
+echo "data" > file1
+chmod 644 file1
+testing "chmod o-r" \
+  '"$UTIL" o-r file1 && stat -c "%a" file1' \
+  "640\n" "" ""
+rm -f file1
+
+# Symbolic mode: a+x (all)
+echo "data" > file1
+chmod 644 file1
+testing "chmod a+x" \
+  '"$UTIL" a+x file1 && stat -c "%a" file1' \
+  "755\n" "" ""
+rm -f file1
+
+# Multiple symbolic modes: u+x,go-w
+echo "data" > file1
+chmod 644 file1
+testing "chmod u+x,go-w" \
+  '"$UTIL" u+x,go-w file1 && stat -c "%a" file1' \
+  "744\n" "" ""
+rm -f file1
+
+# Recursive (-R)
+mkdir -p dir/sub
+echo "data" > dir/sub/file
+chmod 644 dir/sub/file
+testing "chmod -R recursive" \
+  '"$UTIL" -R 755 dir && stat -c "%a" dir/sub/file' \
+  "755\n" "" ""
+rm -rf dir
+
+# Non-existent file
+testing "chmod nonexistent" \
+  '"$UTIL" 644 nonexistent 2>&1; echo exit=$?' \
+  "chmod: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# Multiple files
+echo "a" > f1; echo "b" > f2
+testing "chmod multiple files" \
+  '"$UTIL" 755 f1 f2 && stat -c "%a" f1 && stat -c "%a" f2' \
+  "755\n755\n" "" ""
+rm -f f1 f2
+
+# Reference file mode (-R reference)... if supported we test it
+echo "data" > ref
+chmod 700 ref
+echo "data" > target
+testing "chmod --reference" \
+  '"$UTIL" --reference ref target 2>/dev/null && stat -c "%a" target || echo unsupported' \
+  "unsupported\n" "" ""
+rm -f ref target
+
+# --help
+testing "chmod --help" \
+  '"$UTIL" --help 2>&1 | head -n 1' \
+  "" "" ""
+
+# Invalid mode
+echo "data" > f
+testing "chmod invalid mode" \
+  '"$UTIL" badmode f 2>&1; echo exit=$?' \
+  "chmod: badmode: invalid mode\nexit=1\n" "" ""
+rm -f f

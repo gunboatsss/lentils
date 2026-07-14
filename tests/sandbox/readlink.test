@@ -1,0 +1,80 @@
+#!/bin/bash
+# readlink.test — Tests for the `readlink` utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh readlink
+
+[ -f testing.sh ] && . testing.sh
+
+# Read a symlink
+echo "target" > target
+ln -s target symlink
+testing "readlink basic" \
+  '"$UTIL" symlink' \
+  "target\n" "" ""
+rm -f target symlink
+
+# Read a relative symlink
+mkdir -p dir/sub
+echo "data" > dir/target
+ln -s ../target dir/sub/link
+testing "readlink relative" \
+  '"$UTIL" dir/sub/link' \
+  "../target\n" "" ""
+rm -rf dir
+
+# Non-symlink file (should error)
+echo "plain" > plainfile
+testing "readlink not a symlink" \
+  '"$UTIL" plainfile 2>&1; echo exit=$?' \
+  "readlink: plainfile: No such file or directory\nexit=1\n" "" ""
+rm -f plainfile
+
+# Missing file
+testing "readlink nonexistent" \
+  '"$UTIL" nonexistent 2>&1; echo exit=$?' \
+  "readlink: nonexistent: No such file or directory\nexit=1\n" "" ""
+
+# No arguments
+testing "readlink no args" \
+  '"$UTIL" 2>&1; echo exit=$?' \
+  "Usage: lentils readlink path\nexit=1\n" "" ""
+
+# Symlink pointing to another symlink (chain)
+echo "realtarget" > realtarget
+ln -s realtarget link1
+ln -s link1 link2
+testing "readlink chain" \
+  '"$UTIL" link2' \
+  "link1\n" "" ""
+rm -f realtarget link1 link2
+
+# Symlink to absolute path
+ln -s /tmp/abs_target symabs
+testing "readlink absolute target" \
+  '"$UTIL" symabs' \
+  "/tmp/abs_target\n" "" ""
+rm -f symabs
+
+# Symlink in subdirectory
+mkdir -p subdir
+echo "data" > subdir/target
+ln -s target subdir/link
+testing "readlink in subdir" \
+  '"$UTIL" subdir/link' \
+  "target\n" "" ""
+rm -rf subdir
+
+# Directory symlink
+mkdir dir_target
+ln -s dir_target dir_link
+testing "readlink directory symlink" \
+  '"$UTIL" dir_link' \
+  "dir_target\n" "" ""
+rm -rf dir_target dir_link
+
+# Empty path component
+ln -s "" emptylink 2>/dev/null || true
+testing "readlink empty target" \
+  '"$UTIL" emptylink 2>&1; echo exit=$?' \
+  "\n" "" ""
+rm -f emptylink
