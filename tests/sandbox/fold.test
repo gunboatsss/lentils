@@ -57,7 +57,7 @@ testing "fold -s no spaces" \
 
 # Fold at width 0? (should be treated as error or no-op)
 testing "fold -w 0" \
-  '"$UTIL" -w 0 2>&1; echo exit=$?' \
+  '"$UTIL" -w 0 2>folding_err; cat folding_err | sed "s|.*/fold|fold|"; rm -f folding_err; echo exit=$?' \
   "" "" ""
 
 # Single newline only

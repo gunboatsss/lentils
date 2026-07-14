@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <mntent.h>
+#include <time.h>
 
 // Process-wide environment pointer (POSIX). Declared extern here so the
 // fork/exec helpers can pass it to execve().
@@ -805,10 +806,16 @@ LEAN_EXPORT lean_object *lean_coreutils_who(lean_object *w) {
         size_t user_len = strnlen(ut->ut_user, sizeof(ut->ut_user));
         size_t line_len = strnlen(ut->ut_line, sizeof(ut->ut_line));
         size_t host_len = strnlen(ut->ut_host, sizeof(ut->ut_host));
-        // Format the time as a decimal string
+        // Format the time as "YYYY-MM-DD HH:MM"
         char time_buf[24];
-        int time_len = snprintf(time_buf, sizeof(time_buf), "%lld",
-                                (long long)ut->ut_tv.tv_sec);
+        struct tm tm_result;
+        time_t t = ut->ut_tv.tv_sec;
+        int time_len;
+        if (localtime_r(&t, &tm_result)) {
+            time_len = strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M", &tm_result);
+        } else {
+            time_len = snprintf(time_buf, sizeof(time_buf), "%lld", (long long)t);
+        }
         if (time_len < 0) time_len = 0;
         // Concatenate: user|line|time|host
         size_t total = user_len + 1 + line_len + 1 + (size_t)time_len + 1 + host_len;

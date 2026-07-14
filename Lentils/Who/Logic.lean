@@ -44,37 +44,24 @@ def padRight (s : String) (w : Nat) : String :=
     s ++ String.ofList (List.replicate (w - slen) ' ')
 
 /--
-Format an epoch timestamp (as decimal string) into a short time string
-like "09:35" matching POSIX who output.
-Uses simple epoch-to-time conversion.
+Format a timestamp string (already formatted by C code as YYYY-MM-DD HH:MM).
 -/
-def formatTime (epochSecStr : String) : String :=
-  match epochSecStr.toNat? with
-  | none => "?"
-  | some epochSec =>
-    let secOfDay := epochSec % 86400
-    let hours := secOfDay / 3600
-    let minutes := (secOfDay % 3600) / 60
-    let hStr := if hours < 10 then "0" ++ toString hours else toString hours
-    let mStr := if minutes < 10 then "0" ++ toString minutes else toString minutes
-    s!"{hStr}:{mStr}"
+def formatTime (timeStr : String) : String :=
+  if timeStr.isEmpty then "?" else timeStr
 
 /--
-Format an Entry in the POSIX who default output format:
-  USER      LINE      TIME        HOST
-Each entry occupies one line with columns aligned.
-
-The traditional format uses 8-char USER, 8-char LINE, and
-12-char TIME columns, followed by HOST.
-Columns are separated by at least one space.
+Format an Entry in the GNU who default output format:
+  USER      LINE         TIME                 HOST
+Uses fixed-width columns similar to GNU coreutils who.
 -/
 def formatEntry (e : Entry) : String :=
   let userPadded := padRight e.user 8
   let linePadded := padRight e.line 8
   let time := formatTime e.timeSec
-  let timePadded := padRight time 12
-  let hostPart := if e.host.isEmpty then "" else s!"  {e.host}"
-  s!"{userPadded} {linePadded} {timePadded}{hostPart}"
+  -- GNU who uses format: USER LINE DATE HOST
+  -- The time field is right-aligned with spaces; host gets one space prefix
+  let hostPart := if e.host.isEmpty then "" else s!" ({e.host})"
+  s!"{userPadded} {linePadded}     {time}{hostPart}"
 
 /--
 Format a list of entries as the complete who output.

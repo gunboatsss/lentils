@@ -13,11 +13,14 @@ def run (args : List String) : IO UInt32 := do
     match args with
     | "-w" :: n :: _ => n.toNat?.getD 80
     | _ => 80
-  let _breakSpaces := args.any (· = "-s")  -- TODO: wire -s into fold logic
+  if width = 0 then
+    IO.eprintln "fold: invalid number of columns: \u20180\u2019: Numerical result out of range"
+    return 1
+  let breakSpaces := args.any (· = "-s")
 
   let input ← readStdinText
 
-  let result := fold input width
+  let result := fold input width breakSpaces
   IO.print result
   return 0
 

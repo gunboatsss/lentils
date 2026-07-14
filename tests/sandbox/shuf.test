@@ -22,7 +22,7 @@ testing "shuf empty" \
 
 # Two lines (verify no loss)
 testing "shuf two lines" \
-  '"$UTIL"' \
+  '"$UTIL" | sort' \
   "x\ny\n" "" "x\ny\n"
 
 # Many lines (verify line count)
@@ -38,9 +38,9 @@ testing "shuf from file" \
   "one\nthree\ntwo\n" "" ""
 rm -f shuf_input
 
-# Lines with whitespace
+# Lines with whitespace (compare sorted)
 testing "shuf whitespace lines" \
-  '"$UTIL"' \
+  '"$UTIL" | sort' \
   "  hello\nworld  \n" "" "  hello\nworld  \n"
 
 # Ensure randomness produces different order (run twice, very unlikely to be same)

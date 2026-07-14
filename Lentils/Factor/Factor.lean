@@ -28,10 +28,11 @@ def run (args : List String) : IO UInt32 := do
   let mut out := ""
   let mut exitCode : UInt32 := 0
   for t in nums do
-    match t.trimAscii.toNat? with
+    let trimmed := t.trimAscii.toString
+    match trimmed.toNat? with
     | some n => out := out ++ formatFactorization n ++ "\n"
     | none => do
-      IO.eprintln s!"{t}: error"
+      IO.eprintln s!"factor: '{trimmed}' is not a valid positive integer"
       exitCode := 1
   IO.print out
   return exitCode

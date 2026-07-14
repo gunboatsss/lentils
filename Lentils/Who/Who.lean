@@ -25,7 +25,7 @@ Parse all raw entries and format them.
 def run (_args : List String) : IO UInt32 := do
   let rawEntries ← getWhoEntries
   let entries : List Entry :=
-    rawEntries.toList.filterMap parseEntry
+    rawEntries.toList.filterMap parseEntry |>.reverse
   if entries.isEmpty then
     return 0
   else
