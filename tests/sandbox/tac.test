@@ -1,0 +1,20 @@
+#!/bin/bash
+# tac.test — Tests for the `tac` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "tac reverse lines" \
+  'printf "a\nb\nc\n" > f && "$UTIL" f' \
+  "c\nb\na\n" "" ""
+testing "tac no trailing newline" \
+  'printf "a\nb\nc" > f && "$UTIL" f' \
+  "c\nb\na\n" "" ""
+testing "tac stdin" \
+  'printf "hello\nworld\n" | "$UTIL"' \
+  "world\nhello\n" "" ""
+testing "tac empty" \
+  'printf "" | "$UTIL"; echo $?' \
+  "0\n" "" ""
+testing "tac single line" \
+  'printf "only\n" | "$UTIL"' \
+  "only\n" "" ""

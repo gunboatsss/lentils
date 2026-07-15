@@ -1,0 +1,20 @@
+#!/bin/bash
+# base32.test — Tests for the `base32` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "base32 encode hello" \
+  'printf "hello" | "$UTIL"' \
+  "NBSWY3DP\n" "" ""
+testing "base32 encode empty" \
+  'printf "" | "$UTIL"' \
+  "\n" "" ""
+testing "base32 decode" \
+  'printf "NBSWY3DP" | "$UTIL" -d' \
+  "hello" "" ""
+testing "base32 decode abcdef" \
+  'printf "MFRGGZDFMY======" | "$UTIL" -d' \
+  "abcdef" "" ""
+testing "base32 roundtrip" \
+  'printf "test data 123" | "$UTIL" | "$UTIL" -d' \
+  "test data 123" "" ""

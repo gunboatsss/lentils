@@ -1,0 +1,14 @@
+#!/bin/bash
+# chown.test — Tests for the `chown` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "chown help" \
+  '"$UTIL" --help 2>&1 | head -1' \
+  "Usage: lentils chown\n" "" ""
+testing "chown missing operand" \
+  '"$UTIL" 2>&1; echo $?' \
+  "chown: missing operand\nTry 'chown --help' for more information.\n1\n" "" ""
+testing "chown missing files" \
+  '"$UTIL" root 2>&1; echo $?' \
+  "chown: missing operand after 'root:'\nTry 'chown --help' for more information.\n1\n" "" ""

@@ -201,6 +201,59 @@ opaque lstatAll (path : String) : IO (Array UInt64)
 @[extern "lean_coreutils_getmounts"]
 opaque getMounts : IO (Array String)
 
+/-- mkfifo(3): create a FIFO (named pipe) with given path and mode.
+    Throws on failure. -/
+@[extern "lean_coreutils_mkfifo"]
+opaque mkfifo (path : String) (mode : UInt32) : IO Unit
+
+/-- mknod(2): create a block or character special file.
+    Throws on failure. -/
+@[extern "lean_coreutils_mknod"]
+opaque mknod (path : String) (mode : UInt32) (major : UInt32) (minor : UInt32) : IO Unit
+
+/-- chown(2): change owner and/or group of a file.
+    Empty string for owner or group means "don't change" that component.
+    Throws on failure. -/
+@[extern "lean_coreutils_chown"]
+opaque chown (path : String) (owner : String) (group : String) : IO Unit
+
+/-- sync(2): flush all filesystem buffers to disk. -/
+@[extern "lean_coreutils_sync"]
+opaque sync : IO Unit
+
+/-- mkdtemp(3): create a temporary directory.
+    Template string is modified in-place; returns the actual name.
+    Throws on failure. -/
+@[extern "lean_coreutils_mkdtemp"]
+opaque mkdtemp (template : String) : IO String
+
+/-- mkstemp(3): create a temporary file.
+    Template string is modified in-place; returns the actual name.
+    Throws on failure. -/
+@[extern "lean_coreutils_mkstemp"]
+opaque mkstemp (template : String) : IO String
+
+/-- open_wronly(2): open file for writing without truncation. Returns fd. -/
+@[extern "lean_coreutils_open_wronly"]
+opaque openWronly (path : String) : IO UInt32
+
+/-- close(2): close a file descriptor. -/
+@[extern "lean_coreutils_close"]
+opaque close (fd : UInt32) : IO Unit
+
+/-- fsync(2): synchronize file with storage device. -/
+@[extern "lean_coreutils_fsync"]
+opaque fsync (fd : UInt32) : IO Unit
+
+/-- lseek(2): seek to position in file. Returns new offset. -/
+@[extern "lean_coreutils_lseek"]
+opaque lseek (fd : UInt32) (offset : Int64) (whence : UInt32) : IO UInt64
+
+/-- getpwuid_gecos(3): return GECOS (real name) for a UID.
+    Returns empty string if not found. -/
+@[extern "lean_coreutils_getpwuid_gecos"]
+opaque getpwuidGecos (uid : UInt32) : IO String
+
 /-- isatty(3): check if a file descriptor refers to a terminal.
     Returns 1 if yes, 0 if no. -/
 @[extern "lean_coreutils_isatty"]

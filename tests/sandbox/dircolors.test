@@ -1,0 +1,17 @@
+#!/bin/bash
+# dircolors.test — Tests for the `dircolors` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "dircolors sh output format" \
+  '"$UTIL" | head -1 | cut -c1-13' \
+  "LS_COLORS='" "" ""
+testing "dircolors csh output format" \
+  '"$UTIL" -c | head -1 | cut -c1-7' \
+  "setenv" "" ""
+testing "dircolors -p has DIR entry" \
+  '"$UTIL" -p | grep "^DIR "' \
+  "DIR 01;34 # directory\n" "" ""
+testing "dircolors has rs entry" \
+  '"$UTIL" | grep -o "rs=0"' \
+  "rs=0\n" "" ""

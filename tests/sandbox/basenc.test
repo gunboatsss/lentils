@@ -1,0 +1,20 @@
+#!/bin/bash
+# basenc.test — Tests for the `basenc` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "basenc --base64" \
+  'printf "hello" | "$UTIL" --base64' \
+  "aGVsbG8=\n" "" ""
+testing "basenc --base32" \
+  'printf "hello" | "$UTIL" --base32' \
+  "NBSWY3DP\n" "" ""
+testing "basenc --base16" \
+  'printf "hello" | "$UTIL" --base16' \
+  "68656C6C6F\n" "" ""
+testing "basenc --base64 -d" \
+  'printf "aGVsbG8=" | "$UTIL" --base64 -d' \
+  "hello" "" ""
+testing "basenc --base16 -d" \
+  'printf "68656C6C6F" | "$UTIL" --base16 -d' \
+  "hello" "" ""

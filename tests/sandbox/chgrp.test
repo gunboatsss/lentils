@@ -1,0 +1,14 @@
+#!/bin/bash
+# chgrp.test — Tests for the `chgrp` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "chgrp help" \
+  '"$UTIL" --help 2>&1 | head -1' \
+  "Usage: lentils chgrp\n" "" ""
+testing "chgrp missing operand" \
+  '"$UTIL" 2>&1; echo $?' \
+  "chgrp: missing operand\nTry 'chgrp --help' for more information.\n1\n" "" ""
+testing "chgrp missing files" \
+  '"$UTIL" root 2>&1; echo $?' \
+  "chgrp: missing operand after 'root'\nTry 'chgrp --help' for more information.\n1\n" "" ""

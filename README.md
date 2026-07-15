@@ -27,7 +27,7 @@ lake build
 .lake/build/bin/lentils cat --help  # help for specific applet
 ```
 
-## Utilities — 87 applets
+## Utilities — 106 applets
 
 ### System Info & Identity (15)
 
@@ -40,7 +40,7 @@ lake build
 | **logname** | print user's login name | reads `/proc/self/loginuid` → `getpwuid_r` |
 | **mesg** | check/set terminal write access | — |
 | **nproc** | print number of processing units | reads `/proc/cpuinfo` |
-| **pinky** | lightweight finger | not yet |
+| **pinky** | lightweight finger | utmpx + GECOS |
 | **printenv** | print environment variables | C FFI (`environ`) |
 | **tty** | print terminal file name | reads `/proc/self/fd/0` |
 | **uname** | print system information | reads `/proc/sys/kernel/*` |
@@ -56,8 +56,8 @@ lake build
 | **basename** | strip directory and suffix from pathname | — |
 | **cat** | concatenate files to stdout | — |
 | **chmod** | change file mode bits | numeric & symbolic modes |
-| **chown** | change file owner and group | not yet |
-| **chgrp** | change group ownership | not yet |
+| **chown** | change file owner and group | `owner[:group]` syntax |
+| **chgrp** | change group ownership | — |
 | **cp** | copy files and directories | `-r`, `-f`, `-v` |
 | **dd** | convert and copy with block size options | — |
 | **dirname** | strip last component from file name | — |
@@ -65,8 +65,8 @@ lake build
 | **ln** | make links between files | hard & symbolic |
 | **ls** | list directory contents | basic listing |
 | **mkdir** | make directories | `-p` |
-| **mkfifo** | make named pipes (FIFOs) | not yet |
-| **mknod** | make block/character special files | not yet |
+| **mkfifo** | make named pipes (FIFOs) | `-m MODE` |
+| **mknod** | make block/character special files | `b`/`c` TYPE MAJOR MINOR |
 | **mv** | move (rename) files | — |
 | **readlink** | print target of a symbolic link | — |
 | **realpath** | print canonical absolute path | — |
@@ -74,7 +74,7 @@ lake build
 | **rmdir** | remove empty directories | — |
 | **touch** | change file timestamps | — |
 | **truncate** | shrink or extend a file to a specified size | — |
-| **unlink** | call the unlink() syscall | not yet |
+| **unlink** | call the unlink() syscall | — |
 
 ### Text Processing (24)
 
@@ -82,7 +82,7 @@ lake build
 |---|---|---|
 | **cksum** | POSIX CRC checksum | — |
 | **comm** | compare two sorted files | `-1`, `-2`, `-3` |
-| **csplit** | split file by context lines | not yet |
+| **csplit** | split file by context lines | line numbers, `-f`, `-n`, `-s` |
 | **cut** | extract sections from each line | `-c`, `-f`, `-d`, `-s`; `-b` not yet |
 | **expand** | convert tabs to spaces | — |
 | **fmt** | reformat paragraph text | — |
@@ -100,7 +100,7 @@ lake build
 | **sort** | sort lines of text files | `-r`, `-n`, `-t`, `-k`, `-u` |
 | **split** | split input into files by size/line count | — |
 | **sum** | BSD checksum and block counts | — |
-| **tac** | reverse concatenate (reverse cat) | not yet |
+| **tac** | reverse concatenate (reverse cat) | — |
 | **tail** | output the last part of files | `-n` |
 | **tee** | read stdin and write to stdout and files | `-a` |
 | **tr** | translate or delete characters | `-d`, `-s`, `-c`, `-C`; ranges `a-z` |
@@ -116,18 +116,18 @@ lake build
 | **b2sum** | compute BLAKE2b hash | — |
 | **md5sum** | compute MD5 hash | — |
 | **sha1sum** | compute SHA-1 hash | — |
-| **sha224sum** | compute SHA-224 hash | not yet |
+| **sha224sum** | compute SHA-224 hash | — |
 | **sha256sum** | compute SHA-256 hash | — |
-| **sha384sum** | compute SHA-384 hash | not yet |
+| **sha384sum** | compute SHA-384 hash | — |
 | **sha512sum** | compute SHA-512 hash | — |
 
 ### Encoding (3)
 
 | Utility | Description | Notes |
 |---|---|---|
-| **base32** | base32 encode/decode | not yet |
+| **base32** | base32 encode/decode | RFC 4648 |
 | **base64** | base64 encode/decode | — |
-| **basenc** | generic base encoding | not yet |
+| **basenc** | generic base encoding | `--base64`/`--base32`/`--base16` |
 
 ### Math & Conversion (5)
 
@@ -151,7 +151,7 @@ lake build
 | **stdbuf** | buffer standard I/O | not yet |
 | **timeout** | run a command with a time limit | — |
 | **stty** | set terminal characteristics | not yet |
-| **sync** | synchronize cached writes to disk | not yet |
+| **sync** | synchronize cached writes to disk | — |
 
 ### Boolean & Misc (10)
 
@@ -159,12 +159,12 @@ lake build
 |---|---|---|
 | **echo** | write arguments to stdout | — |
 | **false** | exit with status 1 | — |
-| **link** | call the link() syscall | not yet |
-| **mktemp** | create temporary files/dirs | not yet |
+| **link** | call the link() syscall | — |
+| **mktemp** | create temporary files/dirs | `-d`, `-p DIR`, `-u` |
 | **more** | page through text files | basic pager |
 | **pathchk** | check pathname validity | — |
 | **pwd** | print working directory | — |
-| **shred** | securely delete files | not yet |
+| **shred** | securely delete files | pattern overwrite + remove |
 | **true** | exit with status 0 | — |
 | **yes** | repeat a string until killed | — |
 
@@ -187,29 +187,11 @@ lake build
 
 | Utility | Description |
 |---|---|
-| base32 | base32 encode/decode |
-| basenc | generic base encoding |
 | chcon | change SELinux security context |
-| chgrp | change group ownership |
-| chown | change file owner and group |
-| csplit | split file by context lines |
-| dir | list directory contents (`ls -C` alias) |
-| dircolors | color setup for `ls` |
-| link | call link() syscall |
-| mkfifo | make named pipes |
-| mknod | make block/character special files |
-| mktemp | create temporary files |
-| pinky | lightweight finger |
 | runcon | run with SELinux context |
-| sha224sum | compute SHA-224 digest |
-| sha384sum | compute SHA-384 digest |
-| shred | securely delete files |
 | stdbuf | buffer standard I/O |
 | stty | set terminal characteristics |
-| sync | synchronize cached writes |
-| tac | reverse concatenate |
-| unlink | call unlink() syscall |
-| vdir | list directory contents (`ls -l` alias) |
+
 
 ## Testing
 

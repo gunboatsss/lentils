@@ -1,0 +1,17 @@
+#!/bin/bash
+# mktemp.test — Tests for the `mktemp` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "mktemp creates file" \
+  'f=$("$UTIL") && [ -f "$f" ] && echo "file" && rm "$f"' \
+  "file\n" "" ""
+testing "mktemp -d creates dir" \
+  'd=$("$UTIL" -d) && [ -d "$d" ] && echo "dir" && rmdir "$d"' \
+  "dir\n" "" ""
+testing "mktemp with template" \
+  'f=$("$UTIL" myprefix.XXXXXX) && echo "$f" | grep -q myprefix && echo "ok" && rm "$f"' \
+  "ok\n" "" ""
+testing "mktemp no X's" \
+  '"$UTIL" notemplate 2>&1; echo $?' \
+  "mktemp: template 'notemplate' must contain at least one 'X'\n1\n" "" ""

@@ -1,5 +1,8 @@
 /.lake
 
+# User configuration (generated from lentils.Kconfig)
+.config
+
 # Smithers run store (ephemeral — never commit)
 smithers.db
 smithers.db-shm

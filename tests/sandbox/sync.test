@@ -1,0 +1,8 @@
+#!/bin/bash
+# sync.test — Tests for the `sync` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "sync returns 0" \
+  '"$UTIL"; echo $?' \
+  "0\n" "" ""

@@ -17,6 +17,7 @@
 #include <utmpx.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/sysmacros.h>
 #include <limits.h>
 #include <spawn.h>
 #include <stdio.h>
@@ -1004,3 +1005,176 @@ LEAN_EXPORT lean_object *lean_coreutils_getmounts(lean_object *w) {
     return lean_io_result_mk_ok(lean_array_mk(lst));
 }
 
+// ─── sync(2) for `sync` utility ───────────────────────────────────────────────
+
+// Flush all filesystem buffers to disk.
+LEAN_EXPORT lean_object *lean_coreutils_sync(lean_object *w) {
+    (void)w;
+    sync();
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── mkfifo(3) for `mkfifo` utility ───────────────────────────────────────────
+
+// Create a FIFO (named pipe) with the given path and mode.
+LEAN_EXPORT lean_object *lean_coreutils_mkfifo(b_lean_obj_arg path,
+                                                uint32_t mode,
+                                                lean_object *w) {
+    (void)w;
+    if (mkfifo(lean_string_cstr(path), (mode_t)mode) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+
+// ─── mknod(2) for `mknod` utility ─────────────────────────────────────────────
+
+// Create a block or character special file at `path` with `mode` and device
+// number encoded from `major` and `minor`.
+LEAN_EXPORT lean_object *lean_coreutils_mknod(b_lean_obj_arg path,
+                                               uint32_t mode,
+                                               uint32_t major,
+                                               uint32_t minor,
+                                               lean_object *w) {
+    (void)w;
+    dev_t dev = makedev((unsigned)major, (unsigned)minor);
+    if (mknod(lean_string_cstr(path), (mode_t)mode, dev) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── mkstemp(3) for `mktemp` utility ─────────────────────────────────────────
+
+// Create a temporary file using mkstemp.
+// `template` is modified in-place with the actual name.
+// The file is created and the fd is closed; the modified template is returned.
+LEAN_EXPORT lean_object *lean_coreutils_mkstemp(b_lean_obj_arg template,
+                                                 lean_object *w) {
+    (void)w;
+    char *t = strdup(lean_string_cstr(template));
+    if (!t) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(ENOMEM, lean_mk_string(strerror(ENOMEM))));
+    }
+    int fd = mkstemp(t);
+    if (fd < 0) {
+        int saved = errno;
+        free(t);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(saved, lean_mk_string(strerror(saved))));
+    }
+    close(fd);
+    lean_object *result = lean_mk_string(t);
+    free(t);
+    return lean_io_result_mk_ok(result);
+}
+
+// ─── mkdtemp(3) for `mktemp -d` utility ──────────────────────────────────────
+
+// Create a temporary directory using mkdtemp.
+// `template` is modified in-place with the actual name.
+LEAN_EXPORT lean_object *lean_coreutils_mkdtemp(b_lean_obj_arg template,
+                                                 lean_object *w) {
+    (void)w;
+    char *t = strdup(lean_string_cstr(template));
+    if (!t) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(ENOMEM, lean_mk_string(strerror(ENOMEM))));
+    }
+    if (!mkdtemp(t)) {
+        int saved = errno;
+        free(t);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(saved, lean_mk_string(strerror(saved))));
+    }
+    lean_object *result = lean_mk_string(t);
+    free(t);
+    return lean_io_result_mk_ok(result);
+}
+
+// ─── getpwuid_gecos(3) for `pinky` utility ─────────────────────────────────
+
+// Return the GECOS field (real name) for a given UID from passwd.
+// Returns empty string if not found or GECOS is empty.
+LEAN_EXPORT lean_object *lean_coreutils_getpwuid_gecos(uint32_t uid,
+                                                        lean_object *w) {
+    struct passwd *pw = getpwuid((uid_t)uid);
+    if (pw == NULL || pw->pw_gecos == NULL || pw->pw_gecos[0] == '\0') {
+        return lean_io_result_mk_ok(lean_mk_string(""));
+    }
+    // GECOS field format: "Real Name,office,phone,homephone"
+    // Take only the first comma-separated part (the real name).
+    char *comma = strchr(pw->pw_gecos, ',');
+    if (comma) {
+        size_t len = (size_t)(comma - pw->pw_gecos);
+        char *name = malloc(len + 1);
+        if (!name) return lean_io_result_mk_ok(lean_mk_string(""));
+        memcpy(name, pw->pw_gecos, len);
+        name[len] = '\0';
+        lean_object *result = lean_mk_string(name);
+        free(name);
+        return lean_io_result_mk_ok(result);
+    }
+    return lean_io_result_mk_ok(lean_mk_string(pw->pw_gecos));
+}
+
+// ─── open(2) for `shred` utility ─────────────────────────────────────────
+
+// Open a file for writing without truncation.
+// Returns fd (as UInt32) on success, throws on error.
+LEAN_EXPORT lean_object *lean_coreutils_open_wronly(b_lean_obj_arg path,
+                                                     lean_object *w) {
+    (void)w;
+    int fd = open(lean_string_cstr(path), O_WRONLY);
+    if (fd < 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box((uint32_t)fd));
+}
+
+// ─── close(2) for `shred` utility ────────────────────────────────────────
+
+// Close a file descriptor.
+LEAN_EXPORT lean_object *lean_coreutils_close(uint32_t fd,
+                                               lean_object *w) {
+    (void)w;
+    if (close((int)fd) < 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── fsync(2) for `shred` utility ────────────────────────────────────────
+
+// Synchronize a file's in-core state with storage device.
+LEAN_EXPORT lean_object *lean_coreutils_fsync(uint32_t fd,
+                                               lean_object *w) {
+    (void)w;
+    if (fsync((int)fd) < 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
+// ─── lseek(2) for `shred` utility ────────────────────────────────────────
+
+// Seek to a position in a file. Returns the new offset on success.
+LEAN_EXPORT lean_object *lean_coreutils_lseek(uint32_t fd,
+                                               int64_t offset,
+                                               uint32_t whence,
+                                               lean_object *w) {
+    (void)w;
+    off_t r = lseek((int)fd, (off_t)offset, (int)whence);
+    if (r < 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box_uint64((uint64_t)r));
+}

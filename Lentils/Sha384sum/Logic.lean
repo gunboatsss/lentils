@@ -1,0 +1,55 @@
+/-
+Sha384sum.Logic — Pure logic for the `sha384sum` utility.
+0BSD
+
+Reuses the SHA-512 core from Sha512sum.Logic with SHA-384 initial values
+and truncated output (48 bytes instead of 64).
+
+Provenance: FIPS 180-4 (SHA-384).
+No GPL source was consulted.
+-/
+
+import Lentils.Sha512sum.Logic
+
+namespace Lentils.Sha384sum.Logic
+
+open Lentils.Sha512sum.Logic
+
+/--
+Compute the SHA-384 hash of `data`.
+
+SHA-384 uses the same algorithm as SHA-512 but with different initial
+hash values and output truncated to 6 words (48 bytes).
+-/
+def sha384 (data : ByteArray) : ByteArray :=
+  sha512WithInit initH384 6 data
+
+/-- Format a hash as a lowercase hex string. -/
+def formatHex (hash : ByteArray) : String :=
+  Lentils.Sha512sum.Logic.formatHex hash
+
+/-- Format stdin input as \"<hash>  -\\n\". -/
+def formatStdin (data : ByteArray) : String :=
+  formatHex (sha384 data) ++ "  -\n"
+
+-- ─── Proofs ──────────────────────────────────────────────────────────────────
+
+-- SHA-384 empty string test vector
+example : sha384 ByteArray.empty = ByteArray.mk (List.toArray
+  ([0x38, 0xb0, 0x60, 0xa7, 0x51, 0xac, 0x96, 0x38,
+    0x4c, 0xd9, 0x32, 0x7e, 0xb1, 0xb1, 0xe3, 0x6a,
+    0x21, 0xfd, 0xb7, 0x11, 0x14, 0xbe, 0x07, 0x43,
+    0x4c, 0x0c, 0xc7, 0xbf, 0x63, 0xf6, 0xe1, 0xda,
+    0x27, 0x4e, 0xde, 0xbf, 0xe7, 0x6f, 0x65, 0xfb,
+    0xd5, 0x1a, 0xd2, 0xf1, 0x48, 0x98, 0xb9, 0x5b] : List UInt8)) := by native_decide
+
+-- SHA-384 "abc" test vector
+example : sha384 "abc".toUTF8 = ByteArray.mk (List.toArray
+  ([0xcb, 0x00, 0x75, 0x3f, 0x45, 0xa3, 0x5e, 0x8b,
+    0xb5, 0xa0, 0x3d, 0x69, 0x9a, 0xc6, 0x50, 0x07,
+    0x27, 0x2c, 0x32, 0xab, 0x0e, 0xde, 0xd1, 0x63,
+    0x1a, 0x8b, 0x60, 0x5a, 0x43, 0xff, 0x5b, 0xed,
+    0x80, 0x86, 0x07, 0x2b, 0xa1, 0xe7, 0xcc, 0x23,
+    0x58, 0xba, 0xec, 0xa1, 0x34, 0xc8, 0x25, 0xa7] : List UInt8)) := by native_decide
+
+end Lentils.Sha384sum.Logic

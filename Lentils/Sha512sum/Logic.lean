@@ -23,6 +23,11 @@ def initH : Array UInt64 := #[
   0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
 
+-- SHA-384 uses the same algorithm but different initial values
+def initH384 : Array UInt64 := #[
+  0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939,
+  0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4]
+
 def getK (i : Nat) : UInt64 :=
   let table : Array UInt64 := #[
     0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
@@ -146,7 +151,11 @@ def processBlock (state : Array UInt64) (block : ByteArray) : Array UInt64 :=
 
 -- ─── Main hash ────────────────────────────────────────────────────────────────
 
-def sha512 (data : ByteArray) : ByteArray :=
+/--
+Generic SHA-512-family hash with configurable initial value and output word count.
+Used by both SHA-512 (8 words) and SHA-384 (6 words).
+-/
+def sha512WithInit (hashInit : Array UInt64) (numWords : Nat) (data : ByteArray) : ByteArray :=
   let padded := sha512Pad data
   let numBlocks := padded.size / 128
   let rec processAll (state : Array UInt64) (i : Nat) : Array UInt64 :=
@@ -154,7 +163,7 @@ def sha512 (data : ByteArray) : ByteArray :=
     else
       let block := padded.extract (i * 128) ((i + 1) * 128)
       processAll (processBlock state block) (i + 1)
-  let state := processAll initH 0
+  let state := processAll hashInit 0
   let encodeWord (w : UInt64) : List UInt8 :=
     [((w >>> 56).land 0xFF).toUInt8,
      ((w >>> 48).land 0xFF).toUInt8,
@@ -164,16 +173,14 @@ def sha512 (data : ByteArray) : ByteArray :=
      ((w >>> 16).land 0xFF).toUInt8,
      ((w >>> 8).land 0xFF).toUInt8,
      ((w >>> 0).land 0xFF).toUInt8]
-  ByteArray.mk (List.toArray (
-    encodeWord (arrGet state 0) ++
-    encodeWord (arrGet state 1) ++
-    encodeWord (arrGet state 2) ++
-    encodeWord (arrGet state 3) ++
-    encodeWord (arrGet state 4) ++
-    encodeWord (arrGet state 5) ++
-    encodeWord (arrGet state 6) ++
-    encodeWord (arrGet state 7)
-  ))
+  let allWords := List.range numWords |>.foldl (λ acc i => acc ++ encodeWord (arrGet state i)) []
+  ByteArray.mk (List.toArray allWords)
+
+def sha512 (data : ByteArray) : ByteArray :=
+  sha512WithInit initH 8 data
+
+def sha384 (data : ByteArray) : ByteArray :=
+  sha512WithInit initH384 6 data
 
 -- ─── Formatting ────────────────────────────────────────────────────────────
 

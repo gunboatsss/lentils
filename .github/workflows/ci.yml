@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install elan (Lean version manager)
+      run: |
+        curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+        echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+    - name: Install system deps
+      run: sudo apt-get update && sudo apt-get install -y bubblewrap gcc
+
+    - name: Validate Kconfig
+      run: ./scripts/validate-kconfig.sh
+
+    - name: Build
+      run: lake build
+
+    - name: Smoke test
+      run: |
+        .lake/build/bin/lentils --help | head -5
+        .lake/build/bin/lentils true && echo "true works"
+        .lake/build/bin/lentils false && exit 1 || echo "false works"
+
+    - name: Run sandbox tests
+      run: |
+        bash tests/sandbox/run-sandbox-tests.sh grep
+        bash tests/sandbox/run-sandbox-tests.sh cut
+        bash tests/sandbox/run-sandbox-tests.sh sort
+        bash tests/sandbox/run-sandbox-tests.sh tr
+        bash tests/sandbox/run-sandbox-tests.sh test
+        bash tests/sandbox/run-sandbox-tests.sh tac
+        bash tests/sandbox/run-sandbox-tests.sh base32
+        bash tests/sandbox/run-sandbox-tests.sh basenc
+        bash tests/sandbox/run-sandbox-tests.sh sha224sum
+        bash tests/sandbox/run-sandbox-tests.sh sha384sum
+        bash tests/sandbox/run-sandbox-tests.sh mkfifo
+        bash tests/sandbox/run-sandbox-tests.sh mktemp
+        bash tests/sandbox/run-sandbox-tests.sh csplit
+        bash tests/sandbox/run-sandbox-tests.sh dircolors

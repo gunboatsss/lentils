@@ -1,0 +1,14 @@
+#!/bin/bash
+# link.test — Tests for the `link` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "link create hard link" \
+  'printf "hello" > src && "$UTIL" src dst && cat dst' \
+  "hello\n" "" ""
+testing "link missing source" \
+  '"$UTIL" nonexist dst 2>&1; echo $?' \
+  "link: cannot create link 'dst' to 'nonexist': no such file or directory (error code: 2)\n1\n" "" ""
+testing "link missing operand" \
+  '"$UTIL" 2>&1; echo $?' \
+  "link: missing operand\nTry 'link --help' for more information.\n1\n" "" ""

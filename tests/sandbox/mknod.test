@@ -1,0 +1,11 @@
+#!/bin/bash
+# mknod.test — Tests for the `mknod` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "mknod missing operand" \
+  '"$UTIL" 2>&1; echo $?' \
+  "mknod: missing operand\nTry 'mknod --help' for more information.\n1\n" "" ""
+testing "mknod needs root" \
+  '"$UTIL" /tmp/test_node c 1 3 2>&1; echo $?' \
+  "mknod: cannot create '/tmp/test_node': operation not permitted (error code: 1)\n1\n" "" ""

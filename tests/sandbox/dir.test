@@ -1,0 +1,8 @@
+#!/bin/bash
+# dir.test — Tests for the `dir` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "dir lists directory" \
+  '"$UTIL" /tmp 2>/dev/null | head -3 | wc -l' \
+  "3\n" "" ""

@@ -1,0 +1,11 @@
+#!/bin/bash
+# shred.test — Tests for the `shred` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+testing "shred overwrites file" \
+  'printf "secret" > f && "$UTIL" -n 1 f 2>/dev/null && [ -f f ] && echo "shredded" && rm f' \
+  "shredded\n" "" ""
+testing "shred missing operand" \
+  '"$UTIL" 2>&1; echo $?' \
+  "shred: missing file operand\nTry 'shred --help' for more information.\n1\n" "" ""

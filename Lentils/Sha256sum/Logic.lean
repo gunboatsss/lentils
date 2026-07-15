@@ -23,6 +23,11 @@ def initH : Array UInt32 := #[
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
   0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
 
+-- SHA-224 uses the same algorithm but different initial values
+def initH224 : Array UInt32 := #[
+  0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
+  0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4]
+
 def getK (i : Nat) : UInt32 :=
   let table : Array UInt32 := #[
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -123,7 +128,11 @@ def processBlock (state : Array UInt32) (block : ByteArray) : Array UInt32 :=
 
 -- ─── Main hash ────────────────────────────────────────────────────────────────
 
-def sha256 (data : ByteArray) : ByteArray :=
+/--
+Generic SHA-256-family hash with configurable initial value and output word count.
+Used by both SHA-256 (8 words) and SHA-224 (7 words).
+-/
+def sha256WithInit (hashInit : Array UInt32) (numWords : Nat) (data : ByteArray) : ByteArray :=
   let padded := sha256Pad data
   let numBlocks := padded.size / 64
   let rec processAll (state : Array UInt32) (i : Nat) : Array UInt32 :=
@@ -131,22 +140,20 @@ def sha256 (data : ByteArray) : ByteArray :=
     else
       let block := padded.extract (i * 64) ((i + 1) * 64)
       processAll (processBlock state block) (i + 1)
-  let state := processAll initH 0
+  let state := processAll hashInit 0
   let encodeWord (w : UInt32) : List UInt8 :=
     [((w >>> 24).land 0xFF).toUInt8,
      ((w >>> 16).land 0xFF).toUInt8,
      ((w >>> 8).land 0xFF).toUInt8,
      ((w >>> 0).land 0xFF).toUInt8]
-  ByteArray.mk (List.toArray (
-    encodeWord (arrGet state 0) ++
-    encodeWord (arrGet state 1) ++
-    encodeWord (arrGet state 2) ++
-    encodeWord (arrGet state 3) ++
-    encodeWord (arrGet state 4) ++
-    encodeWord (arrGet state 5) ++
-    encodeWord (arrGet state 6) ++
-    encodeWord (arrGet state 7)
-  ))
+  let allWords := List.range numWords |>.foldl (λ acc i => acc ++ encodeWord (arrGet state i)) []
+  ByteArray.mk (List.toArray allWords)
+
+def sha256 (data : ByteArray) : ByteArray :=
+  sha256WithInit initH 8 data
+
+def sha224 (data : ByteArray) : ByteArray :=
+  sha256WithInit initH224 7 data
 
 -- ─── Formatting ────────────────────────────────────────────────────────────
 

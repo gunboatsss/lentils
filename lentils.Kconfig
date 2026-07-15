@@ -1,0 +1,424 @@
+#
+# Lentils applet configuration
+# See Lentils/Kconfig.lean for the parser
+#
+
+config ARCH
+	bool "arch — print machine architecture"
+	default y
+
+config BASE32
+	bool "base32 — encode/decode base32 data"
+	default y
+
+config BASE64
+	bool "base64 — encode/decode base64 data"
+	default y
+
+config BASENC
+	bool "basenc — encode/decode using any base"
+	default y
+
+config BASENAME
+	bool "basename — strip directory and suffix from filenames"
+	default y
+
+config CAL
+	bool "cal — display a calendar"
+	default y
+
+config CAT
+	bool "cat — concatenate files to stdout"
+	default y
+
+config CHGRP
+	bool "chgrp — change group ownership"
+	default y
+
+config CHMOD
+	bool "chmod — change file mode bits"
+	default y
+
+config CHOWN
+	bool "chown — change file owner and group"
+	default y
+
+config CKSUM
+	bool "cksum — POSIX CRC checksum"
+	default y
+
+config COMM
+	bool "comm — compare two sorted files"
+	default y
+
+config CP
+	bool "cp — copy files and directories"
+	default y
+
+config CSPLIT
+	bool "csplit — split file by context lines"
+	default y
+
+config CUT
+	bool "cut — extract sections from each line"
+	default y
+
+config DATE
+	bool "date — print or set the system date and time"
+	default y
+
+config DD
+	bool "dd — convert and copy with block size options"
+	default y
+
+config DF
+	bool "df — report file system disk space usage"
+	default y
+
+config DIR
+	bool "dir — list directory contents (columnar)"
+	default y
+
+config DIRCOLORS
+	bool "dircolors — color setup for ls"
+	default y
+
+config DIRNAME
+	bool "dirname — strip last component from file name"
+	default y
+
+config DU
+	bool "du — estimate file space usage"
+	default y
+
+config ECHO
+	bool "echo — write arguments to stdout"
+	default y
+
+config ENV
+	bool "env — run a command with modified environment"
+	default y
+
+config EXPAND
+	bool "expand — convert tabs to spaces"
+	default y
+
+config EXPR
+	bool "expr — evaluate integer/string expressions"
+	default y
+
+config FACTOR
+	bool "factor — factor integers into primes"
+	default y
+
+config FALSE
+	bool "false — exit with status 1"
+	default y
+
+config FMT
+	bool "fmt — reformat paragraph text"
+	default y
+
+config FOLD
+	bool "fold — wrap lines at a specified width"
+	default y
+
+config GREP
+	bool "grep — print lines matching a pattern"
+	default y
+
+config GROUPS
+	bool "groups — print group memberships"
+	default y
+
+config HEAD
+	bool "head — output the first part of files"
+	default y
+
+config HOSTID
+	bool "hostid — print numeric host identifier"
+	default y
+
+config ID
+	bool "id — print user and group identity"
+	default y
+
+config INSTALL
+	bool "install — copy files and set attributes"
+	default y
+
+config JOIN
+	bool "join — join lines on a common field"
+	default y
+
+config KILL
+	bool "kill — send a signal to a process"
+	default y
+
+config LINK
+	bool "link — call the link() syscall"
+	default y
+
+config LN
+	bool "ln — make links between files"
+	default y
+
+config LOGNAME
+	bool "logname — print user's login name"
+	default y
+
+config LS
+	bool "ls — list directory contents"
+	default y
+
+config MD5SUM
+	bool "md5sum — compute MD5 hash"
+	default y
+
+config MESG
+	bool "mesg — check/set terminal write access"
+	default y
+
+config MKDIR
+	bool "mkdir — make directories"
+	default y
+
+config MKFIFO
+	bool "mkfifo — make named pipes (FIFOs)"
+	default y
+
+config MKNOD
+	bool "mknod — make block/character special files"
+	default y
+
+config MKTEMP
+	bool "mktemp — create temporary files/dirs"
+	default y
+
+config MORE
+	bool "more — page through text files"
+	default y
+
+config MV
+	bool "mv — move (rename) files"
+	default y
+
+config NICE
+	bool "nice — run a program with modified scheduling priority"
+	default y
+
+config NL
+	bool "nl — number lines of input"
+	default y
+
+config NOHUP
+	bool "nohup — run a command immune to hangups"
+	default y
+
+config NPROC
+	bool "nproc — print number of processing units"
+	default y
+
+config NUMFMT
+	bool "numfmt — convert numbers to/from human-readable form"
+	default y
+
+config OD
+	bool "od — dump files in octal format"
+	default y
+
+config PASTE
+	bool "paste — merge lines of files"
+	default y
+
+config PATHCHK
+	bool "pathchk — check pathname validity"
+	default y
+
+config PINKY
+	bool "pinky — lightweight finger"
+	default y
+
+config PR
+	bool "pr — paginate text into pages"
+	default y
+
+config PRINTENV
+	bool "printenv — print environment variables"
+	default y
+
+config PRINTF
+	bool "printf — write formatted output"
+	default y
+
+config PTX
+	bool "ptx — produce permuted index"
+	default y
+
+config PWD
+	bool "pwd — print working directory"
+	default y
+
+config READLINK
+	bool "readlink — print target of a symbolic link"
+	default y
+
+config REALPATH
+	bool "realpath — print canonical absolute path"
+	default y
+
+config RM
+	bool "rm — remove files or directories"
+	default y
+
+config RMDIR
+	bool "rmdir — remove empty directories"
+	default y
+
+config SEQ
+	bool "seq — print sequence of numbers"
+	default y
+
+config SHA1SUM
+	bool "sha1sum — compute SHA-1 hash"
+	default y
+
+config SHA224SUM
+	bool "sha224sum — compute SHA-224 hash"
+	default y
+
+config SHA256SUM
+	bool "sha256sum — compute SHA-256 hash"
+	default y
+
+config SHA384SUM
+	bool "sha384sum — compute SHA-384 hash"
+	default y
+
+config SHA512SUM
+	bool "sha512sum — compute SHA-512 hash"
+	default y
+
+config SHRED
+	bool "shred — securely delete files"
+	default y
+
+config SHUF
+	bool "shuf — shuffle lines of input"
+	default y
+
+config SLEEP
+	bool "sleep — suspend execution for an interval"
+	default y
+
+config SORT
+	bool "sort — sort lines of text files"
+	default y
+
+config SPLIT
+	bool "split — split input into files by size/line count"
+	default y
+
+config STAT
+	bool "stat — display file or file system status"
+	default y
+
+config SUM
+	bool "sum — BSD checksum and block counts"
+	default y
+
+config SYNC
+	bool "sync — synchronize cached writes to disk"
+	default y
+
+config TAC
+	bool "tac — concatenate and write files in reverse"
+	default y
+
+config TAIL
+	bool "tail — output the last part of files"
+	default y
+
+config TEE
+	bool "tee — read stdin and write to stdout and files"
+	default y
+
+config TEST
+	bool "test — check file types and compare values"
+	default y
+
+config TIMEOUT
+	bool "timeout — run a command with a time limit"
+	default y
+
+config TOUCH
+	bool "touch — change file timestamps"
+	default y
+
+config TR
+	bool "tr — translate or delete characters"
+	default y
+
+config TRUE
+	bool "true — exit with status 0"
+	default y
+
+config TRUNCATE
+	bool "truncate — shrink or extend a file to a specified size"
+	default y
+
+config TSORT
+	bool "tsort — topological sort"
+	default y
+
+config TTY
+	bool "tty — print terminal file name"
+	default y
+
+config UNAME
+	bool "uname — print system information"
+	default y
+
+config UNEXPAND
+	bool "unexpand — convert spaces to tabs"
+	default y
+
+config UNIQ
+	bool "uniq — report or omit repeated lines"
+	default y
+
+config UNLINK
+	bool "unlink — call the unlink() syscall"
+	default y
+
+config UPTIME
+	bool "uptime — print system uptime"
+	default y
+
+config USERS
+	bool "users — print logged-in user names"
+	default y
+
+config VDIR
+	bool "vdir — list directory contents (long)"
+	default y
+
+config WC
+	bool "wc — word, line, and byte count"
+	default y
+
+config WHO
+	bool "who — list logged-in users"
+	default y
+
+config WHOAMI
+	bool "whoami — print effective user name"
+	default y
+
+config YES
+	bool "yes — repeat a string until killed"
+	default y
+
+config B2SUM
+	bool "b2sum — compute BLAKE2b hash"
+	default y

@@ -1,0 +1,27 @@
+#!/bin/bash
+# csplit.test — Tests for the `csplit` utility
+# License: 0BSD
+[ -f testing.sh ] && . testing.sh
+
+# Setup
+t() { printf "%s\n" "$1" > f.in; }
+cl() { "$UTIL" f.in "$@" > /dev/null 2>&1; }
+
+testing "csplit split at line" \
+  'printf "a\nb\nc\nd\ne\n" > f && "$UTIL" f 3 > /dev/null && cat xx00 && echo "---" && cat xx01 && rm -f xx00 xx01' \
+  "a\nb\n---\nc\nd\ne\n" "" ""
+
+testing "csplit at multiple lines" \
+  'printf "a\nb\nc\nd\ne\n" > f && "$UTIL" f 2 4 > /dev/null && cat xx00 && echo "---" && cat xx01 && echo "---" && cat xx02 && rm -f xx0*' \
+  "a\n---\nb\nc\n---\nd\ne\n" "" ""
+
+testing "csplit prefix" \
+  'printf "a\nb\n" > f && "$UTIL" -f chk f 2 > /dev/null && cat chk00 && chk01 && rm -f chk0*' \
+  "a\nb\n" "" ""
+
+testing "csplit missing file" \
+  '"$UTIL" 2>&1; echo $?' \
+  "csplit: missing file operand\nTry 'csplit --help' for more information.\n1\n" "" ""
+testing "csplit missing pattern" \
+  '"$UTIL" f 2>&1; echo $?' \
+  "csplit: missing pattern\nTry 'csplit --help' for more information.\n1\n" "" ""
