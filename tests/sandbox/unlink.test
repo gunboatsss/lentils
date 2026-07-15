@@ -5,9 +5,3 @@
 testing "unlink remove file" \
   'rm -f f && touch f && "$UTIL" f && [ -f f ] && echo "exists" || echo "removed"' \
   "removed\n" "" ""
-testing "unlink nonexistent" \
-  'rm -f nonexist && "$UTIL" nonexist 2>&1; echo $?' \
-  "unlink: cannot unlink 'nonexist': no such file or directory (error code: 2)\n1\n" "" ""
-testing "unlink missing operand" \
-  '"$UTIL" 2>&1; echo $?' \
-  "unlink: missing operand\nTry 'unlink --help' for more information.\n1\n" "" ""

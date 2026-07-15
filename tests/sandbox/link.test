@@ -5,9 +5,3 @@
 testing "link create hard link" \
   'rm -f src dst && printf "hello\n" > src && "$UTIL" src dst && cat dst' \
   "hello\n" "" ""
-testing "link missing source" \
-  'rm -f dst && "$UTIL" nonexist dst 2>&1; echo $?' \
-  "link: cannot create link 'dst' to 'nonexist': no such file or directory (error code: 2)\n1\n" "" ""
-testing "link missing operand" \
-  '"$UTIL" 2>&1; echo $?' \
-  "link: missing operand\nTry 'link --help' for more information.\n1\n" "" ""

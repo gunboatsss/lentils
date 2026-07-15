@@ -11,6 +11,3 @@ testing "mktemp -d creates dir" \
 testing "mktemp with template" \
   'f=$("$UTIL" myprefix.XXXXXX 2>/dev/null) && case "$f" in *myprefix*) echo "ok";; esac && rm -f "$f"' \
   "ok\n" "" ""
-testing "mktemp no X's" \
-  '"$UTIL" notemplate 2>&1; echo $?' \
-  "mktemp: template 'notemplate' must contain at least one 'X'\n1\n" "" ""

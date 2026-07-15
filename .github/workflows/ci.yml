@@ -60,3 +60,8 @@ jobs:
         bash tests/sandbox/run-sandbox-tests.sh dircolors
         bash tests/sandbox/run-sandbox-tests.sh dir
         bash tests/sandbox/run-sandbox-tests.sh sync
+        bash tests/sandbox/run-sandbox-tests.sh link
+        bash tests/sandbox/run-sandbox-tests.sh mkfifo
+        bash tests/sandbox/run-sandbox-tests.sh unlink
+        bash tests/sandbox/run-sandbox-tests.sh mktemp
+        bash tests/sandbox/run-sandbox-tests.sh csplit

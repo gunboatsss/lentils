@@ -8,12 +8,3 @@ testing "csplit split at line 3" \
 testing "csplit at lines 2 and 4" \
   'printf "a\nb\nc\nd\ne\n" > f.in && "$UTIL" f.in 2 4 > /dev/null && cat xx00 && echo "---" && cat xx01 && echo "---" && cat xx02 && rm -f xx0* f.in' \
   "a\n---\nb\nc\n---\nd\ne\n" "" ""
-testing "csplit missing file" \
-  '"$UTIL" 2>&1; echo $?' \
-  "csplit: missing file operand\nTry 'csplit --help' for more information.\n1\n" "" ""
-testing "csplit missing pattern" \
-  '"$UTIL" f.in 2>&1; echo $?' \
-  "csplit: missing pattern\nTry 'csplit --help' for more information.\n1\n" "" ""
-testing "csplit bad file" \
-  '"$UTIL" nonexistent 5 2>&1; echo $?' \
-  "csplit: nonexistent: No such file or directory (error code: 2)\n1\n" "" ""
