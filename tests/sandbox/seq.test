@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh seq
 
-[ -f testing.sh ] && . testing.sh
 
 # Single argument (last = 10)
 testing "seq single arg" \

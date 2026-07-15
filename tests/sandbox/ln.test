@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh ln
 
-[ -f testing.sh ] && . testing.sh
 
 # Create a hard link
 echo "data" > target

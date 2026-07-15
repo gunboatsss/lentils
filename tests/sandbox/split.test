@@ -6,7 +6,6 @@
 # Note: split creates files by design. Tests run in a sandbox via TESTDIR.
 # DESTRUCTIVE=0 means the test harness does NOT run inside bwrap.
 
-[ -f testing.sh ] && . testing.sh
 
 # split: splits on -l 2 creates output file xaa
 testing "split lines default" \

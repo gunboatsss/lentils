@@ -1,7 +1,6 @@
 #!/bin/bash
 # tac.test — Tests for the `tac` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "tac reverse lines" \
   'printf "a\nb\nc\n" > f && "$UTIL" f' \

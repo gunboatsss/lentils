@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh shuf
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic shuffle (check lines are preserved, order may differ)
 testing "shuf preserves lines" \

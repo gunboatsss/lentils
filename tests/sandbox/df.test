@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh df
 
-[ -f testing.sh ] && . testing.sh
 
 # df defaults to /
 testing "df default" '"$UTIL" 2>&1 | grep -q "Filesystem" && echo yes' "yes\n" "" ""

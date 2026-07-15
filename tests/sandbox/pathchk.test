@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh pathchk
 
-[ -f testing.sh ] && . testing.sh
 
 # pathchk: valid path (no output = success)
 testing "pathchk valid path" \

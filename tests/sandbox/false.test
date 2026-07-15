@@ -6,7 +6,6 @@
 # In test commands:
 #   $UTIL = the utility invocation (host: /bin/false, ours: <OUR_BINARY> false)
 
-[ -f testing.sh ] && . testing.sh
 
 # false with no arguments (differential: host uses /bin/false, ours uses our binary)
 testing "false" '"$UTIL" && echo yes || echo no' "no\n" "" ""

@@ -89,7 +89,7 @@ WRAPEOF
   SKIP=0
 
   # Run the test file in current shell so variables update
-  source "$testfile" 2>/dev/null || true
+  source "$testfile" || true
   FAILTOTAL=$((FAILTOTAL + FAILCOUNT))
 
   cd /

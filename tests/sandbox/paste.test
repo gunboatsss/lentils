@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh paste
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic paste of two files
 printf "a\nb\n" > f1

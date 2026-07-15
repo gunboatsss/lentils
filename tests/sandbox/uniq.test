@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh uniq
 
-[ -f testing.sh ] && . testing.sh
 
 # uniq normal mode (suppress adjacent duplicates)
 testing "uniq stdin" \

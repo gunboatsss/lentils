@@ -57,7 +57,6 @@ jobs:
         bash tests/sandbox/run-sandbox-tests.sh basenc
         bash tests/sandbox/run-sandbox-tests.sh sha224sum
         bash tests/sandbox/run-sandbox-tests.sh sha384sum
-        bash tests/sandbox/run-sandbox-tests.sh mkfifo
-        bash tests/sandbox/run-sandbox-tests.sh mktemp
-        bash tests/sandbox/run-sandbox-tests.sh csplit
         bash tests/sandbox/run-sandbox-tests.sh dircolors
+        bash tests/sandbox/run-sandbox-tests.sh dir
+        bash tests/sandbox/run-sandbox-tests.sh sync

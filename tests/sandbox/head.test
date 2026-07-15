@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh head
 
-[ -f testing.sh ] && . testing.sh
 
 # head default (10 lines or all if fewer)
 testing "head stdin" \

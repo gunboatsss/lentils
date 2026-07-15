@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh mkdir
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic single directory
 testing "mkdir basic" \

@@ -1,7 +1,6 @@
 #!/bin/bash
 # sha224sum.test — Tests for the `sha224sum` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "sha224sum empty" \
   'printf "" | "$UTIL"' \

@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh basename
 
-[ -f testing.sh ] && . testing.sh
 
 # basename strips directory
 testing "basename strip dir" \

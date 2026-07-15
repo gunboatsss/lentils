@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh sleep
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic sleep with integer seconds (use small value for fast tests)
 testing "sleep integer seconds" \

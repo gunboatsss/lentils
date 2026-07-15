@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh ls
 
-[ -f testing.sh ] && . testing.sh
 
 # Set up a test directory
 setup_testdir() {

@@ -1,14 +1,13 @@
 #!/bin/bash
 # mkfifo.test — Tests for the `mkfifo` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "mkfifo creates named pipe" \
-  '"$UTIL" f && [ -p f ] && echo "pipe" || echo "no"' \
+  'rm -f f && "$UTIL" f && [ -p f ] && echo "pipe"' \
   "pipe\n" "" ""
 testing "mkfifo missing operand" \
   '"$UTIL" 2>&1; echo $?' \
   "mkfifo: missing operand\nTry 'mkfifo --help' for more information.\n1\n" "" ""
 testing "mkfifo already exists" \
-  '"$UTIL" f 2>&1; echo $?' \
+  'rm -f f && "$UTIL" f && "$UTIL" f 2>&1; echo $?' \
   "mkfifo: cannot create fifo 'f': file exists (error code: 17)\n1\n" "" ""

@@ -1,16 +1,15 @@
 #!/bin/bash
 # mktemp.test — Tests for the `mktemp` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "mktemp creates file" \
-  'f=$("$UTIL") && [ -f "$f" ] && echo "file" && rm "$f"' \
+  'f=$("$UTIL" 2>/dev/null) && [ -f "$f" ] && echo "file" && rm -f "$f"' \
   "file\n" "" ""
 testing "mktemp -d creates dir" \
-  'd=$("$UTIL" -d) && [ -d "$d" ] && echo "dir" && rmdir "$d"' \
+  'd=$("$UTIL" -d 2>/dev/null) && [ -d "$d" ] && echo "dir" && rmdir "$d"' \
   "dir\n" "" ""
 testing "mktemp with template" \
-  'f=$("$UTIL" myprefix.XXXXXX) && echo "$f" | grep -q myprefix && echo "ok" && rm "$f"' \
+  'f=$("$UTIL" myprefix.XXXXXX 2>/dev/null) && case "$f" in *myprefix*) echo "ok";; esac && rm -f "$f"' \
   "ok\n" "" ""
 testing "mktemp no X's" \
   '"$UTIL" notemplate 2>&1; echo $?' \

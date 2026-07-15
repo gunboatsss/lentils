@@ -1,7 +1,6 @@
 #!/bin/bash
 # basenc.test — Tests for the `basenc` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "basenc --base64" \
   'printf "hello" | "$UTIL" --base64' \

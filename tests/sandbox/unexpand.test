@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh unexpand
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic space-to-tab conversion (8-space aligned)
 testing "unexpand basic" \

@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh factor
 
-[ -f testing.sh ] && . testing.sh
 
 # Factor small number
 testing "factor 12" \

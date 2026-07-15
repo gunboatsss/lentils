@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh b2sum
 
-[ -f testing.sh ] && . testing.sh
 
 # b2sum of empty input (default 512-bit)
 testing "b2sum empty" \

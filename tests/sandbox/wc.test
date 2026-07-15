@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh wc
 
-[ -f testing.sh ] && . testing.sh
 
 # wc from stdin (strip all spaces to ignore host padding)
 testing "wc stdin" \

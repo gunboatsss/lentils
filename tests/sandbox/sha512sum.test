@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh sha512sum
 
-[ -f testing.sh ] && . testing.sh
 
 # sha512sum of empty input
 testing "sha512sum empty" \

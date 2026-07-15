@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh chmod
 
-[ -f testing.sh ] && . testing.sh
 
 # Change to numeric mode (755)
 echo "data" > file1

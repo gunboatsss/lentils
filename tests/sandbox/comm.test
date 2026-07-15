@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh comm
 
-[ -f testing.sh ] && . testing.sh
 
 # Both files identical
 printf "a\nb\nc\n" > f1

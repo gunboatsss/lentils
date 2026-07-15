@@ -1,7 +1,6 @@
 #!/bin/bash
 # chgrp.test — Tests for the `chgrp` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "chgrp help" \
   '"$UTIL" --help 2>&1 | head -1' \

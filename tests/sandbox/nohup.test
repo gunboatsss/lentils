@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh nohup
 
-[ -f testing.sh ] && . testing.sh
 
 # Run a command
 testing "nohup basic" \

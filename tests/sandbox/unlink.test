@@ -1,13 +1,12 @@
 #!/bin/bash
 # unlink.test — Tests for the `unlink` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "unlink remove file" \
-  'touch f && "$UTIL" f && [ -f f ] || echo "removed"' \
+  'rm -f f && touch f && "$UTIL" f && [ -f f ] && echo "exists" || echo "removed"' \
   "removed\n" "" ""
 testing "unlink nonexistent" \
-  '"$UTIL" nonexist 2>&1; echo $?' \
+  'rm -f nonexist && "$UTIL" nonexist 2>&1; echo $?' \
   "unlink: cannot unlink 'nonexist': no such file or directory (error code: 2)\n1\n" "" ""
 testing "unlink missing operand" \
   '"$UTIL" 2>&1; echo $?' \

@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh tail
 
-[ -f testing.sh ] && . testing.sh
 
 # Default behaviour (≤10 lines) emits all of stdin
 testing "tail default under limit" \

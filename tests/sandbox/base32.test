@@ -1,7 +1,6 @@
 #!/bin/bash
 # base32.test — Tests for the `base32` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "base32 encode hello" \
   'printf "hello" | "$UTIL"' \

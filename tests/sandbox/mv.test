@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh mv
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic rename
 echo "hello" > file1

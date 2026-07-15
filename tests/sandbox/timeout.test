@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh timeout
 
-[ -f testing.sh ] && . testing.sh
 
 # Run a quick command (should succeed before timeout)
 testing "timeout quick command" \

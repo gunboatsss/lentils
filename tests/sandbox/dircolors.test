@@ -1,7 +1,6 @@
 #!/bin/bash
 # dircolors.test — Tests for the `dircolors` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "dircolors sh output format" \
   '"$UTIL" | head -1 | cut -c1-13' \

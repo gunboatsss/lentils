@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh printf
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic printf with plain string (no format specifiers)
 testing "printf plain string" \

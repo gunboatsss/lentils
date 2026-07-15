@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh rm
 
-[ -f testing.sh ] && . testing.sh
 
 # Remove a single file
 echo "data" > file1

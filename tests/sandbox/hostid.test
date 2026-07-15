@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh hostid
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic hostid output (differential against /bin/hostid)
 testing "hostid" \

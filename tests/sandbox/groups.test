@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh groups
 
-[ -f testing.sh ] && . testing.sh
 
 # Current user's groups (differential against /bin/groups)
 testing "groups current user" \

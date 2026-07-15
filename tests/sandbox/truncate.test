@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh truncate
 
-[ -f testing.sh ] && . testing.sh
 
 # truncate requires -s flag
 testing "truncate usage" '"$UTIL" 2>&1; echo $?' "1\n" "" ""

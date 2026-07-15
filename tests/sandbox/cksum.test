@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh cksum
 
-[ -f testing.sh ] && . testing.sh
 
 # cksum of empty input
 testing "cksum empty" \

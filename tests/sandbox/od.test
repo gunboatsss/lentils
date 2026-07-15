@@ -7,7 +7,6 @@
 # (individual bytes vs 16-bit words). These tests verify our implementation
 # and are not differential against the host.
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic octal dump of text
 testing "od basic" \

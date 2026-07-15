@@ -8,7 +8,6 @@
 # Each operator (-f, -d, -e, -s, -r, -w, -x) is exercised with both
 # a positive and a negative case.
 
-[ -f testing.sh ] && . testing.sh
 
 # ─── -f : path is a regular file ──────────────────────────────────────────────
 

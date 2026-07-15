@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh md5sum
 
-[ -f testing.sh ] && . testing.sh
 
 # md5sum of empty input
 testing "md5sum empty" \

@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh du
 
-[ -f testing.sh ] && . testing.sh
 
 # du with no args (current dir)
 testing "du default" '"$UTIL" -s . | grep -q "\." && echo yes' "yes\n" "" ""

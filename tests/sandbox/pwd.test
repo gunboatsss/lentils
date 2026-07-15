@@ -6,7 +6,6 @@
 # In test commands:
 #   $UTIL = the utility invocation (host: /bin/pwd, ours: <OUR_BINARY> pwd)
 
-[ -f testing.sh ] && . testing.sh
 
 # pwd with no arguments - outputs current directory with trailing newline
 testing "pwd no args" '"$UTIL"' "$(pwd)\n" "" ""

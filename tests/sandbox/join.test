@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh join
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic join on first field
 printf "a 1\nb 2\n" > f1

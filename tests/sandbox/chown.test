@@ -1,7 +1,6 @@
 #!/bin/bash
 # chown.test — Tests for the `chown` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "chown help" \
   '"$UTIL" --help 2>&1 | head -1' \

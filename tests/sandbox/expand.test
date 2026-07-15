@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh expand
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic tab expansion (default 8-column stops)
 testing "expand basic" \

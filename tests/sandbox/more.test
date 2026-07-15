@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh more
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic paging (short input, just passes through since no paging needed)
 testing "more short" \

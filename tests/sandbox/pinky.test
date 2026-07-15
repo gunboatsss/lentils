@@ -1,7 +1,6 @@
 #!/bin/bash
 # pinky.test — Tests for the `pinky` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "pinky runs" \
   '"$UTIL" > /dev/null 2>&1; echo $?' \

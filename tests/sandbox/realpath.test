@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh realpath
 
-[ -f testing.sh ] && . testing.sh
 
 # Real path for a file
 echo "data" > file1

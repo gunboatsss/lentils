@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh sha1sum
 
-[ -f testing.sh ] && . testing.sh
 
 # sha1sum of empty input
 testing "sha1sum empty" \

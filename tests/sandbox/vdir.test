@@ -1,7 +1,6 @@
 #!/bin/bash
 # vdir.test — Tests for the `vdir` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "vdir long listing" \
   '"$UTIL" /tmp 2>/dev/null | head -1 | grep -q "^[dl-]" && echo long' \

@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh nice
 
-[ -f testing.sh ] && . testing.sh
 
 # Run a command with default niceness
 testing "nice basic" \

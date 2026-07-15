@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh dd
 
-[ -f testing.sh ] && . testing.sh
 
 # dd basic copy stdin to stdout
 testing "dd basic copy" \

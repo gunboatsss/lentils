@@ -7,7 +7,6 @@
 #   $UTIL = the utility invocation (host: /bin/cat, ours: <OUR_BINARY> cat)
 #   $C   = path to our binary (for file references like: cat "$C")
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic stdin (differential: host uses /bin/cat, ours uses our binary)
 testing "cat" '"$UTIL" && echo yes' "oneyes\n" "" "one"

@@ -1,7 +1,6 @@
 #!/bin/bash
 # mknod.test — Tests for the `mknod` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "mknod missing operand" \
   '"$UTIL" 2>&1; echo $?' \

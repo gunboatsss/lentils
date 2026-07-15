@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh base64
 
-[ -f testing.sh ] && . testing.sh
 
 # base64 encode basic
 testing "base64 encode hello" \

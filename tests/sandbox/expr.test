@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh expr
 
-[ -f testing.sh ] && . testing.sh
 
 # expr basic arithmetic
 testing "expr addition" \

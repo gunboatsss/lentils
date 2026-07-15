@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh stat
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic stat on current dir
 testing "stat default" '"$UTIL" . | grep -q "File:" && echo yes' "yes\n" "" ""

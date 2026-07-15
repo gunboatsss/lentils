@@ -1,7 +1,6 @@
 #!/bin/bash
 # sha384sum.test — Tests for the `sha384sum` utility
 # License: 0BSD
-[ -f testing.sh ] && . testing.sh
 
 testing "sha384sum empty" \
   'printf "" | "$UTIL"' \

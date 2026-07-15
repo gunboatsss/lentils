@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh tty
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic output (differential against /bin/tty)
 testing "tty" \

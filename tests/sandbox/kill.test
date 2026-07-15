@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh kill
 
-[ -f testing.sh ] && . testing.sh
 
 # kill on non-existent PID → exit non-zero (both host and ours return 1)
 testing "kill non-existent pid" \

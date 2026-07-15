@@ -6,7 +6,6 @@
 # Note: mesg requires a tty. Our implementation handles non-tty differently
 # from GNU mesg, so tests may differ on non-interactive runs.
 
-[ -f testing.sh ] && . testing.sh
 
 # Query current state
 testing "mesg query" \

@@ -7,7 +7,6 @@
 # to bound output. The differential test compares our repeated string
 # against the host's for the first N lines.
 
-[ -f testing.sh ] && . testing.sh
 
 # Default message is "y"
 testing "yes default" \

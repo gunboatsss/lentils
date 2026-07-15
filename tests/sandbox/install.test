@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh install
 
-[ -f testing.sh ] && . testing.sh
 
 # install requires at least source and dest
 testing "install usage" '"$UTIL" 2>&1; echo $?' "1\n" "" ""

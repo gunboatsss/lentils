@@ -3,7 +3,6 @@
 # License: 0BSD
 # Run via: run-sandbox-tests.sh tee
 
-[ -f testing.sh ] && . testing.sh
 
 # Basic tee to stdout only (stdin passes through to stdout)
 testing "tee stdin to stdout" \
