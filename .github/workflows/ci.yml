@@ -15,25 +15,37 @@ jobs:
 
     - name: Install elan (Lean version manager)
       run: |
-        curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+        curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain $(cat lean-toolchain 2>/dev/null || echo "stable")
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
+        echo "$HOME/.lake/bin" >> $GITHUB_PATH
 
     - name: Install system deps
       run: sudo apt-get update && sudo apt-get install -y bubblewrap gcc
 
     - name: Build
+      shell: bash {0}
       run: lake build
 
+    - name: Debug (check env)
+      shell: bash {0}
+      run: |
+        which lean && lean --version
+        which lake && lake --version
+        ls .lake/build/bin/ 2>/dev/null | head -5
+
     - name: Validate Kconfig
+      shell: bash {0}
       run: ./scripts/validate-kconfig.sh
 
     - name: Smoke test
+      shell: bash {0}
       run: |
         .lake/build/bin/lentils --help | head -5
         .lake/build/bin/lentils true && echo "true works"
         .lake/build/bin/lentils false && exit 1 || echo "false works"
 
     - name: Run sandbox tests
+      shell: bash {0}
       run: |
         bash tests/sandbox/run-sandbox-tests.sh grep
         bash tests/sandbox/run-sandbox-tests.sh cut
