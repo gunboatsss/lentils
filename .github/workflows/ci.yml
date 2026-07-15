@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Install elan (Lean version manager)
       run: |
@@ -21,11 +21,11 @@ jobs:
     - name: Install system deps
       run: sudo apt-get update && sudo apt-get install -y bubblewrap gcc
 
-    - name: Validate Kconfig
-      run: ./scripts/validate-kconfig.sh
-
     - name: Build
       run: lake build
+
+    - name: Validate Kconfig
+      run: ./scripts/validate-kconfig.sh
 
     - name: Smoke test
       run: |
