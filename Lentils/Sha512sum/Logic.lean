@@ -1,12 +1,35 @@
 /-
-Sha512sum.Logic — Pure SHA-512 hash implementation. 0BSD
+Sha512sum.Logic — Verified pure SHA-512 hash implementation. 0BSD
+
+Structure:
+  1. State Types      — HashInput (byte array input)
+  2. Specification    — sha512
+  3. Invariants       — parametric properties
+  4. Lemmas           — helper theorems
+  5. Concrete corollaries
+
+Provenance: FIPS 180-4 (SHA-512).
+No GPL source was consulted.
 -/
 
 namespace Lentils.Sha512sum.Logic
 
 open ByteArray
 
--- ─── Helpers ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Input to sha512sum / sha384sum: the raw bytes to hash.
+-/
+structure HashInput where
+  data : ByteArray
+  deriving Inhabited, BEq
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers & Implementation
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 def arrGet (arr : Array UInt64) (i : Nat) : UInt64 :=
   if h : i < arr.size then arr[i] else 0
@@ -17,13 +40,10 @@ def byteGet (arr : ByteArray) (i : Nat) : UInt8 :=
 def rotr (x : UInt64) (n : UInt64) : UInt64 :=
   (x >>> n) ||| (x <<< (64 - n))
 
--- ─── Constants ────────────────────────────────────────────────────────────────
-
 def initH : Array UInt64 := #[
   0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
 
--- SHA-384 uses the same algorithm but different initial values
 def initH384 : Array UInt64 := #[
   0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939,
   0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4]
@@ -52,17 +72,12 @@ def getK (i : Nat) : UInt64 :=
     0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817]
   arrGet table i
 
--- ─── Functions ────────────────────────────────────────────────────────────────
-
 def Sigma0 (x : UInt64) : UInt64 := rotr x 28 ^^^ rotr x 34 ^^^ rotr x 39
 def Sigma1 (x : UInt64) : UInt64 := rotr x 14 ^^^ rotr x 18 ^^^ rotr x 41
 def sigma0 (x : UInt64) : UInt64 := rotr x 1 ^^^ rotr x 8 ^^^ (x >>> 7)
 def sigma1 (x : UInt64) : UInt64 := rotr x 19 ^^^ rotr x 61 ^^^ (x >>> 6)
-
 def Ch (x y z : UInt64) : UInt64 := (x &&& y) ^^^ ((~~~x) &&& z)
 def Maj (x y z : UInt64) : UInt64 := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
-
--- ─── Padding: 128-bit big-endian bit-length ─────────────────────────────────
 
 def sha512Pad (data : ByteArray) : ByteArray :=
   let origLen := data.size
@@ -71,9 +86,8 @@ def sha512Pad (data : ByteArray) : ByteArray :=
   let padZeros := (240 - data1.size % 128) % 128
   let zeros : Array UInt8 := List.toArray (List.replicate padZeros 0)
   let data2 := data1 ++ ByteArray.mk zeros
-  -- Compute 128-bit bit length: high 64 bits, low 64 bits (big-endian)
   let bitLenLow := origLen64 * 8
-  let bitLenHigh : UInt64 := 0  -- for inputs < 2^61 bytes, high word is 0
+  let bitLenHigh : UInt64 := 0
   let hb0 := ((bitLenHigh >>> 56).land 0xFF).toUInt8
   let hb1 := ((bitLenHigh >>> 48).land 0xFF).toUInt8
   let hb2 := ((bitLenHigh >>> 40).land 0xFF).toUInt8
@@ -92,8 +106,6 @@ def sha512Pad (data : ByteArray) : ByteArray :=
   let lb7 := ((bitLenLow >>> 0).land 0xFF).toUInt8
   let lenBytes : Array UInt8 := List.toArray [hb0, hb1, hb2, hb3, hb4, hb5, hb6, hb7, lb0, lb1, lb2, lb3, lb4, lb5, lb6, lb7]
   data2 ++ ByteArray.mk lenBytes
-
--- ─── Block processing ─────────────────────────────────────────────────────────
 
 def readBE64 (block : ByteArray) (offset : Nat) : UInt64 :=
   let b0 := byteGet block offset
@@ -149,40 +161,70 @@ def processBlock (state : Array UInt64) (block : ByteArray) : Array UInt64 :=
   let (a, b, c, d, e, f, g, h) := go a0 b0 c0 d0 e0 f0 g0 h0 0
   List.toArray [a0 + a, b0 + b, c0 + c, d0 + d, e0 + e, f0 + f, g0 + g, h0 + h]
 
--- ─── Main hash ────────────────────────────────────────────────────────────────
+def encodeWord (w : UInt64) : List UInt8 :=
+  [((w >>> 56).land 0xFF).toUInt8,
+   ((w >>> 48).land 0xFF).toUInt8,
+   ((w >>> 40).land 0xFF).toUInt8,
+   ((w >>> 32).land 0xFF).toUInt8,
+   ((w >>> 24).land 0xFF).toUInt8,
+   ((w >>> 16).land 0xFF).toUInt8,
+   ((w >>> 8).land 0xFF).toUInt8,
+   ((w >>> 0).land 0xFF).toUInt8]
 
-/--
-Generic SHA-512-family hash with configurable initial value and output word count.
-Used by both SHA-512 (8 words) and SHA-384 (6 words).
--/
-def sha512WithInit (hashInit : Array UInt64) (numWords : Nat) (data : ByteArray) : ByteArray :=
-  let padded := sha512Pad data
-  let numBlocks := padded.size / 128
-  let rec processAll (state : Array UInt64) (i : Nat) : Array UInt64 :=
+theorem encodeWord_length (w : UInt64) : (encodeWord w).length = 8 := by
+  unfold encodeWord; simp
+
+/-- Process all blocks of padded data through the compression function. -/
+def processAll (padded : ByteArray) (numBlocks : Nat) (hashInit : Array UInt64) : Array UInt64 :=
+  let rec go (state : Array UInt64) (i : Nat) : Array UInt64 :=
     if i ≥ numBlocks then state
     else
       let block := padded.extract (i * 128) ((i + 1) * 128)
-      processAll (processBlock state block) (i + 1)
-  let state := processAll hashInit 0
-  let encodeWord (w : UInt64) : List UInt8 :=
-    [((w >>> 56).land 0xFF).toUInt8,
-     ((w >>> 48).land 0xFF).toUInt8,
-     ((w >>> 40).land 0xFF).toUInt8,
-     ((w >>> 32).land 0xFF).toUInt8,
-     ((w >>> 24).land 0xFF).toUInt8,
-     ((w >>> 16).land 0xFF).toUInt8,
-     ((w >>> 8).land 0xFF).toUInt8,
-     ((w >>> 0).land 0xFF).toUInt8]
+      go (processBlock state block) (i + 1)
+  go hashInit 0
+
+/-- Generic SHA-512-family hash with configurable initial value and output word count. -/
+def sha512WithInit (hashInit : Array UInt64) (numWords : Nat) (data : ByteArray) : ByteArray :=
+  let padded := sha512Pad data
+  let numBlocks := padded.size / 128
+  let state := processAll padded numBlocks hashInit
   let allWords := List.range numWords |>.foldl (λ acc i => acc ++ encodeWord (arrGet state i)) []
   ByteArray.mk (List.toArray allWords)
+
+/-- Output size of sha512WithInit is numWords * 8 bytes. -/
+theorem sha512WithInit_size (hashInit : Array UInt64) (numWords : Nat) (data : ByteArray) :
+    (sha512WithInit hashInit numWords data).size = numWords * 8 := by
+  unfold sha512WithInit
+  dsimp
+  have hlen : ∀ (state : Array UInt64), ((List.range numWords).foldl
+      (λ acc i => acc ++ encodeWord (arrGet state i)) []).length = numWords * 8 := by
+    intro state
+    induction numWords with
+    | zero => rfl
+    | succ n ih =>
+      have hh : (encodeWord (arrGet state n)).length = 8 := encodeWord_length _
+      calc
+        ((List.range (n+1)).foldl (λ acc i => acc ++ encodeWord (arrGet state i)) []).length
+            = ((List.range n).foldl (λ acc i => acc ++ encodeWord (arrGet state i)) [] ++ encodeWord (arrGet state n)).length := by
+          rw [List.range_succ, List.foldl_append]
+          simp
+        _ = ((List.range n).foldl (λ acc i => acc ++ encodeWord (arrGet state i)) []).length + (encodeWord (arrGet state n)).length := by simp
+        _ = (n * 8) + 8 := by rw [ih, hh]
+        _ = (n+1) * 8 := by omega
+  have h := hlen (processAll (sha512Pad data) ((sha512Pad data).size / 128) hashInit)
+  have hsize' (xs : List UInt8) : (ByteArray.mk xs.toArray).size = xs.length := by
+    calc
+      (ByteArray.mk xs.toArray).size = (xs.toArray).size := rfl
+      _ = xs.length := by simp
+  rw [hsize' ((List.range numWords).foldl
+    (λ acc i => acc ++ encodeWord (arrGet (processAll (sha512Pad data) ((sha512Pad data).size / 128) hashInit) i)) [])]
+  exact h
 
 def sha512 (data : ByteArray) : ByteArray :=
   sha512WithInit initH 8 data
 
 def sha384 (data : ByteArray) : ByteArray :=
   sha512WithInit initH384 6 data
-
--- ─── Formatting ────────────────────────────────────────────────────────────
 
 def formatHex (hash : ByteArray) : String :=
   String.ofList (List.flatten (hash.toList.map (λ b =>
@@ -195,9 +237,52 @@ def formatHex (hash : ByteArray) : String :=
 def formatStdin (data : ByteArray) : String :=
   formatHex (sha512 data) ++ "  -\n"
 
--- ─── Proofs ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
--- Main hash test vector
+def spec (input : HashInput) : ByteArray := sha512 input.data
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+theorem i_output_size (data : ByteArray) : (sha512 data).size = 64 := by
+  have h := sha512WithInit_size initH 8 data
+  simpa [sha512] using h
+
+theorem i_sha384_output_size (data : ByteArray) : (sha384 data).size = 48 := by
+  have h := sha512WithInit_size initH384 6 data
+  simpa [sha384] using h
+
+theorem i_formatHex_empty : formatHex ByteArray.empty = "" := by
+  native_decide
+
+theorem i_formatStdin_contains_dash (data : ByteArray) : (formatStdin data).contains '-' := by
+  unfold formatStdin; simp
+
+theorem i_formatStdin_compose (data : ByteArray) :
+    formatStdin data = formatHex (sha512 data) ++ "  -\n" := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Lemmas
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+theorem rotr_one : rotr (0x0000000000000001 : UInt64) 1 = (0x8000000000000000 : UInt64) := by native_decide
+theorem rotr_all : rotr (0xFFFFFFFFFFFFFFFF : UInt64) 64 = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+theorem sigma0_zero : Sigma0 (0 : UInt64) = (0 : UInt64) := by native_decide
+theorem sigma1_zero : Sigma1 (0 : UInt64) = (0 : UInt64) := by native_decide
+theorem ch_max_y_zero : Ch (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+theorem ch_zero_y_z : Ch (0 : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
+theorem maj_zero : Maj (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) (0 : UInt64) = (0 : UInt64) := by native_decide
+theorem pad_empty_size : (sha512Pad ByteArray.empty).size = 128 := by native_decide
+theorem pad_abc_size : (sha512Pad "abc".toUTF8).size = 128 := by native_decide
+theorem expandWords_size : (expandWords (readWords (sha512Pad "abc".toUTF8))).size = 80 := by native_decide
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 example : sha512 ByteArray.empty = ByteArray.mk (List.toArray
   ([0xcf, 0x83, 0xe1, 0x35, 0x7e, 0xef, 0xb8, 0xbd,
     0xf1, 0x54, 0x28, 0x50, 0xd6, 0x6d, 0x80, 0x07,
@@ -206,34 +291,12 @@ example : sha512 ByteArray.empty = ByteArray.mk (List.toArray
     0x47, 0xd0, 0xd1, 0x3c, 0x5d, 0x85, 0xf2, 0xb0,
     0xff, 0x83, 0x18, 0xd2, 0x87, 0x7e, 0xec, 0x2f,
     0x63, 0xb9, 0x31, 0xbd, 0x47, 0x41, 0x7a, 0x81,
-    0xa5, 0x38, 0x32, 0x7a, 0xf9, 0x27, 0xda, 0x3e] : List UInt8)) := by native_decide
+    0xa5, 0x38, 0x32, 0x7a, 0xf9, 0x27, 0xda, 0x3e] : List UInt8)) := by
+  native_decide
 
--- ─── Intermediate Function Proofs ─────────────────────────────────────────────
-
--- Padding proofs
-example : (sha512Pad ByteArray.empty).size = 128 := by native_decide  -- Minimum 1 block (larger than SHA-256)
-example : (sha512Pad "abc".toUTF8).size = 128 := by native_decide      -- Fits in one block
-
--- Rotation helper proofs (64-bit)
-example : rotr (0x0000000000000001 : UInt64) 1 = (0x8000000000000000 : UInt64) := by native_decide
-example : rotr (0x8000000000000000 : UInt64) 1 = (0x4000000000000000 : UInt64) := by native_decide
-example : rotr (0xFFFFFFFFFFFFFFFF : UInt64) 64 = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
-
--- Sigma function proofs (64-bit) - simple identity case
-example : Sigma0 (0 : UInt64) = (0 : UInt64) := by native_decide
-example : Sigma1 (0 : UInt64) = (0 : UInt64) := by native_decide
-
--- Ch function proofs: Ch(x,y,z) = (x AND y) XOR ((NOT x) AND z)
-example : Ch (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
-example : Ch (0 : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) (0xFFFFFFFFFFFFFFFF : UInt64) = (0xFFFFFFFFFFFFFFFF : UInt64) := by native_decide
-
--- Maj function proofs
-example : Maj (0xFFFFFFFFFFFFFFFF : UInt64) (0 : UInt64) (0 : UInt64) = (0 : UInt64) := by native_decide
-
--- Message expansion proof (expands to 80 words)
-example : (expandWords (readWords (sha512Pad "abc".toUTF8))).size = 80 := by native_decide
-
--- Format hex proof
-example : formatHex ByteArray.empty = "" := by native_decide
+example : (sha512 ByteArray.empty).size = 64 := i_output_size ByteArray.empty
+example : (sha384 ByteArray.empty).size = 48 := i_sha384_output_size ByteArray.empty
+example : formatStdin ByteArray.empty = "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e  -\n" := by
+  native_decide
 
 end Lentils.Sha512sum.Logic

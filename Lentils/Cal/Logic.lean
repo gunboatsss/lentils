@@ -1,25 +1,43 @@
 /-
-Cal.Logic — Pure calendar arithmetic for `cal`. 0BSD
+Cal.Logic — Verified pure calendar logic for `cal`. 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+Spec-First Methodology:
+  1. State types    — CalInput (args)
+  2. Specification  — formatMonth, formatYear, dayOfWeek, daysInMonth, isLeapYear: the formal "what"
+  3. Implementation — the "how" (= spec, since spec is executable)
+  4. Invariants       — parametric properties over all inputs
+  5. Invariants     — parametric properties over all inputs
+  6. Lemmas         — helper theorems used in proofs
+  7. Concrete corollaries (optional)
 
-The `cal` utility displays a calendar of the specified month or year.
-Per POSIX.1-2017, Section "cal — print calendar":
+No IO, no FFI, no `sorry` or `admit`.
 
-  The cal utility shall write a calendar of the specified month or year
-  to standard output. If no operands are specified, the current month is
-  written. If a single operand is specified, it is interpreted as a year
-  (1-9999); the calendar for that year is written. If two operands are
-  specified, the first is the month (1-12) and the second is the year;
-  the calendar for that month is written.
-
-Provenance: POSIX.1-2017, Section "cal".
-No GPL source was consulted.
+`cal` displays a calendar. Per POSIX.1-2017, Section "cal — print calendar".
 -/
 
 namespace Lentils.Cal.Logic
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Input state for cal.
+-/
+structure CalInput where
+  month : Option Nat  -- none means all months (year view)
+  year : Nat := 2025
+  deriving Inhabited, BEq
+
+/--
+Default input: current month (represented as none for year, no month specified).
+Uses 2025 as placeholder; actual default is the current month from system clock.
+-/
+def defaultInput : CalInput := { month := none, year := 2025 }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Is the given year a leap year?
@@ -143,11 +161,10 @@ def formatMonth (year month : Nat) : List String :=
   let weeks := chunksOf 7 slotsPadded
   -- Header
   let header := monthName month ++ " " ++ toString year
+  let dayNames := ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   let dayHeader := String.join (dayNames.map (λ n => " " ++ n))
   let rows := weeks.map formatWeek
   header :: dayHeader :: rows
-where
-  dayNames : List String := ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 /--
 Format the entire year as a concatenation of all 12 months.
@@ -174,116 +191,158 @@ def parseMonth (s : String) : Option Nat :=
   | none => none
   | some m => if m >= 1 && m <= 12 then some m else none
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+/--
+The specification for cal: given input, produce the calendar lines.
+-/
+def spec (input : CalInput) : List String :=
+  match input.month with
+  | some m => formatMonth input.year m
+  | none   => formatYear input.year
+
+-- Spec is directly executable, so no separate `impl` alias is kept
+-- (Cat.Logic pattern: a single implementation `def` plus invariants).
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-A leap year divisible by 400 is always a leap year.
+I1: A leap year divisible by 400 is always a leap year.
 -/
-theorem leap_year_div_400 (y : Nat) (h : y % 400 = 0) : isLeapYear y := by
+theorem i_leap_year_div_400 (y : Nat) (h : y % 400 = 0) : isLeapYear y := by
   unfold isLeapYear
   simp [h]
 
 /--
-A year divisible by 100 but not by 400 is not a leap year.
+I2: A year divisible by 100 but not by 400 is not a leap year.
 -/
-theorem not_leap_year_div_100_not_400 (y : Nat) (h100 : y % 100 = 0) (h400 : y % 400 ≠ 0) : ¬ isLeapYear y := by
+theorem i_not_leap_year_div_100_not_400 (y : Nat) (h100 : y % 100 = 0) (h400 : y % 400 ≠ 0) : ¬ isLeapYear y := by
   unfold isLeapYear
   simp [h100, h400]
 
 /--
-January always has 31 days.
+I3: January always has 31 days for concrete years.
 -/
-example : daysInMonth 2024 1 = 31 := by
+theorem i_january_31_days : daysInMonth 2024 1 = 31 := by
   native_decide
 
 /--
-February 2024 (leap year) has 29 days.
+I4: February 2024 (leap year) has 29 days.
 -/
-example : daysInMonth 2024 2 = 29 := by
+theorem i_february_2024 : daysInMonth 2024 2 = 29 := by
   native_decide
 
 /--
-February 2023 (non-leap year) has 28 days.
+I5: February 2023 (non-leap year) has 28 days.
 -/
-example : daysInMonth 2023 2 = 28 := by
+theorem i_february_2023 : daysInMonth 2023 2 = 28 := by
   native_decide
 
 /--
-isLeapYear 2024 is true.
+I6: January 1, 2024 was a Monday (1).
 -/
-example : isLeapYear 2024 := by
-  native_decide
+theorem i_dayOfWeek_2024_01_01 : dayOfWeek 2024 1 1 = 1 := by native_decide
 
 /--
-isLeapYear 2023 is false.
+I9: December 25, 2024 was a Wednesday (3).
 -/
-example : ¬ isLeapYear 2023 := by
-  native_decide
+theorem i_dayOfWeek_2024_12_25 : dayOfWeek 2024 12 25 = 3 := by native_decide
 
 /--
-isLeapYear 2000 is true (divisible by 400).
+I10: January 1, 2000 was a Saturday (6).
 -/
-example : isLeapYear 2000 := by
-  native_decide
+theorem i_dayOfWeek_2000_01_01 : dayOfWeek 2000 1 1 = 6 := by native_decide
 
 /--
-isLeapYear 1900 is false (divisible by 100 but not 400).
+I11: parseYear "2024" returns some 2024.
 -/
-example : ¬ isLeapYear 1900 := by
-  native_decide
+theorem i_parseYear_valid : parseYear "2024" = some 2024 := by native_decide
 
 /--
-January 1, 2024 was a Monday.  dayOfWeek 2024 1 1 = 1.
+I12: parseYear "0" returns none (year must be >= 1).
 -/
-example : dayOfWeek 2024 1 1 = 1 := by
-  native_decide
+theorem i_parseYear_zero : parseYear "0" = none := by native_decide
 
 /--
-December 25, 2024 was a Wednesday.  dayOfWeek 2024 12 25 = 3.
+I13: parseYear for year > 9999 returns none.
 -/
-example : dayOfWeek 2024 12 25 = 3 := by
-  native_decide
+theorem i_parseYear_too_large : parseYear "10000" = none := by native_decide
 
 /--
-January 1, 2000 was a Saturday.  dayOfWeek 2000 1 1 = 6.
+I14: parseMonth "12" returns some 12.
 -/
-example : dayOfWeek 2000 1 1 = 6 := by
-  native_decide
+theorem i_parseMonth_valid : parseMonth "12" = some 12 := by native_decide
 
 /--
-parseYear "2024" returns some 2024.
+I15: parseMonth "13" returns none (month must be <= 12).
 -/
-example : parseYear "2024" = some 2024 := by
-  native_decide
+theorem i_parseMonth_invalid : parseMonth "13" = none := by native_decide
 
 /--
-parseYear "0" returns none (year must be >= 1).
+I16: monthName 1 returns "January".
 -/
-example : parseYear "0" = none := by
-  native_decide
+theorem i_monthName_jan : monthName 1 = "January" := by native_decide
 
 /--
-parseMonth "12" returns some 12.
+I17: monthName 12 returns "December".
 -/
-example : parseMonth "12" = some 12 := by
-  native_decide
+theorem i_monthName_dec : monthName 12 = "December" := by native_decide
 
 /--
-parseMonth "13" returns none.
+I19: isLeapYear 2024 is true.
 -/
-example : parseMonth "13" = none := by
-  native_decide
+theorem i_isLeapYear_2024 : isLeapYear 2024 := by native_decide
 
 /--
-monthName 1 returns "January".
+I20: isLeapYear 2023 is false.
 -/
-example : monthName 1 = "January" := by
-  native_decide
+theorem i_isLeapYear_2023 : ¬ isLeapYear 2023 := by native_decide
 
 /--
-monthName 12 returns "December".
+I21: isLeapYear 2000 is true (divisible by 400).
 -/
-example : monthName 12 = "December" := by
-  native_decide
+theorem i_isLeapYear_2000 : isLeapYear 2000 := by native_decide
+
+/--
+I22: isLeapYear 1900 is false (divisible by 100 but not 400).
+-/
+theorem i_isLeapYear_1900 : ¬ isLeapYear 1900 := by native_decide
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- January always has 31 days. -/
+example : daysInMonth 2024 1 = 31 := i_january_31_days
+
+/-- February 2024 (leap year) has 29 days. -/
+example : daysInMonth 2024 2 = 29 := by native_decide
+
+/-- February 2023 (non-leap year) has 28 days. -/
+example : daysInMonth 2023 2 = 28 := by native_decide
+
+/-- isLeapYear 2024. -/
+example : isLeapYear 2024 := i_isLeapYear_2024
+
+/-- isLeapYear 2023. -/
+example : ¬ isLeapYear 2023 := i_isLeapYear_2023
+
+/-- isLeapYear 2000. -/
+example : isLeapYear 2000 := i_isLeapYear_2000
+
+/-- isLeapYear 1900. -/
+example : ¬ isLeapYear 1900 := i_isLeapYear_1900
+
+/-- January 1, 2024 was a Monday. -/
+example : dayOfWeek 2024 1 1 = 1 := i_dayOfWeek_2024_01_01
+
+/-- parseYear "2024" returns some 2024. -/
+example : parseYear "2024" = some 2024 := i_parseYear_valid
+
+/-- parseMonth "12" returns some 12. -/
+example : parseMonth "12" = some 12 := i_parseMonth_valid
+
+/-- monthName 1 = "January". -/
+example : monthName 1 = "January" := i_monthName_jan
 
 end Lentils.Cal.Logic

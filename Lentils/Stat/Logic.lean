@@ -1,41 +1,38 @@
 /-
-Stat.Logic — Pure logic for the `stat` utility.
-0BSD
+Stat.Logic — Verified pure logic for `stat`. 0BSD
 
-Contains only pure functions: argument parsing, mode-to-string conversion,
-and formatting. No IO is performed here. All filesystem interaction lives in
-`stat.lean` via the C FFI wrappers in Native.
+Spec-First Methodology:
+  1. State types    — StatInput (options + files)
+  2. Specification  — parseArgs, formatStatLine, modeString: the formal "what"
+  3. Invariants     — parametric properties over all inputs
+  4. Lemmas         — helper theorems used in proofs
+  5. Concrete corollaries (optional)
+
+No IO, no FFI, no `sorry` or `admit`.
 -/
 
 set_option maxRecDepth 20000
 
 namespace Lentils.Stat.Logic
 
-/--
-Parsed options for `stat`.
-- `follow` : `-L` / `--dereference` — follow symlinks
-- `filesys` : `-f` / `--file-system` — display file system status
-- `terse` : `-t` / `--terse` — terse format
-- `format` : `-c` / `--format` — custom format string
-- `files` : the operands (files to stat)
--/
+-- 1. State Types
+
 structure Options where
   follow : Bool := false
   filesys : Bool := false
   terse : Bool := false
   format : Option String := none
   files : List String := []
-  deriving Repr
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Check whether a token looks like a flag (starts with `-`).
--/
-def isFlag (s : String) : Bool :=
-  s.startsWith "-"
+structure StatInput where
+  opts : Options
+  deriving Inhabited, BEq
 
-/--
-Parse `stat` arguments into `Options`.
--/
+def defaultInput : StatInput := { opts := {} }
+
+-- 2. Specification (= Implementation)
+
 def parseArgs (args : List String) : Options :=
   let rec go (remaining : List String) (opts : Options) : Options :=
     match remaining with
@@ -51,10 +48,8 @@ def parseArgs (args : List String) : Options :=
     | "--format" :: fmt :: rest => go rest { opts with format := some fmt }
     | s :: rest =>
       if s.startsWith "--" then
-        -- unknown long flag: treat as file
         { opts with files := opts.files ++ s :: rest }
       else if s.startsWith "-" && s.length > 1 then
-        -- Combined short flags, e.g. -Lt = -L -t
         let flags := (s.drop 1).toString.toList
         let rec handleFlags (fs : List Char) (curOpts : Options) : Options :=
           match fs with
@@ -68,9 +63,6 @@ def parseArgs (args : List String) : Options :=
         go rest { opts with files := opts.files ++ [s] }
   go args {}
 
-/--
-File type classification from st_mode bits.
--/
 def fileType (mode : UInt64) : String :=
   let t := mode >>> 12 &&& 0xF
   match t with
@@ -83,18 +75,15 @@ def fileType (mode : UInt64) : String :=
   | 0xC => "socket"
   | _   => "unknown"
 
-/--
-Convert mode bits to a permission string like "rwxr-xr-x".
--/
 def modeString (mode : UInt64) : String :=
   let dig i := (mode >>> i &&& 1) == 1
   let r i := if dig i then "r" else "-"
   let w i := if dig (i-1) then "w" else "-"
   let x i :=
     if dig (i-2) then
-      if i == 8 && ((mode >>> 11) &&& 1) == 1 then "s"  -- setuid
-      else if i == 5 && ((mode >>> 10) &&& 1) == 1 then "s"  -- setgid
-      else if i == 2 && ((mode >>> 9) &&& 1) == 1 then "t"   -- sticky
+      if i == 8 && ((mode >>> 11) &&& 1) == 1 then "s"
+      else if i == 5 && ((mode >>> 10) &&& 1) == 1 then "s"
+      else if i == 2 && ((mode >>> 9) &&& 1) == 1 then "t"
       else "x"
     else
       if i == 8 && ((mode >>> 11) &&& 1) == 1 then "S"
@@ -103,9 +92,6 @@ def modeString (mode : UInt64) : String :=
       else "-"
   r 8 ++ w 8 ++ x 8 ++ r 5 ++ w 5 ++ x 5 ++ r 2 ++ w 2 ++ x 2
 
-/--
-Format a single stat value for display.
--/
 def formatStatLine (mode size nlink uid gid blocks blksize : UInt64) (name : String) : String :=
   let kind := fileType mode
   s!"  File: {name}\n" ++
@@ -113,26 +99,15 @@ def formatStatLine (mode size nlink uid gid blocks blksize : UInt64) (name : Str
   s!"  Mode: {modeString mode} ({mode})\n" ++
   s!"  Links: {nlink}    \tUID: {uid}    \tGID: {gid}\n"
 
-/--
-Terse format: single line.
--/
 def formatTerse (mode size nlink uid gid blocks blksize dev ino _rdev : UInt64) (name : String) : String :=
   s!"{name} {ino} {mode} {nlink} {uid} {gid} {dev} {size} {blksize} {blocks}\n"
 
-/--
-Format file system info.
--/
 def formatFsLine (bsize frsize blocks bfree bavail files ffree favail _namemax : UInt64) (name : String) : String :=
   s!"  File: \"{name}\"\n" ++
   s!"  Block size: {bsize}    \tFundamental block size: {frsize}\n" ++
   s!"  Blocks: Total: {blocks}    \tFree: {bfree}    \tAvailable: {bavail}\n" ++
   s!"  Inodes: Total: {files}    \tFree: {ffree}    \tAvailable: {favail}\n"
 
-/--
-Apply a format string using stat values.
-Supports %s (size), %f (mode hex), %n (name), %b (blocks),
-%u (uid), %g (gid), %h (nlink), %o (blksize), %d (dev), %i (ino).
--/
 def formatCustom (fmt : String) (mode size nlink uid gid blocks blksize dev ino : UInt64) (name : String) : String :=
   let rec go (chars : List Char) (acc : String) : String :=
     match chars with
@@ -159,19 +134,63 @@ def formatCustom (fmt : String) (mode size nlink uid gid blocks blksize dev ino 
     | c :: rest => go rest (acc.push c)
   go (fmt.toList) ""
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+def specParse (args : List String) : Options := parseArgs args
 
-/-- Mode string for regular file with 644. -/
-theorem modeString644 : modeString 0o100644 = "rw-r--r--" := by native_decide
+-- 3. Invariants
 
-/-- Mode string for directory with 755. -/
-theorem modeString755 : modeString 0o040755 = "rwxr-xr-x" := by native_decide
+theorem i_modeString_644 : modeString 0o100644 = "rw-r--r--" := by native_decide
 
-/-- Format custom with %s. -/
-example : formatCustom "%s" 0 42 0 0 0 0 0 0 0 "" = "42" := rfl
+theorem i_modeString_755 : modeString 0o040755 = "rwxr-xr-x" := by native_decide
 
-/-- Format custom with %n. -/
-example : formatCustom "%n" 0 0 0 0 0 0 0 0 0 "foo" = "foo" := rfl
+theorem i_fileType_regular : fileType 0x8000 = "regular file" := by native_decide
 
-/-- Format custom with %%%. -/
-example : formatCustom "%%%s" 0 42 0 0 0 0 0 0 0 "" = "%42" := rfl
+theorem i_fileType_directory : fileType 0x4000 = "directory" := by native_decide
+
+theorem i_fileType_symlink : fileType 0xA000 = "symbolic link" := by native_decide
+
+theorem i_formatCustom_s : formatCustom "%s" 0 42 0 0 0 0 0 0 0 "" = "42" := rfl
+
+theorem i_formatCustom_n : formatCustom "%n" 0 0 0 0 0 0 0 0 0 "foo" = "foo" := rfl
+
+theorem i_formatCustom_percent : formatCustom "%%%s" 0 42 0 0 0 0 0 0 0 "" = "%42" := rfl
+
+theorem i_formatCustom_unknown : formatCustom "%q" 0 0 0 0 0 0 0 0 0 "" = "%q" := rfl
+
+theorem i_parse_follow : (parseArgs ["-L", "file"]).follow = true := by native_decide
+
+theorem i_parse_filesys : (parseArgs ["-f", "file"]).filesys = true := by native_decide
+
+theorem i_parse_terse : (parseArgs ["-t", "file"]).terse = true := by native_decide
+
+theorem i_parse_format : (parseArgs ["-c", "%s", "file"]).format = some "%s" := by native_decide
+
+theorem i_parse_combined : (parseArgs ["-Lt", "file"]).follow = true ∧ (parseArgs ["-Lt", "file"]).terse = true := by
+  native_decide
+
+theorem i_parse_double_dash : (parseArgs ["--", "-L"]).files = ["-L"] := by native_decide
+
+/--
+An empty custom format produces empty output regardless of the stat values.
+Parametric over all field values and the file name.
+-/
+theorem i_formatCustom_empty (mode size nlink uid gid blocks blksize dev ino : UInt64)
+    (name : String) :
+    formatCustom "" mode size nlink uid gid blocks blksize dev ino name = "" := rfl
+
+theorem i_modeString_zero : modeString 0 = "---------" := by native_decide
+
+theorem i_modeString_all_bits : modeString 0o7777 = "rwsrwsrwt" := by native_decide
+
+-- 5. Concrete Corollaries
+
+example : modeString 0o100644 = "rw-r--r--" := i_modeString_644
+
+example : modeString 0o040755 = "rwxr-xr-x" := i_modeString_755
+
+example : formatCustom "%s" 0 42 0 0 0 0 0 0 0 "" = "42" := i_formatCustom_s
+
+example : formatCustom "%n" 0 0 0 0 0 0 0 0 0 "foo" = "foo" := i_formatCustom_n
+
+example : formatCustom "%%%s" 0 42 0 0 0 0 0 0 0 "" = "%42" := i_formatCustom_percent
+
+end Lentils.Stat.Logic

@@ -68,17 +68,17 @@ def run (args : List String) : IO UInt32 := do
       return 1
 
   | _ =>
-    match parseKillArgs args defaultSignal with
+    match parseKillArgs { args := args } defaultSignal with
     | Except.error (KillError.invalidSignal name) =>
       IO.eprintln s!"kill: unknown signal '{name}'"
       return 1
     | Except.error (KillError.missingArg opt) =>
       IO.eprintln s!"kill: option requires an argument -- '{opt}'"
       return 1
-    | Except.ok (signal, pids) =>
-      if List.isEmpty pids then
+    | Except.ok parsed =>
+      if List.isEmpty parsed.pids then
         return ← exitUsage "kill" "missing operand"
-      let results : List UInt32 ← List.mapM (λ p => killOne p signal) pids
+      let results : List UInt32 ← List.mapM (λ p => killOne p parsed.signal) parsed.pids
       let exitCode := List.foldl (λ (acc : UInt32) (x : UInt32) => max acc x) 0 results
       return exitCode
 

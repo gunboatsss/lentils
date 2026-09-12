@@ -1,41 +1,59 @@
 /-
-Date.Logic — Pure date/time logic for `date`. 0BSD
+Date.Logic — Verified pure date/time logic for `date`. 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+Spec-First Methodology:
+  1. State types    — DateInput (format + timestamp), BrokenDownTime
+  2. Specification  — formatTime, defaultFormat, epochToBrokenDown: the formal "what"
+  3. Implementation — the "how" (= spec, since spec is executable)
+  4. Invariants       — parametric properties over all inputs
+  5. Invariants     — parametric properties over all inputs
+  6. Lemmas         — helper theorems used in proofs
+  7. Concrete corollaries (optional)
 
-The `date` utility displays the current date and time in various formats.
-Per POSIX.1-2017, Section "date — write the date and time":
-
-  The date utility shall write the current date and time to standard output,
-  or set the system date and time.
-
-Provenance: POSIX.1-2017, Section "date".
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
 
 namespace Lentils.Date.Logic
 
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
 A broken-down representation of date and time.
-All fields use natural number representation.
 -/
 structure BrokenDownTime where
-  year    : Nat  -- full year (e.g., 2026)
-  month   : Nat  -- 1-12
-  day     : Nat  -- 1-31
-  hour    : Nat  -- 0-23
-  minute  : Nat  -- 0-59
-  second  : Nat  -- 0-59
-  wday    : Nat  -- 0=Sun, 1=Mon, ..., 6=Sat
-  yday    : Nat  -- 0-365 (day of year)
+  year    : Nat
+  month   : Nat
+  day     : Nat
+  hour    : Nat
+  minute  : Nat
+  second  : Nat
+  wday    : Nat
+  yday    : Nat
   isDST  : Bool
-deriving Repr, DecidableEq
+deriving Repr, DecidableEq, BEq
+
+/--
+Input state for date.
+-/
+structure DateInput where
+  format : String := ""
+  timestamp : Option Nat := none
+  utc : Bool := true
+  deriving Inhabited, BEq
+
+/--
+Default input.
+-/
+def defaultInput : DateInput := {}
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Is the given year a leap year?
-Per Gregorian calendar rules.
 -/
 def isLeapYear (year : Nat) : Bool :=
   (year % 400 = 0) || (year % 100 != 0 && year % 4 = 0)
@@ -60,7 +78,7 @@ def daysInMonth (year month : Nat) : Nat :=
   | _ => 0
 
 /--
-Sakamoto's month offset table as a function.
+Sakamoto's month offset table.
 -/
 def sakamotoOffset (month : Nat) : Nat :=
   match month with
@@ -70,8 +88,7 @@ def sakamotoOffset (month : Nat) : Nat :=
   | _ => 0
 
 /--
-Compute the day of the week (0=Sun, 1=Mon, ..., 6=Sat) for a given date.
-Uses Tomohiko Sakamoto's algorithm.
+Compute the day of the week (0=Sun) for a given date.
 -/
 def dayOfWeek (year month day : Nat) : Nat :=
   let y := if month < 3 then year - 1 else year
@@ -79,14 +96,13 @@ def dayOfWeek (year month day : Nat) : Nat :=
   (y + y / 4 - y / 100 + y / 400 + m + day) % 7
 
 /--
-Number of days in the given year (365 or 366).
+Number of days in the given year.
 -/
 def daysInYear (year : Nat) : Nat :=
   if isLeapYear year then 366 else 365
 
 /--
-Find the year corresponding to a given number of days since the Unix epoch (1970-01-01).
-Uses bounded iteration to guarantee termination.
+Find the year from days since Unix epoch.
 -/
 def epochDaysToYear (totalDays : Nat) : Nat :=
   let rec go (remaining : Nat) (currentYear : Nat) (maxIter : Nat) : Nat :=
@@ -98,8 +114,7 @@ def epochDaysToYear (totalDays : Nat) : Nat :=
   go totalDays 1970 100000
 
 /--
-Compute the number of days from the Unix epoch to the start of the given year.
-Uses bounded iteration to guarantee termination.
+Days from epoch to start of given year.
 -/
 def daysBeforeYear (year : Nat) : Nat :=
   let rec go (y : Nat) (acc : Nat) (maxIter : Nat) : Nat :=
@@ -109,14 +124,13 @@ def daysBeforeYear (year : Nat) : Nat :=
   go 1970 0 100000
 
 /--
-Compute the day-of-year (0-indexed) from total days since epoch and the year.
+Day-of-year from total days and year.
 -/
 def ydayFromTotalDays (totalDays year : Nat) : Nat :=
   totalDays - daysBeforeYear year
 
 /--
-Find the month (1-indexed) corresponding to a given day-of-year and year.
-Uses bounded iteration to guarantee termination.
+Find month from day-of-year.
 -/
 def ydayToMonth (yday year : Nat) : Nat :=
   let rec go (remaining : Nat) (month : Nat) (maxIter : Nat) : Nat :=
@@ -128,8 +142,7 @@ def ydayToMonth (yday year : Nat) : Nat :=
   go yday 1 12
 
 /--
-Compute the day-of-month (1-indexed) from day-of-year, year, and month.
-Uses bounded iteration to guarantee termination.
+Find day-of-month from day-of-year.
 -/
 def ydayToDay (yday year month : Nat) : Nat :=
   let rec go (remaining : Nat) (m : Nat) (maxIter : Nat) : Nat :=
@@ -139,26 +152,20 @@ def ydayToDay (yday year month : Nat) : Nat :=
   go yday 1 12
 
 /--
-Convert Unix epoch seconds to a broken-down time structure.
-The epoch is 1970-01-01 00:00:00 UTC.
+Convert Unix epoch seconds to broken-down time.
 -/
 def epochToBrokenDown (epochSecs : Nat) : BrokenDownTime :=
-  -- Days since epoch
   let totalDays := epochSecs / 86400
   let remainingSecs := epochSecs % 86400
   let hour := remainingSecs / 3600
   let minute := (remainingSecs % 3600) / 60
   let second := remainingSecs % 60
-
   let year := epochDaysToYear totalDays
   let yday := ydayFromTotalDays totalDays year
   let month := ydayToMonth yday year
   let day := ydayToDay yday year month
   let wday := dayOfWeek year month day
-
-  { year := year, month := month, day := day, hour := hour,
-    minute := minute, second := second, wday := wday, yday := yday,
-    isDST := false }
+  { year, month, day, hour, minute, second, wday, yday, isDST := false }
 
 /--
 Month names (full).
@@ -171,7 +178,7 @@ def monthName (month : Nat) : String :=
   | _ => ""
 
 /--
-Month names (abbreviated, 3-letter).
+Month names (abbreviated).
 -/
 def monthAbbrev (month : Nat) : String :=
   match month with
@@ -190,7 +197,7 @@ def dayName (dow : Nat) : String :=
   | _ => "???"
 
 /--
-Day names (abbreviated, 3-letter).
+Day names (abbreviated).
 -/
 def dayAbbrev (dow : Nat) : String :=
   match dow with
@@ -199,20 +206,18 @@ def dayAbbrev (dow : Nat) : String :=
   | _ => "???"
 
 /--
-Get the timezone abbreviation for the current local time.
-This is a pure approximation; real `date` uses the TZ env var.
-For simplicity, we return "UTC".
+Timezone abbreviation (UTC).
 -/
 def timezoneAbbrev : String := "UTC"
 
 /--
-Pad a number to at least two digits with leading zeros.
+Pad a number to at least two digits.
 -/
 def pad2 (n : Nat) : String :=
   if n < 10 then "0" ++ toString n else toString n
 
 /--
-Pad a number to three digits with leading zeros.
+Pad a number to three digits.
 -/
 def pad3 (n : Nat) : String :=
   if n < 10 then "00" ++ toString n
@@ -220,40 +225,13 @@ def pad3 (n : Nat) : String :=
   else toString n
 
 /--
-Default date/time format: "%a %b %d %H:%M:%S %Z %Y"
-Produces output like "Thu Jul 13 21:30:00 UTC 2026".
+Default format.
 -/
 def defaultFormat (t : BrokenDownTime) : String :=
-  let dow := dayAbbrev t.wday
-  let mon := monthAbbrev t.month
-  s!"{dow} {mon} {pad2 t.day} {pad2 t.hour}:{pad2 t.minute}:{pad2 t.second} {timezoneAbbrev} {t.year}"
+  s!"{dayAbbrev t.wday} {monthAbbrev t.month} {pad2 t.day} {pad2 t.hour}:{pad2 t.minute}:{pad2 t.second} {timezoneAbbrev} {t.year}"
 
 /--
-Format a broken-down time according to a strftime-style format string.
-Supports the following format specifiers:
-  %%  literal %
-  %Y  full year (4 digits)
-  %y  last 2 digits of year
-  %m  month (01-12)
-  %d  day of month (01-31)
-  %H  hour (00-23)
-  %I  hour (01-12)
-  %M  minute (00-59)
-  %S  second (00-59)
-  %u  day of week (1=Mon, 7=Sun)
-  %w  day of week (0=Sun, 6=Sat)
-  %a  abbreviated weekday name
-  %A  full weekday name
-  %b  abbreviated month name
-  %B  full month name
-  %j  day of year (001-366)
-  %U  week number (Sunday-first, 00-53)
-  %W  week number (Monday-first, 00-53)
-  %c  locale's date and time (using default format)
-  %x  locale's date representation
-  %X  locale's time representation
-  %Z  timezone abbreviation
-  %z  timezone offset (+hhmm)
+Format time according to format string.
 -/
 def formatTime (fmt : String) (t : BrokenDownTime) : String :=
   let rec go (cs : List Char) (acc : String) : String :=
@@ -261,9 +239,7 @@ def formatTime (fmt : String) (t : BrokenDownTime) : String :=
     | [] => acc
     | '%' :: '%' :: rest => go rest (acc ++ "%")
     | '%' :: 'Y' :: rest => go rest (acc ++ toString t.year)
-    | '%' :: 'y' :: rest =>
-      let y2 := t.year % 100
-      go rest (acc ++ pad2 y2)
+    | '%' :: 'y' :: rest => go rest (acc ++ pad2 (t.year % 100))
     | '%' :: 'm' :: rest => go rest (acc ++ pad2 t.month)
     | '%' :: 'd' :: rest => go rest (acc ++ pad2 t.day)
     | '%' :: 'H' :: rest => go rest (acc ++ pad2 t.hour)
@@ -295,20 +271,12 @@ def formatTime (fmt : String) (t : BrokenDownTime) : String :=
       go rest (acc ++ pad2 t.hour ++ ":" ++ pad2 t.minute ++ ":" ++ pad2 t.second)
     | '%' :: 'Z' :: rest => go rest (acc ++ timezoneAbbrev)
     | '%' :: 'z' :: rest => go rest (acc ++ "+0000")
-    | '%' :: _ :: rest => go rest acc  -- unknown specifier, skip
+    | '%' :: _ :: rest => go rest acc
     | c :: rest => go rest (acc ++ String.singleton c)
   go fmt.toList ""
 
 /--
-Parse a format string. If it starts with '+', the rest is the format;
-otherwise, return the default format.
--/
-def parseFormat (s : String) : String :=
-  if s.startsWith "+" then (s.drop 1).toString else defaultFormat (epochToBrokenDown 0)
-
-/--
-Parse seconds since epoch from a string.
-Supports "@timestamp" format (Unix timestamp).
+Parse timestamp from "@..." format.
 -/
 def parseTimestamp (s : String) : Option Nat :=
   if s.startsWith "@" then
@@ -318,64 +286,117 @@ def parseTimestamp (s : String) : Option Nat :=
   else
     s.toNat?
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+/--
+Specification.
+-/
+def spec (input : DateInput) (getCurrentTime : Nat) : String :=
+  let secs := match input.timestamp with
+    | some s => s
+    | none => getCurrentTime
+  let bdt := epochToBrokenDown secs
+  if input.format.isEmpty then
+    defaultFormat bdt
+  else
+    formatTime input.format bdt
+
+-- Spec is directly executable, so no separate `impl` alias is kept
+-- (Cat.Logic pattern: a single implementation `def` plus invariants).
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-isLeapYear 2024 is true.
+I1: isLeapYear 2024 is true.
 -/
-example : isLeapYear 2024 := by
-  native_decide
+theorem i_isLeapYear_2024 : isLeapYear 2024 := by native_decide
 
 /--
-isLeapYear 2023 is false.
+I2: isLeapYear 2023 is false.
 -/
-example : ¬ isLeapYear 2023 := by
-  native_decide
+theorem i_isLeapYear_2023 : ¬ isLeapYear 2023 := by native_decide
 
 /--
-January 1, 1970 was a Thursday (wday=4).
+I3: epochToBrokenDown of 0 gives epoch start.
 -/
-example : dayOfWeek 1970 1 1 = 4 := by
-  native_decide
-
-/--
-epochToBrokenDown of 0 gives epoch start.
--/
-example : epochToBrokenDown 0 =
+theorem i_epochToBrokenDown_zero : epochToBrokenDown 0 =
   { year := 1970, month := 1, day := 1, hour := 0, minute := 0, second := 0,
     wday := 4, yday := 0, isDST := false } := by
   native_decide
 
 /--
-epochToBrokenDown of 86400 gives 1970-01-02 00:00:00 (day 2).
+I4: epochToBrokenDown of 86400 gives next day.
 -/
-example : epochToBrokenDown 86400 =
+theorem i_epochToBrokenDown_86400 : epochToBrokenDown 86400 =
   { year := 1970, month := 1, day := 2, hour := 0, minute := 0, second := 0,
     wday := 5, yday := 1, isDST := false } := by
   native_decide
 
 /--
-pad2 5 returns "05".
+I5: pad2 5 returns "05".
 -/
-example : pad2 5 = "05" := by
+theorem i_pad2_5 : pad2 5 = "05" := by native_decide
+
+/--
+I6: pad2 12 returns "12".
+-/
+theorem i_pad2_12 : pad2 12 = "12" := by native_decide
+
+/--
+I7: parseTimestamp "@0" returns some 0.
+-/
+theorem i_parseTimestamp_0 : parseTimestamp "@0" = some 0 := by native_decide
+
+/--
+I8: parseTimestamp "@86400" returns some 86400.
+-/
+theorem i_parseTimestamp_86400 : parseTimestamp "@86400" = some 86400 := by native_decide
+
+/--
+I9: formatTime with %% produces a literal %.
+-/
+theorem i_formatTime_percent (t : BrokenDownTime) : formatTime "%%" t = "%" := rfl
+
+/--
+I10: formatTime with %Y produces the full year.
+-/
+theorem i_formatTime_Y (t : BrokenDownTime) : formatTime "%Y" t = toString t.year := rfl
+
+/--
+I11: formatTime with empty format string produces empty string.
+-/
+theorem i_formatTime_empty (t : BrokenDownTime) : formatTime "" t = "" := rfl
+
+/--
+I12: defaultFormat for epoch start is known.
+-/
+theorem i_defaultFormat_epoch : defaultFormat (epochToBrokenDown 0) = "Thu Jan 01 00:00:00 UTC 1970" := by
   native_decide
 
 /--
-pad2 12 returns "12".
+I13: Spec with empty format uses the default format (∀-quantified invariant).
 -/
-example : pad2 12 = "12" := by
-  native_decide
+theorem i_spec_empty_format (ts now : Nat) :
+    spec { format := "", timestamp := some ts, utc := true } now =
+      defaultFormat (epochToBrokenDown ts) := by
+  simp [spec]
 
-/--
-parseTimestamp "@0" returns some 0.
--/
-example : parseTimestamp "@0" = some 0 := by
-  native_decide
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/--
-parseTimestamp "@86400" returns some 86400.
--/
-example : parseTimestamp "@86400" = some 86400 := by
-  native_decide
+/-- isLeapYear 2024. -/
+example : isLeapYear 2024 := i_isLeapYear_2024
+
+/-- epochToBrokenDown of 0. -/
+example : epochToBrokenDown 0 = {
+  year := 1970, month := 1, day := 1, hour := 0, minute := 0, second := 0,
+  wday := 4, yday := 0, isDST := false } := i_epochToBrokenDown_zero
+
+/-- pad2 5 = "05". -/
+example : pad2 5 = "05" := i_pad2_5
+
+/-- parseTimestamp "@0" = 0. -/
+example : parseTimestamp "@0" = some 0 := i_parseTimestamp_0
 
 end Lentils.Date.Logic

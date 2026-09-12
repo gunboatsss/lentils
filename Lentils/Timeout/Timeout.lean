@@ -29,7 +29,7 @@ Returns:
   - 1 or 127 on usage/execution errors
 -/
 def run (args : List String) : IO UInt32 := do
-  match parseArgs args with
+  match parseArgs { args := args } with
   | none =>
     IO.eprintln "timeout: missing operand"
     return 1

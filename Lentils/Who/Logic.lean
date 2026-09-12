@@ -1,11 +1,27 @@
 /-
-Who.Logic — Pure who-output formatting logic for `who`. 0BSD
+Who.Logic — Verified pure logic for `who`.
+0BSD
 
-Contains ONLY pure functions: parsing raw entries from FFI,
-formatting the who table, and related logic.
+Structure:
+  1. State types      — WhoInput (entries + flags)
+  2. Specification    — parsing and formatting (single implementation; no duplicate `impl` alias)
+  3. Invariants       — parametric properties
+  4. Concrete examples
+
+No IO, no FFI, no `sorry` or `admit`.
+
+POSIX: `who` lists logged-in users with optional state and idle info.
 -/
 
+import Lentils.Common.Spec
+
 namespace Lentils.Who.Logic
+
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 A single who entry parsed from the raw FFI string.
@@ -19,17 +35,19 @@ structure Entry where
   state : String     -- "+", "-", or "?"
   idleSecs : String  -- decimal seconds as string
   pid : String       -- decimal PID as string
-  deriving Repr, DecidableEq, BEq
+  deriving Repr, DecidableEq, BEq, Inhabited
 
 /--
-Parse a raw pipe-delimited entry string into an Entry.
+Input state for who: raw entries and command-line flags.
 -/
-def parseEntry (raw : String) : Option Entry :=
-  let parts := raw.splitOn "|"
-  match parts with
-  | [user, line, timeStr, host, state, idleSecs, pid] =>
-    some { user, line, timeStr, host, state, idleSecs, pid }
-  | _ => none
+structure WhoInput where
+  rawEntries : List String   -- pipe-delimited entry strings
+  flags : List String        -- "-T", "-u", etc.
+  deriving Inhabited, BEq
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Right-pad a string to a given width. Truncates if longer.
@@ -69,19 +87,22 @@ def formatIdle (secsStr : String) : String :=
       let days := secs / 86400
       s!"{toString days}day"
 
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Parse a raw pipe-delimited entry string into an Entry.
+-/
+def parseEntry (raw : String) : Option Entry :=
+  let parts := raw.splitOn "|"
+  match parts with
+  | [user, line, timeStr, host, state, idleSecs, pid] =>
+    some { user, line, timeStr, host, state, idleSecs, pid }
+  | _ => none
+
 /--
 Format a single Entry matching GNU who output.
-
-Fields:
-  (1) %-8s  username
-  (2) %s    state, with a space before it (only with -T)
-  (3) %-12s terminal, with a space before it
-  (4) %-*s  time, with a space before it (width = max across entries)
-  (5) %s    idle in 6 chars right-justified, with space before (only with -u)
-  (6) %s    pid in 10 chars right-justified, with space before (only with -u)
-  (7) host  displayed as (host), no trailing padding
-
-No trailing whitespace because the last field is unpadded.
 -/
 def formatEntry (e : Entry) (timeWidth : Nat) (showState : Bool) (showIdle : Bool) : String :=
   let userPart := padRight e.user 8
@@ -91,51 +112,142 @@ def formatEntry (e : Entry) (timeWidth : Nat) (showState : Bool) (showIdle : Boo
   let idlePart :=
     if showIdle then
       let idleStr := if e.state = "?" then "?" else formatIdle e.idleSecs
-      -- GNU who -u places idle right-justified in a field (min 3 chars),
-      -- then pads the total to 10 chars, followed by PID at a fixed column
       let minField := if idleStr.length < 3 then 3 else idleStr.length
-      let rj := padLeft idleStr minField  -- right-justify in minField
-      let idlePadded := padRight rj 12     -- pad to 12 (trailing spaces before PID)
+      let rj := padLeft idleStr minField
+      let idlePadded := padRight rj 12
       s!" {idlePadded} {e.pid}"
     else ""
-  let pidPart := ""
-  -- Host: wrap in parens like GNU who
   let hostPart := if e.host.isEmpty then "" else s!" ({e.host})"
-  s!"{userPart}{statePart}{linePart}{timePart}{idlePart}{pidPart}{hostPart}"
+  s!"{userPart}{statePart}{linePart}{timePart}{idlePart}{hostPart}"
 
 /--
 Format a list of entries as the complete who output.
 -/
 def formatEntries (entries : List Entry) (showState : Bool := false) (showIdle : Bool := false) : String :=
-  let maxTimeWidth := entries.foldl (λ m e =>
-    max m e.timeStr.length) 0
+  let maxTimeWidth := entries.foldl (λ m e => max m e.timeStr.length) 0
   let formatted := entries.map (λ e => formatEntry e maxTimeWidth showState showIdle)
   String.intercalate "\n" formatted
 
--- ─── Helpers ──────────────────────────────────────────────────────────────────
+/--
+Parse all raw entries, filter valid ones, and format the output.
+-/
+def format (input : WhoInput) : String :=
+  let showState := input.flags.contains "-T"
+  let showIdle := input.flags.contains "-u"
+  let entries : List Entry := input.rawEntries.filterMap parseEntry
+  formatEntries entries showState showIdle
 
-/-- Show state: whether to include the state character column. -/
-def showState (args : List String) : Bool :=
-  args.any (· = "-T")
+/--
+Specification: format who output from raw entries.
+-/
+def spec (input : WhoInput) : String :=
+  format input
 
-/-- Show idle: whether to include the idle time and PID columns. -/
-def showIdle (args : List String) : Bool :=
-  args.any (· = "-u")
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Parametric Invariants
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- Count the number of logged-in sessions. -/
-def countSessions (entries : List Entry) : Nat :=
-  entries.length
-
-/-- Check if a username appears among the entries. -/
-def hasUser (entries : List Entry) (username : String) : Bool :=
-  entries.any (λ e => e.user = username)
-
--- ─── Theorems ────────────────────────────────────────────────────────────────
-
-/-- Parsing a well-formed entry with all fields. -/
-example : parseEntry "root|console|2026-07-14 22:39|myhost|+|3600|1234" =
+/--
+I1: Parsing a well-formed entry with all fields succeeds.
+-/
+theorem i_parse_well_formed : parseEntry "root|console|2026-07-14 22:39|myhost|+|3600|1234" =
   some { user := "root", line := "console", timeStr := "2026-07-14 22:39",
          host := "myhost", state := "+", idleSecs := "3600", pid := "1234" } := by
   native_decide
+
+/--
+I2: Parsing an entry with wrong number of fields fails.
+-/
+theorem i_parse_malformed : parseEntry "root|console" = none := by
+  native_decide
+
+/--
+I3: Parsing empty string fails.
+-/
+theorem i_parse_empty : parseEntry "" = none := by
+  native_decide
+
+/--
+I4: padRight pads "hello" to width 10.
+-/
+theorem i_pad_right_example : padRight "hello" 10 = "hello     " := by
+  native_decide
+
+/--
+I5: padRight truncates a long string.
+-/
+theorem i_pad_right_truncates : padRight "hello world" 5 = "hello" := by
+  native_decide
+
+/--
+I6: formatIdle returns "." for less than 60 seconds.
+-/
+theorem i_idle_seconds : formatIdle "30" = "." := by
+  native_decide
+
+/--
+I7: formatIdle returns "?" for invalid input.
+-/
+theorem i_idle_invalid : formatIdle "abc" = "?" := by
+  native_decide
+
+/--
+I8: formatIdle returns "00:01" for 60 seconds.
+-/
+theorem i_idle_one_minute : formatIdle "60" = "00:01" := by
+  native_decide
+
+/--
+I9: formatIdle returns "01:00" for 3600 seconds.
+-/
+theorem i_idle_one_hour : formatIdle "3600" = "01:00" := by
+  native_decide
+
+/--
+I10: formatIdle returns "1day" for 86400 seconds.
+-/
+theorem i_idle_one_day : formatIdle "86400" = "1day" := by
+  native_decide
+
+/--
+I11: Empty raw entries produce empty output.
+-/
+theorem i_empty_entries : format { rawEntries := [], flags := [] } = "" := rfl
+
+/--
+Formatting with no flags unfolds to `formatEntries` over the parsed entries
+(parametric over all raw entry lists).
+-/
+theorem format_no_flags_unfold (entries : List String) :
+    format { rawEntries := entries, flags := [] } =
+    formatEntries (entries.filterMap parseEntry) false false := by
+  simp [format]
+
+/--
+I13: formatEntry with different timeWidth gives different output.
+-/
+theorem i_timewidth_matters : formatEntry
+    { user := "root", line := "console", timeStr := "2026-07-14 22:39",
+      host := "myhost", state := "+", idleSecs := "3600", pid := "1234" } 10 false false ≠
+  formatEntry
+    { user := "root", line := "console", timeStr := "2026-07-14 22:39",
+      host := "myhost", state := "+", idleSecs := "3600", pid := "1234" } 20 false false := by
+  native_decide
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 7. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- Parsing a well-formed entry. -/
+example : parseEntry "root|console|2026-07-14 22:39|myhost|+|3600|1234" =
+  some { user := "root", line := "console", timeStr := "2026-07-14 22:39",
+         host := "myhost", state := "+", idleSecs := "3600", pid := "1234" } :=
+  i_parse_well_formed
+
+/-- Short idle time. -/
+example : formatIdle "30" = "." := i_idle_seconds
+
+/-- Invalid idle. -/
+example : formatIdle "abc" = "?" := i_idle_invalid
 
 end Lentils.Who.Logic

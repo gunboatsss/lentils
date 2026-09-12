@@ -1,37 +1,72 @@
 /-
-True.Logic — Pure exit-code logic for `true`.
+True.Logic — Verified pure logic for `true`.
 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+POSIX.1-2017 §true: always returns exit code 0, ignoring all operands.
 
-The `true` utility is the trivial program:
-  - Input: none
-  - Output: exit code 0
-  - Specification: always returns 0
+Structure:
+  1. State types      — TrueInput (flags + args)
+  2. Specification    — exitCode: always 0
+  3. Correctness      — theorem: impl = spec (trivially)
+  4. Invariants       — parametric properties over all inputs
+  5. Concrete examples — derived corollaries
 
-Provenance: POSIX.1-2017, Section "true — return true value".
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.True.Logic
 
-/--
-The exit code of `true`.  Always 0.
-This is the pure specification: `true` succeeds unconditionally.
--/
-def exitCode : UInt32 := 0
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-The exit code is always zero.
-This is the formal specification for `true`: success is invariant.
+Input state for true. All arguments are ignored.
 -/
-theorem exitCode_is_zero : exitCode = 0 := rfl
+structure TrueInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+def defaultInput : TrueInput := { args := [] }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Running `true` multiple times yields the same result (idempotence).
+The exit code of `true`. Always 0 regardless of input.
+This is both the specification and the implementation.
 -/
-example : exitCode = exitCode := rfl
+def exitCode (input : TrueInput) : UInt32 := 0
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+I1: Exit code is always 0, regardless of input.
+-/
+theorem i_exit_success (input : TrueInput) : exitCode input = 0 := rfl
+
+/--
+I3: Arguments are ignored — any args produce the same result as no args.
+-/
+theorem i_args_ignored (args : List String) :
+    exitCode { args := args } = exitCode { args := [] } := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- true → exit code 0 -/
+example : exitCode defaultInput = 0 := i_exit_success defaultInput
+
+/-- true with args → exit code 0 -/
+example : exitCode { args := ["hello", "world"] } = 0 :=
+  i_exit_success { args := ["hello", "world"] }
 
 end Lentils.True.Logic

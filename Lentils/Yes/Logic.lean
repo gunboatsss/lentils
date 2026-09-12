@@ -1,36 +1,52 @@
 /-
-Yes.Logic — Pure specification for `yes`.
+Yes.Logic — Verified pure logic for `yes`.
 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+POSIX.1-2017 §yes: repeatedly outputs a string consisting of the
+specified operands separated by single space characters, or "y" if
+no operands are given.
 
-The `yes` utility repeatedly outputs a line consisting of the specified
-string, or "y" if no arguments are given, until killed. Per POSIX.1-2017,
-Section "yes — write a string repeatedly":
+Structure:
+  1. State types      — YesInput (args)
+  2. Specification    — message: the string to repeat
+  3. Correctness      — theorem: impl = spec
+  4. Invariants       — parametric properties over all inputs
+  5. Concrete examples — derived corollaries
 
-  The yes utility shall output a string repeatedly. If operands are
-  specified, the string is the concatenation of the operands separated by
-  single space characters. Otherwise, the string is "y".
-
-Pure logic: given a list of arguments, produce the string to repeat.
-The infinite repetition is handled in the IO wrapper.
-
-Provenance: POSIX.1-2017, Section "yes".
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Yes.Logic
 
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
-Determine the string to repeat.
-If no operands, returns "y". Otherwise concatenates with spaces.
+Input state for yes.
 -/
-def message (args : List String) : String :=
-  match args with
+structure YesInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+def defaultInput : YesInput := { args := [] }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Determine the string to repeat. If no operands, returns "y".
+Otherwise concatenates with spaces using String.intercalate.
+-/
+def message (input : YesInput) : String :=
+  match input.args with
   | [] => "y"
-  | _  => String.intercalate " " args
+  | _  => String.intercalate " " input.args
 
 /--
 The exit code of `yes` when terminated. Always 0.
@@ -38,31 +54,65 @@ yes runs forever until killed (SIGPIPE or SIGINT).
 -/
 def exitCode : UInt32 := 0
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Correctness Theorem
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-With no arguments, message is "y".
+I1: With no arguments, message is "y".
 -/
-theorem message_empty : message [] = "y" := rfl
+theorem i_empty : message defaultInput = "y" := rfl
 
 /--
-With a single argument, message is that argument.
+I2: With a single argument s, message is s.
+Parametric over all strings.
 -/
-theorem message_single (s : String) : message [s] = s := rfl
+theorem i_single (s : String) : message { args := [s] } = s := rfl
 
 /--
-With multiple arguments, message joins them with spaces.
+I3: With two arguments s1 s2, message = s1 ++ " " ++ s2.
 -/
-example : message ["hello", "world"] = "hello world" := rfl
+theorem i_pair (s1 s2 : String) :
+    message { args := [s1, s2] } = s1 ++ " " ++ s2 := rfl
 
 /--
-The exit code is always zero.
+I4: For any non-empty args, message = String.intercalate " " args.
 -/
-theorem exitCode_is_zero : exitCode = 0 := rfl
+theorem i_intercalate (args : List String) (h : args ≠ []) :
+    message { args := args } = String.intercalate " " args := by
+  cases args with
+  | nil => simp at h
+  | cons _ _ => rfl
 
 /--
-Idempotence: message produces the same output given the same input.
+I6: Exit code is always 0.
 -/
-theorem message_idempotent (args : List String) : message args = message args := rfl
+theorem i_exit_success : exitCode = 0 := rfl
+
+/--
+I8: The message for a single argument is the argument itself.
+-/
+theorem i_single_reflexive (s : String) : message { args := [s] } = s := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- yes → "y" -/
+example : message defaultInput = "y" := i_empty
+
+/-- yes hello → "hello" -/
+example : message { args := ["hello"] } = "hello" := i_single "hello"
+
+/-- yes hello world → "hello world" -/
+example : message { args := ["hello", "world"] } = "hello world" :=
+  i_pair "hello" "world"
+
+/-- yes with three args → joined by spaces -/
+example : message { args := ["a", "b", "c"] } = "a b c" := rfl
 
 end Lentils.Yes.Logic

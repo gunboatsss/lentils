@@ -15,15 +15,15 @@ opaque listEnv : IO (List String)
 opaque runEnv (envVars : Array String) (clearEnv : UInt32) (cmdArgs : Array String) : IO UInt32
 
 def run (args : List String) : IO UInt32 := do
-  let (clearEnv, envVars, cmdArgs) := parseArgs args
-  if cmdArgs.isEmpty then
+  let parsed := parseArgs { args := args }
+  if parsed.cmdArgs.isEmpty then
     -- No command: print environment (possibly modified)
-    if clearEnv && envVars.isEmpty then
+    if parsed.clearEnv && parsed.envPairs.isEmpty then
       -- -i with no vars: empty environment
       return 0
-    else if clearEnv then
+    else if parsed.clearEnv then
       -- -i with vars: only print the vars provided
-      for v in envVars do
+      for v in parsed.envPairs do
         IO.println v
       return 0
     else
@@ -35,9 +35,9 @@ def run (args : List String) : IO UInt32 := do
   else
     -- Run command with modified environment
     try
-      let envVarsArr := envVars.toArray
-      let cmdArgsArr := cmdArgs.toArray
-      let exitCode ← runEnv envVarsArr (if clearEnv then 1 else 0) cmdArgsArr
+      let envVarsArr := parsed.envPairs.toArray
+      let cmdArgsArr := parsed.cmdArgs.toArray
+      let exitCode ← runEnv envVarsArr (if parsed.clearEnv then 1 else 0) cmdArgsArr
       return exitCode
     catch _ =>
       IO.eprintln "env: failed to execute command"

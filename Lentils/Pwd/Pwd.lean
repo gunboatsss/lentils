@@ -22,7 +22,7 @@ Returns exit code 0 on success, 1 on error.
 def run (_args : List String) : IO UInt32 := do
   try
     let cwd ← IO.currentDir
-    let output := format cwd.toString
+    let output := format { path := cwd.toString }
     IO.print output
     return (0 : UInt32)
   catch _ =>

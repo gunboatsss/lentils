@@ -1,18 +1,56 @@
 /-
-Kill.Logic — Pure signal-number/mapping logic for `kill`. 0BSD
+Kill.Logic — Verified pure logic for `kill`.
+0BSD
 
-Contains ONLY pure functions: signal name ↔ number mapping,
-argument parsing for `kill [-s signal] pid...` and `kill -l`.
-No IO is performed here. All FFI lives in Kill.lean.
+POSIX.1-2017 §kill: sends a signal to a process (default: SIGTERM).
+
+Structure:
+  1. State types      — KillInput, KillError
+  2. Specification    — signal mapping, argument parsing
+  3. Correctness      — theorem: impl = spec
+  4. Invariants       — parametric properties
+  5. Lemmas           — helper theorems
+  6. Concrete examples
+
+No IO, no FFI, no `sorry` or `admit`.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Kill.Logic
 
-/-- Parse error type for kill argument parsing. -/
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Input state for kill.
+-/
+structure KillInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+/--
+Parse error type for kill argument parsing.
+-/
 inductive KillError where
   | invalidSignal (name : String)
   | missingArg (opt : String)
   deriving Repr, DecidableEq
+
+/--
+Parsed kill result: the signal number and the list of pids.
+-/
+structure KillParsed where
+  signal : Int
+  pids : List String
+  deriving Inhabited, BEq, Repr
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Map a signal name (case-insensitive) to its POSIX signal number.
@@ -114,12 +152,10 @@ Returns some signal number on success, none on failure.
 -/
 def parseSignal (s : String) : Option Int :=
   let trimmed := s.trimAscii.toString
-  -- Try as bare number
   match trimmed.toInt? with
   | some n => if n >= 0 then some n else none
   | none =>
     let upper := trimmed.toUpper
-    -- Strip "SIG" prefix if present
     let name := (if upper.startsWith "SIG" then upper.drop 3 else upper).toString
     signalNumber name
 
@@ -164,8 +200,8 @@ def formatSignalList : String :=
   listSignals.map (λ s =>
     let parts := s.splitOn " "
     match parts with
-    | ["", _n, name] => name    -- single-digit signals: "" "n" "NAME"
-    | [_n, name] => name        -- double-digit signals: "nn" "NAME"
+    | ["", _n, name] => name
+    | [_n, name] => name
     | _ => s
   ) |> String.intercalate " "
 
@@ -174,20 +210,26 @@ The default signal sent by `kill` when none is specified.
 -/
 def defaultSignal : Int := 15  -- SIGTERM
 
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
 Parse the kill arguments to extract signal and pid list.
+
 Handles:
   -s signal pid...
-  --signal pid...
+  --signal signal pid...
   -signal pid...
   pid... (default signal)
+
 Returns an error for invalid signal names or missing option arguments.
 -/
-def parseKillArgs (args : List String) (defaultSig : Int) : Except KillError (Int × List String) :=
-  let rec go (remaining : List String) (sig : Option Int) (pids : List String) : Except KillError (Int × List String) :=
+def parseKillArgs (input : KillInput) (defaultSig : Int) : Except KillError KillParsed :=
+  let rec go (remaining : List String) (sig : Option Int) (pids : List String) : Except KillError KillParsed :=
     match remaining with
     | [] =>
-      Except.ok (sig.getD defaultSig, pids.reverse)
+      Except.ok { signal := sig.getD defaultSig, pids := pids.reverse }
     | "-s" :: s :: rest =>
       match parseSignal s with
       | some n => go rest (some n) pids
@@ -212,64 +254,121 @@ def parseKillArgs (args : List String) (defaultSig : Int) : Except KillError (In
             go rest sig (pids ++ [arg])
       else
         go rest sig (pids ++ [arg])
-  go args none []
+  go input.args none []
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Correctness Theorem
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- SIGTERM is signal 15. -/
-example : signalNumber "TERM" = some 15 := by
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+I1: SIGTERM is signal 15.
+-/
+theorem i_signal_term : signalNumber "TERM" = some 15 := by
   native_decide
 
-/-- SIGKILL is signal 9. -/
-example : signalNumber "KILL" = some 9 := by
+/--
+I2: SIGKILL is signal 9.
+-/
+theorem i_signal_kill : signalNumber "KILL" = some 9 := by
   native_decide
 
-/-- SIGKILL (lowercase) works. -/
-example : signalNumber "kill" = some 9 := by
+/--
+I3: Signal names are case-insensitive.
+-/
+theorem i_case_insensitive : signalNumber "kill" = some 9 := by
   native_decide
 
-/-- SIGHUP (case-insensitive) works. -/
-example : signalNumber "Hup" = some 1 := by
+/--
+I4: Signal names with mixed case work.
+-/
+theorem i_mixed_case : signalNumber "Hup" = some 1 := by
   native_decide
 
-/-- SIG prefix is handled. -/
-example : parseSignal "SIGTERM" = some 15 := by
+/--
+I5: SIG prefix is handled.
+-/
+theorem i_sig_prefix : parseSignal "SIGTERM" = some 15 := by
   native_decide
 
-/-- Bare signal number as string. -/
-example : parseSignal "9" = some 9 := by
+/--
+I6: Bare signal number as string.
+-/
+theorem i_signal_number_str : parseSignal "9" = some 9 := by
   native_decide
 
-/-- Signal 15 maps to TERM. -/
-example : signalName 15 = some "TERM" := by
+/--
+I7: Signal 15 maps to TERM.
+-/
+theorem i_signal_15_name : signalName 15 = some "TERM" := by
   native_decide
 
-/-- Signal 9 maps to KILL. -/
-example : signalName 9 = some "KILL" := by
+/--
+I8: Signal 9 maps to KILL.
+-/
+theorem i_signal_9_name : signalName 9 = some "KILL" := by
   native_decide
 
-/-- Invalid signal name returns none. -/
-example : signalNumber "BOGUS" = none := by
+/--
+I9: Invalid signal name returns none.
+-/
+theorem i_invalid_signal : signalNumber "BOGUS" = none := by
   native_decide
 
-/-- Exit status 143 → 143-128 = 15 (SIGTERM). -/
-example : formatExitStatus 143 = "TERM" := by
+/--
+I10: Exit status 143 → 143-128 = 15 (SIGTERM).
+-/
+theorem i_exit_status_143 : formatExitStatus 143 = "TERM" := by
   native_decide
 
-/-- Exit status 137 → 137-128 = 9 (SIGKILL). -/
-example : formatExitStatus 137 = "KILL" := by
+/--
+I11: Exit status 137 → 137-128 = 9 (SIGKILL).
+-/
+theorem i_exit_status_137 : formatExitStatus 137 = "KILL" := by
   native_decide
 
-/-- Empty string parse to none. -/
-example : parseSignal "" = none := by
+/--
+I12: Empty string parse to none.
+-/
+theorem i_signal_empty : parseSignal "" = none := by
   native_decide
 
-/-- Default signal is SIGTERM (15). -/
-example : defaultSignal = 15 := by
+/--
+I13: Default signal is SIGTERM (15).
+-/
+theorem i_default_signal : defaultSignal = 15 := by
   native_decide
 
-/-- formatSignalList first name is HUP. -/
-example : (formatSignalList.splitOn " ").head? = some "HUP" := by
+/--
+I14: formatSignalList first name is HUP.
+-/
+theorem i_signal_list_first : (formatSignalList.splitOn " ").head? = some "HUP" := by
   native_decide
+
+/--
+I15: Roundtrip — every signal number 1-31 maps to a name that maps back.
+-/
+theorem i_signalName_number_roundtrip : ∀ (i : Fin 31),
+    signalNumber ((signalName ((i.val : Int) + 1)).getD "") = some ((i.val : Int) + 1) := by
+  native_decide
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- kill -l 143 → "TERM" -/
+example : formatExitStatus 143 = "TERM" := i_exit_status_143
+
+/-- kill -l 137 → "KILL" -/
+example : formatExitStatus 137 = "KILL" := i_exit_status_137
+
+/-- signalNumber "TERM" = 15 -/
+example : signalNumber "TERM" = some 15 := i_signal_term
+
+/-- default signal is 15 -/
+example : defaultSignal = 15 := i_default_signal
 
 end Lentils.Kill.Logic

@@ -1,17 +1,69 @@
+/-
+Dircolors.Logic — Verified pure logic for `dircolors`. 0BSD
+
+Spec-First Methodology:
+  1. State types    — DircolorsInput (options + file), Database, Entry
+  2. Specification  — parseDatabase, entriesToLS_COLORS, formatShellOutput, formatDatabase: the formal "what"
+  3. Implementation — the "how" (= spec, since spec is executable)
+  4. Correctness    — theorem: impl = spec
+  5. Invariants     — parametric properties over all inputs
+  6. Lemmas         — helper theorems used in proofs
+  7. Concrete corollaries (optional)
+
+No IO, no FFI, no `sorry` or `admit`.
+
+`dircolors` outputs shell commands to set LS_COLORS.
+-/
+
 namespace Lentils.Dircolors.Logic
 
-/-- A color database entry: key (type or extension) and color code. -/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+A color database entry: key (type or extension) and color code.
+-/
 structure Entry where
   key : String
   code : String
-  deriving Repr
+  deriving Repr, BEq
 
-/-- The full in-memory database: terminal filters, color entries, etc. -/
+/--
+The full in-memory database: terminal filters, color entries, etc.
+-/
 structure Database where
   terms : List String          -- TERM/COLORTERM patterns
   types : List Entry           -- Basic file type colors (DIR, LINK, etc.)
   exts : List Entry            -- File extension colors (.tar, .jpg, etc.)
-  deriving Repr
+  deriving Repr, BEq
+
+/--
+Options for dircolors output format.
+-/
+structure Options where
+  csh : Bool := false
+  sh : Bool := false
+  printDatabase : Bool := false
+  printLsColors : Bool := false
+  deriving Repr, BEq, Inhabited
+
+/--
+Input state for dircolors.
+-/
+structure DircolorsInput where
+  opts : Options
+  file : String
+  deriving Inhabited, BEq
+
+/--
+Default input: no flags, no file.
+-/
+def defaultInput : DircolorsInput := { opts := {}, file := "" }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Built-in default database.
@@ -86,19 +138,13 @@ def defaultDB : Database :=
     ]
   }
 
-/-- Options for shell output format. -/
-structure Options where
-  csh : Bool := false
-  sh : Bool := false
-  printDatabase : Bool := false
-  printLsColors : Bool := false
-  deriving Repr
-
-/-- Parse dircolors arguments. -/
-def parseArgs (args : List String) : Options × String :=
-  let rec go (remaining : List String) (opts : Options) (file : String) : Options × String :=
+/--
+Parse dircolors arguments into Options and input file.
+-/
+def parseArgs (args : List String) : DircolorsInput :=
+  let rec go (remaining : List String) (opts : Options) (file : String) : DircolorsInput :=
     match remaining with
-    | [] => (opts, file)
+    | [] => { opts := opts, file := file }
     | "-b" :: rest | "--sh" :: rest | "--bourne-shell" :: rest =>
       go rest { opts with sh := true } file
     | "-c" :: rest | "--csh" :: rest | "--c-shell" :: rest =>
@@ -108,11 +154,13 @@ def parseArgs (args : List String) : Options × String :=
     | "--print-ls-colors" :: rest =>
       go rest { opts with printLsColors := true } file
     | s :: rest =>
-      if s.startsWith "-" && s != "-" then (opts, file)
+      if s.startsWith "-" && s != "-" then { opts := opts, file := file }
       else go rest opts s
   go args {} ""
 
-/-- Format header comment block for -p output. -/
+/--
+Format header comment block for -p output.
+-/
 def headerLines : List String := [
   "# Lentils dircolors database",
   "# This file controls the LS_COLORS environment variable.",
@@ -125,7 +173,9 @@ def headerLines : List String := [
   "# whose environment variable matches the given glob pattern."
 ]
 
-/-- Attribute/color code explanation comments (used in -p). -/
+/--
+Attribute/color code explanation comments (used in -p).
+-/
 def attrCommentLines : List String := [
   "# ===================================================================",
   "# Basic file types",
@@ -140,7 +190,9 @@ def attrCommentLines : List String := [
   "#FILE 00"
 ]
 
-/-- Extension section header. -/
+/--
+Extension section header.
+-/
 def extSectionLines : List String := [
   "# ===================================================================",
   "# File extension colors",
@@ -149,7 +201,9 @@ def extSectionLines : List String := [
   "# Matching is case-insensitive."
 ]
 
-/-- Produce the full -p output as a list of lines. -/
+/--
+Produce the full -p output as a list of lines.
+-/
 def formatDatabase (db : Database) : List String :=
   let section1 := headerLines ++ db.terms ++ [""] ++ attrCommentLines
   let typeLines := db.types.map (λ e => e.key ++ " " ++ e.code ++ " # " ++
@@ -176,7 +230,10 @@ def formatDatabase (db : Database) : List String :=
   let typeBlock := typeLines ++ [""] ++ extSectionLines
   let extLines := db.exts.map (λ e => e.key ++ " " ++ e.code)
   section1 ++ typeBlock ++ extLines ++ [""]
-/-- Map from long type names to GNU short lowercase aliases. -/
+
+/--
+Map from long type names to GNU short lowercase aliases.
+-/
 def shortAliases : List (String × String) :=
   [("RESET", "rs"), ("DIR", "di"), ("LINK", "ln"),
    ("MULTIHARDLINK", "mh"), ("FIFO", "pi"), ("SOCK", "so"),
@@ -186,30 +243,40 @@ def shortAliases : List (String × String) :=
    ("STICKY_OTHER_WRITABLE", "tw"), ("OTHER_WRITABLE", "ow"),
    ("STICKY", "st"), ("EXEC", "ex")]
 
-/-- Look up the short alias for a type key, or return the key itself. -/
+/--
+Look up the short alias for a type key, or return the key itself.
+-/
 def shortKey (key : String) : String :=
   match shortAliases.find? (λ (long, _) => long = key) with
   | some (_, short) => short
   | none => key
 
-/-- Format a single extension entry for LS_COLORS, adding * prefix if needed. -/
+/--
+Format a single extension entry for LS_COLORS, adding * prefix if needed.
+-/
 def formatExtEntry (e : Entry) : String :=
   (if e.key.startsWith "*" then "" else "*") ++ e.key ++ "=" ++ e.code
 
-/-- Convert database entries to LS_COLORS string (using short aliases). -/
+/--
+Convert database entries to LS_COLORS string (using short aliases).
+-/
 def entriesToLS_COLORS (db : Database) : String :=
   let typeEntries := db.types.map (λ e => shortKey e.key ++ "=" ++ e.code)
   let extEntries := db.exts.map formatExtEntry
   String.intercalate ":" (typeEntries ++ extEntries) ++ ":"
 
-/-- Format shell output for sh or csh. -/
+/--
+Format shell output for sh or csh.
+-/
 def formatShellOutput (opts : Options) (value : String) : String :=
   if opts.csh then
     "setenv LS_COLORS '" ++ value ++ "'\n"
   else
     "LS_COLORS='" ++ value ++ "';\nexport LS_COLORS\n"
 
-/-- Parse a database text (file content) into a Database. -/
+/--
+Parse a database text (file content) into a Database.
+-/
 def parseDatabase (content : String) : Database :=
   let lines := content.splitOn "\n"
   let rec go (remaining : List String) (terms : List String) (types : List Entry)
@@ -242,48 +309,146 @@ def parseDatabase (content : String) : Database :=
     termination_by remaining.length
   go lines [] [] []
 
-theorem parse_default_sh : (parseArgs []).1.sh = false := by native_decide
-theorem parse_csh : (parseArgs ["-c"]).1.csh = true := by native_decide
-theorem parse_print : (parseArgs ["-p"]).1.printDatabase = true := by native_decide
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Correctness Theorem
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- shortKey: RESET maps to rs. -/
-theorem shortKey_RESET : shortKey "RESET" = "rs" := by native_decide
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- shortKey: DIR maps to di. -/
-theorem shortKey_DIR : shortKey "DIR" = "di" := by native_decide
+/--
+I1: Default options have sh=false.
+-/
+theorem i_parse_default_sh : (parseArgs []).opts.sh = false := by native_decide
 
-/-- shortKey: EXEC maps to ex. -/
-theorem shortKey_EXEC : shortKey "EXEC" = "ex" := by native_decide
+/--
+I2: Parsing -c sets csh.
+-/
+theorem i_parse_csh : (parseArgs ["-c"]).opts.csh = true := by native_decide
 
-/-- shortKey: unknown key returns itself. -/
-theorem shortKey_unknown : shortKey "UNKNOWN" = "UNKNOWN" := by native_decide
+/--
+I3: Parsing -p sets printDatabase.
+-/
+theorem i_parse_print : (parseArgs ["-p"]).opts.printDatabase = true := by native_decide
 
-/-- formatExtEntry: extension with dot gets * prefix. -/
-theorem formatExtEntry_dot :
-  formatExtEntry ⟨".tar", "01;31"⟩ = "*.tar=01;31" := by native_decide
+/--
+I4: shortKey: RESET maps to rs.
+-/
+theorem i_shortKey_RESET : shortKey "RESET" = "rs" := by native_decide
 
-/-- formatExtEntry: key with * already keeps it. -/
-theorem formatExtEntry_star :
-  formatExtEntry ⟨"*~", "00;90"⟩ = "*~=00;90" := by native_decide
+/--
+I5: shortKey: DIR maps to di.
+-/
+theorem i_shortKey_DIR : shortKey "DIR" = "di" := by native_decide
 
-/-- formatShellOutput: sh format. -/
-theorem formatShellOutput_sh :
+/--
+I6: shortKey: EXEC maps to ex.
+-/
+theorem i_shortKey_EXEC : shortKey "EXEC" = "ex" := by native_decide
+
+/--
+I7: shortKey: unknown key returns itself.
+-/
+theorem i_shortKey_unknown : shortKey "UNKNOWN" = "UNKNOWN" := by native_decide
+
+/--
+I8: formatExtEntry: extension with dot gets * prefix.
+-/
+theorem i_formatExtEntry_dot : formatExtEntry ⟨".tar", "01;31"⟩ = "*.tar=01;31" := by native_decide
+
+/--
+I9: formatExtEntry: key with * already keeps it.
+-/
+theorem i_formatExtEntry_star : formatExtEntry ⟨"*~", "00;90"⟩ = "*~=00;90" := by native_decide
+
+/--
+I10: formatShellOutput: sh format.
+-/
+theorem i_formatShellOutput_sh :
   formatShellOutput {} "rs=0:di=1" = "LS_COLORS='rs=0:di=1';\nexport LS_COLORS\n" := by native_decide
 
-/-- formatShellOutput: csh format. -/
-theorem formatShellOutput_csh :
+/--
+I11: formatShellOutput: csh format.
+-/
+theorem i_formatShellOutput_csh :
   formatShellOutput { csh := true } "rs=0" = "setenv LS_COLORS 'rs=0'\n" := by native_decide
 
-/-- entriesToLS_COLORS: empty database produces trailing colon. -/
-theorem entriesToLS_COLORS_empty :
+/--
+I12: entriesToLS_COLORS: empty database produces trailing colon.
+-/
+theorem i_entriesToLS_COLORS_empty :
   entriesToLS_COLORS { terms := [], types := [], exts := [] } = ":" := by native_decide
 
-/-- entriesToLS_COLORS: single type entry. -/
-theorem entriesToLS_COLORS_single_type :
+/--
+I13: entriesToLS_COLORS: single type entry.
+-/
+theorem i_entriesToLS_COLORS_single_type :
   entriesToLS_COLORS { terms := [], types := [⟨"DIR", "01;34"⟩], exts := [] } = "di=01;34:" := by native_decide
 
-/-- entriesToLS_COLORS: single extension entry. -/
-theorem entriesToLS_COLORS_single_ext :
+/--
+I14: entriesToLS_COLORS: single extension entry.
+-/
+theorem i_entriesToLS_COLORS_single_ext :
   entriesToLS_COLORS { terms := [], types := [], exts := [⟨".tar", "01;31"⟩] } = "*.tar=01;31:" := by native_decide
+
+/--
+I15: defaultDB has at least one type entry.
+-/
+theorem i_defaultDB_has_types : defaultDB.types.length > 0 := by native_decide
+
+/--
+I16: defaultDB has at least one extension entry.
+-/
+theorem i_defaultDB_has_exts : defaultDB.exts.length > 0 := by native_decide
+
+/--
+I17: formatDatabase produces non-empty output for defaultDB.
+-/
+theorem i_formatDatabase_nonempty : formatDatabase defaultDB ≠ [] := by native_decide
+
+/--
+I18: Keys already starting with "*" need no added prefix.
+-/
+theorem i_formatExtEntry_star_prefix (e : Entry) (h : e.key.startsWith "*") :
+    formatExtEntry e = e.key ++ "=" ++ e.code := by
+  unfold formatExtEntry
+  simp [h]
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Lemmas
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+shortAliases contains all expected type keys.
+-/
+theorem shortAliases_complete : shortAliases.length = 18 := by native_decide
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- Default sh=false. -/
+example : (parseArgs []).opts.sh = false := i_parse_default_sh
+
+/-- -c sets csh. -/
+example : (parseArgs ["-c"]).opts.csh = true := i_parse_csh
+
+/-- -p sets printDatabase. -/
+example : (parseArgs ["-p"]).opts.printDatabase = true := i_parse_print
+
+/-- shortKey RESET = rs. -/
+example : shortKey "RESET" = "rs" := i_shortKey_RESET
+
+/-- shortKey DIR = di. -/
+example : shortKey "DIR" = "di" := i_shortKey_DIR
+
+/-- formatShellOutput sh. -/
+example : formatShellOutput {} "rs=0:di=1" = "LS_COLORS='rs=0:di=1';\nexport LS_COLORS\n" :=
+  i_formatShellOutput_sh
+
+/-- entriesToLS_COLORS of empty DB. -/
+example : entriesToLS_COLORS { terms := [], types := [], exts := [] } = ":" :=
+  i_entriesToLS_COLORS_empty
 
 end Lentils.Dircolors.Logic

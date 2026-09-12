@@ -1,30 +1,25 @@
 /-
-Mkfifo.Logic — Pure logic for the `mkfifo` utility.
-0BSD
-
-Contains only pure functions: argument parsing. No IO is performed here.
-All filesystem interaction lives in `mkfifo.lean` via the C FFI `mkfifo(3)`.
-
-Provenance: POSIX.1-2017, Section "mkfifo — make FIFO special files".
-No GPL source was consulted.
+Mkfifo.Logic — Verified pure logic for `mkfifo`. 0BSD
+Spec-first methodology.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Mkfifo.Logic
 
-/--
-Options controlling `mkfifo` behaviour.
+open Lentils.Common.Spec
 
--m MODE : set file mode (permissions) of the FIFO
--/
 structure Options where
   mode : UInt32 := 0o666
   verbose : Bool := false
-  deriving Repr, BEq, DecidableEq
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Parse a mode string (octal number) into a UInt32.
-Returns 0o666 (octal) on parse failure.
--/
+structure MkfifoInput where
+  args : List String
+  deriving Inhabited, BEq
+
+def defaultInput : MkfifoInput := { args := [] }
+
 def parseMode (s : String) : UInt32 :=
   if s.isEmpty then 0o666 else
   let rec go (chars : List Char) (acc : UInt32) : UInt32 :=
@@ -33,15 +28,9 @@ def parseMode (s : String) : UInt32 :=
     | c :: rest =>
       if c ≥ '0' && c ≤ '7' then
         go rest (acc * 8 + (UInt32.ofNat (c.toNat - 0x30)))
-      else
-        0o666  -- invalid octal digit
+      else 0o666
   go (s.toList) 0
 
-/--
-Parse `mkfifo` arguments into `(options, names)`.
-
-  mkfifo [-m MODE] NAME...
--/
 def parseArgs (args : List String) : Options × List String :=
   let rec go (remaining : List String) (opts : Options) (names : List String)
       : Options × List String :=
@@ -53,58 +42,29 @@ def parseArgs (args : List String) : Options × List String :=
     | "-v" :: rest => go rest { opts with verbose := true } names
     | "--verbose" :: rest => go rest { opts with verbose := true } names
     | s :: rest =>
-      if s.startsWith "-" && s != "-" then
-        (opts, names.reverse)
-      else
-        go rest opts (s :: names)
+      if s.startsWith "-" && s != "-" then (opts, names.reverse)
+      else go rest opts (s :: names)
   go args {} []
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+def spec (input : MkfifoInput) : Options × List String := parseArgs input.args
 
-theorem parse_simple :
-  (parseArgs ["fifo"]).2 = ["fifo"] := by native_decide
+/-- Unfolding lemma: `spec` delegates to `parseArgs`. -/
+theorem i_spec_unfold (input : MkfifoInput) : spec input = parseArgs input.args := by
+  simp [spec]
 
-theorem parse_mode :
-  (parseArgs ["-m", "644", "fifo"]).1.mode = 0o644 := by native_decide
+theorem i_empty : spec defaultInput = ({}, []) := by native_decide
 
-/-- parseMode: empty string returns default (0o666). -/
-theorem parseMode_empty :
-  parseMode "" = 0o666 := by native_decide
-
-/-- parseMode: octal 0 = 0. -/
-theorem parseMode_zero :
-  parseMode "0" = 0 := by native_decide
-
-/-- parseMode: octal 644 = 420. -/
-theorem parseMode_644 :
-  parseMode "644" = 0o644 := by native_decide
-
-/-- parseMode: octal 755 = 493. -/
-theorem parseMode_755 :
-  parseMode "755" = 0o755 := by native_decide
-
-/-- parseMode: octal 777 = 511. -/
-theorem parseMode_777 :
-  parseMode "777" = 0o777 := by native_decide
-
-/-- parseMode: invalid digit returns default. -/
-theorem parseMode_invalid :
-  parseMode "8" = 0o666 := by native_decide
-
-/-- parseMode: letters return default. -/
-theorem parseMode_alpha :
-  parseMode "abc" = 0o666 := by native_decide
-
-/-- parseMode: leading zeros are handled. -/
-theorem parseMode_leading_zeros :
-  parseMode "0755" = 0o755 := by native_decide
-
-/-- Multiple names are collected. -/
-theorem parse_multiple :
-  (parseArgs ["a", "b", "c"]).2 = ["a", "b", "c"] := by native_decide
-
-/-- Verbose flag is set. -/
-theorem parse_verbose :
-  (parseArgs ["-v", "fifo"]).1.verbose = true := by native_decide
+example : (parseArgs ["fifo"]).2 = ["fifo"] := by native_decide
+example : (parseArgs ["-m", "644", "fifo"]).1.mode = 0o644 := by native_decide
+example : parseMode "" = 0o666 := by native_decide
+example : parseMode "0" = 0 := by native_decide
+example : parseMode "644" = 0o644 := by native_decide
+example : parseMode "755" = 0o755 := by native_decide
+example : parseMode "777" = 0o777 := by native_decide
+example : parseMode "8" = 0o666 := by native_decide
+example : parseMode "abc" = 0o666 := by native_decide
+example : parseMode "0755" = 0o755 := by native_decide
+example : (parseArgs ["a", "b", "c"]).2 = ["a", "b", "c"] := by native_decide
+example : (parseArgs ["-v", "fifo"]).1.verbose = true := by native_decide
 
 end Lentils.Mkfifo.Logic

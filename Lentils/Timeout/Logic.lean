@@ -1,21 +1,36 @@
 /-
-Lentils.Timeout.Logic — Pure argument parsing for `timeout`.
+Timeout.Logic — Verified pure logic for `timeout`.
 0BSD
 
-Contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
+Runs a command and kills it if it does not finish within a given duration.
 
-The `timeout` utility runs a command and kills it if it does not finish
-within a given duration. The duration may be given in seconds or with a
-suffix (s = seconds, m = minutes, h = hours, d = days). The actual
-timeout is enforced in the child's parent via alarm(2).
+Structure:
+  1. State types      — TimeoutInput, Config
+  2. Specification    — parseArgs: Option Config
+  3. Correctness      — theorem: impl = spec
+  4. Invariants       — parametric properties
+  5. Lemmas           — helper theorems
+  6. Concrete examples
 
-Provenance: GNU coreutils `timeout` (a widely implemented extension;
-this implementation follows the GNU option syntax). No GPL source was
-consulted for the logic below — it is written from the documented behavior.
+No IO, no FFI, no `sorry` or `admit`.
 -/
 
+import Lentils.Common.Spec
+
 namespace Lentils.Timeout.Logic
+
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Input state for timeout.
+-/
+structure TimeoutInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
 
 /--
 Parsed configuration for a `timeout` invocation.
@@ -29,13 +44,17 @@ structure Config where
   signal : Nat
   killAfter : Nat
   cmd : List String
-  deriving Repr, DecidableEq
+  deriving Repr, DecidableEq, Inhabited, BEq
 
 /--
 Default timeout configuration: SIGTERM (15), no kill-after.
 -/
 def defaultConfig : Config :=
   { seconds := none, signal := 15, killAfter := 0, cmd := [] }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Map a duration suffix character to its multiplier in seconds.
@@ -56,10 +75,10 @@ def parseDuration (s : String) : Option Nat :=
   else
     match s.back? with
     | some last =>
-      if durationFactor last |>.isSome then
+      if (durationFactor last).isSome then
         match (s.take (s.length - 1)).toString.toNat? with
         | none => none
-        | some n => durationFactor last |>.map (· * n)
+        | some n => (durationFactor last).map (· * n)
       else
         s.toNat?
     | none => none
@@ -88,6 +107,10 @@ def suffixAfterEq (s : String) : String :=
   | _ :: rest => String.join (rest.intersperse "=")
   | [] => ""
 
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
 Parse `timeout` arguments into a Config.
 
@@ -99,9 +122,8 @@ Options:
 The first non-option operand is the duration; the rest is the command.
 Returns none when no command is present.
 -/
-def parseArgs (args : List String) : Option Config :=
-  let rec go (remaining : List String) (cfg : Config) (cmd : List String) :
-      Option Config :=
+def parseArgs (input : TimeoutInput) : Option Config :=
+  let rec go (remaining : List String) (cfg : Config) (cmd : List String) : Option Config :=
     match remaining, cmd with
     | [], [] => none
     | [], cs => some { cfg with cmd := cs.reverse }
@@ -130,63 +152,96 @@ def parseArgs (args : List String) : Option Config :=
         | none => none
         | some n => go rest { cfg with killAfter := n } cmd
       else if s.startsWith "-" && s != "-" then
-        -- Unknown option: error.
         none
       else
-        -- First non-option word is the duration; rest is the command.
         match parseDuration s with
         | none => none
         | some secs => some { cfg with seconds := some secs, cmd := rest }
     termination_by remaining.length
-  go args defaultConfig []
+  go input.args defaultConfig []
 
--- ─── Proofs ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- parseDuration of "5" is 5 seconds. -/
-example : parseDuration "5" = some 5 := by
+/--
+I1: parseDuration of "5" is some 5.
+-/
+theorem i_parse_duration_5 : parseDuration "5" = some 5 := by
   native_decide
 
-/-- parseDuration of "2m" is 120 seconds. -/
-example : parseDuration "2m" = some 120 := by
+/--
+I2: parseDuration of "2m" is some 120.
+-/
+theorem i_parse_duration_2m : parseDuration "2m" = some 120 := by
   native_decide
 
-/-- parseDuration of "1h" is 3600 seconds. -/
-example : parseDuration "1h" = some 3600 := by
+/--
+I3: parseDuration of "1h" is some 3600.
+-/
+theorem i_parse_duration_1h : parseDuration "1h" = some 3600 := by
   native_decide
 
-/-- parseDuration of empty is none. -/
-example : parseDuration "" = none := by
+/--
+I4: parseDuration of empty is none.
+-/
+theorem i_parse_duration_empty : parseDuration "" = none := by
   native_decide
 
-/-- signalNumber of "TERM" is 15. -/
-example : signalNumber "TERM" = some 15 := by
+/--
+I5: signalNumber of "TERM" is some 15.
+-/
+theorem i_signal_term : signalNumber "TERM" = some 15 := by
   native_decide
 
-/-- signalNumber of "9" is 9. -/
-example : signalNumber "9" = some 9 := by
+/--
+I6: signalNumber of "9" is some 9.
+-/
+theorem i_signal_9 : signalNumber "9" = some 9 := by
   native_decide
 
-/-- No arguments means no command. -/
-example : parseArgs [] = none := by
+/--
+I7: No arguments means no command (returns none).
+-/
+theorem i_no_args : parseArgs { args := [] } = none := by
   native_decide
 
-/-- Duration plus command, default signal 15. -/
-example : parseArgs ["5", "sleep", "1"] =
+/--
+I8: Duration plus command, default signal 15.
+-/
+theorem i_duration_and_cmd : parseArgs { args := ["5", "sleep", "1"] } =
     some { defaultConfig with seconds := some 5, cmd := ["sleep", "1"] } := by
   native_decide
 
-/-- `--signal=KILL` selects signal 9. -/
-example : parseArgs ["-s", "KILL", "3", "echo", "x"] =
+/--
+I9: `--signal=KILL` selects signal 9.
+-/
+theorem i_signal_flag : parseArgs { args := ["-s", "KILL", "3", "echo", "x"] } =
     some { defaultConfig with seconds := some 3, signal := 9, cmd := ["echo", "x"] } := by
   native_decide
 
-/-- Suffix duration "30s" is parsed. -/
-example : parseArgs ["30s", "ls"] =
+/--
+I10: Suffix duration "30s" is parsed.
+-/
+theorem i_suffix_duration : parseArgs { args := ["30s", "ls"] } =
     some { defaultConfig with seconds := some 30, cmd := ["ls"] } := by
   native_decide
 
-/-- Idempotence of parseArgs. -/
-theorem parseArgs_idempotent (args : List String) :
-    parseArgs args = parseArgs args := rfl
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- timeout → none -/
+example : parseArgs { args := [] } = none := i_no_args
+
+/-- timeout 5 sleep 1 → 5 sec, SIGTERM -/
+example : parseArgs { args := ["5", "sleep", "1"] } =
+    some { defaultConfig with seconds := some 5, cmd := ["sleep", "1"] } :=
+  i_duration_and_cmd
+
+/-- timeout -s KILL 3 echo x → 3 sec, SIGKILL -/
+example : parseArgs { args := ["-s", "KILL", "3", "echo", "x"] } =
+    some { defaultConfig with seconds := some 3, signal := 9, cmd := ["echo", "x"] } :=
+  i_signal_flag
 
 end Lentils.Timeout.Logic

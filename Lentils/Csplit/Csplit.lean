@@ -47,7 +47,10 @@ Parses arguments, reads the input file, splits at patterns,
 writes pieces to numbered output files, and prints byte counts.
 -/
 def run (args : List String) : IO UInt32 := do
-  let (opts, file, patterns) := parseArgs args
+  let input := parseArgs args
+  let opts := input.opts
+  let file := input.file
+  let patterns := input.patterns
   if file.isEmpty then
     return ← exitUsage "csplit" "missing file operand"
   if patterns.isEmpty then

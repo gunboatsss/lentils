@@ -19,7 +19,7 @@ open Lentils.Common.IO.Native
     Returns true if write succeeded. -/
 def processFile (f : File) : IO Bool := do
   let content ← readAll f
-  let processed := Logic.processBytes content
+  let processed := Logic.concat [content]
   try
     writeStdout processed
     return true
@@ -42,7 +42,7 @@ def run (args : List String) : IO UInt32 := do
   | [] => do
     -- Read from stdin
     let content ← readStdin
-    let processed := Logic.processBytes content
+    let processed := Logic.concat [content]
     try
       writeStdout processed
       return 0
@@ -54,7 +54,7 @@ def run (args : List String) : IO UInt32 := do
     for file in files do
       if file = "-" then
         let content ← readStdin
-        let processed := Logic.processBytes content
+        let processed := Logic.concat [content]
         try
           writeStdout processed
         catch _ =>

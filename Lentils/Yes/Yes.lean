@@ -20,7 +20,7 @@ Continues until stdout is closed (SIGPIPE) or the process is killed.
 Returns exit code 0 when terminated via SIGPIPE.
 -/
 partial def run (args : List String) : IO UInt32 := do
-  let msg := message args
+  let msg := message { args := args }
   let rec loop : IO UInt32 := do
     try
       IO.println msg

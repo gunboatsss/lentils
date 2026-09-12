@@ -40,7 +40,7 @@ def exitUsage (prog : String) (argMsg : String) : IO UInt32 := do
   return 1
 
 /--
-Convert common errno values to human-readable strings.
+Convert common errno values to human-readable strings (GNU/POSIX style).
 This is a pure fallback when FFI strerror is not available.
 -/
 def errnoToString (err : UInt32) : String :=
@@ -63,5 +63,40 @@ def errnoToString (err : UInt32) : String :=
   | 28 => "No space left on device"
   | 32 => "Broken pipe"
   | _  => s!"Unknown error {err}"
+
+/-- Extract the errno number from an IO error's toString.
+    The format is: "... (error code: NNN) ..." -/
+def getErrno (s : String) : UInt32 :=
+  let marker := "(error code: "
+  let parts := s.splitOn marker
+  match parts with
+  | [] => 0
+  | _ :: rest =>
+    let after := rest.headD ""
+    -- Collect digit characters up to ')'
+    let rec takeDigits (chars : List Char) : List Char :=
+      match chars with
+      | [] => []
+      | c :: cs => if c ≥ '0' ∧ c ≤ '9' then c :: takeDigits cs else []
+    let digitChars := takeDigits after.toList
+    let numStr := String.ofList digitChars
+    match numStr.toNat? with
+    | some n => n.toUInt32
+    | none => 0
+
+/-- Format an IO error message in GNU style: errnoToString lookup with proper capitalization.
+    Strips the trailing "(error code: NNN)" and "  file: ..." suffixes.
+    Falls back to extracting the message before "(error code:" if the errno is not recognized. -/
+def formatIoError (s : String) : String :=
+  let line := (s.splitOn "\n").headD s
+  let errno := getErrno line
+  let fromErrno := errnoToString errno
+  -- If the error code gave a meaningful message, use it; otherwise extract the raw message
+  if fromErrno.startsWith "Unknown error" then
+    -- Extract the part before "(error code:"
+    let parts := line.splitOn " (error code:"
+    parts.headD line |>.trimRight
+  else
+    fromErrno
 
 end Lentils.Common.Errors

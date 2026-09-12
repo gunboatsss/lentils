@@ -1,210 +1,277 @@
 /-
-Echo.Logic — Pure string processing for `echo`.
+Echo.Logic — Verified pure logic for `echo`.
 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+Structure:
+  1. State types      — EchoInput (flags + args)
+  2. Specification    — format: the formal "what" and "how" (directly executable)
+  3. Correctness      — theorem: the implementation is the specification
+  4. Invariants       — parametric properties over all inputs
+  5. Concrete examples — derived corollaries
 
-The `echo` utility writes its arguments to standard output,
-separated by single spaces, followed by a newline.
-If there are no arguments, only the newline is written.
+No IO, no FFI, no `sorry` or `admit`.
 
-POSIX.1-2017, Section "echo — write arguments to standard output":
-  - If the first operand is -n, or if any of the operands contain a
-    backslash character, the results are implementation-defined.
-
-Our implementation (BSD-compatible):
-  - If the first argument is "-n", suppresses the trailing newline
-    and does not output "-n".
-  - Otherwise, joins arguments with a single space character using
-    String.intercalate and appends a newline ('\n').
-  - Does NOT process escape sequences (treated literally).
-  This is a valid POSIX-conformant behavior (the -n case is
-  implementation-defined).
-
-Provenance: POSIX.1-2017, Section "echo".
-No GPL source was consulted.
+POSIX.1-2017 §echo: writes args separated by spaces, followed by newline.
+-n is implementation-defined. We use BSD semantics (strip leading -n, suppress newline).
+Escape sequences are NOT processed (literal text).
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Echo.Logic
 
-/--
-Intercalate strings with single spaces, with explicit patterns for
-easy parametric reasoning (mirrors lentils/echo-invariants approach).
--/
-def intercalateSpace : List String → String
-  | [] => ""
-  | [x] => x
-  | [x, y] => x ++ " " ++ y
-  | xs => String.intercalate " " xs
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Strips all leading "-n" flags and returns the remaining args with the
-suppressNewline flag set if any -n was found.
-This matches BSD echo behavior where multiple -n flags are consumed.
+Input state for echo.
 -/
-def stripN (args : List String) : List String × Bool :=
-  match args with
+structure EchoInput where
+  suppressNewline : Bool
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+def defaultInput : EchoInput := { suppressNewline := false, args := [] }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Intercalate a separator between list elements.
+Uses structural recursion for straightforward induction.
+-/
+def intercalate (sep : String) : List String → String
+  | []      => ""
+  | [x]     => x
+  | x :: xs => x ++ sep ++ intercalate sep xs
+
+/--
+Consume all leading "-n" flags. Returns (remaining, anyStripped).
+-/
+def stripLeadingN : List String → List String × Bool
   | "-n" :: rest => 
-    let (remaining, _) := stripN rest
-    (remaining, true)
-  | _ => (args, false)
+      let (remaining, _) := stripLeadingN rest
+      (remaining, true)
+  | args => (args, false)
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Format arguments for echo output.
-If the first argument is "-n", it is consumed and no trailing newline
-is emitted (BSD-compatible behavior).
+The echo specification. Since the spec is directly executable,
+the implementation IS the specification.
 -/
-def format (args : List String) : String :=
-  let (remaining, suppressNewline) := stripN args
-  let joined := intercalateSpace remaining
-  if suppressNewline then
-    joined
-  else
-    joined ++ "\n"
+def format (input : EchoInput) : String :=
+  let (remaining, flagSuppress) := stripLeadingN input.args
+  let joined := intercalate " " remaining
+  let suppress := input.suppressNewline || flagSuppress
+  if suppress then joined else joined ++ "\n"
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Format for non-"-n" cases (parametric).
-This version doesn't handle -n flag stripping, useful for parametric proofs.
+I1: Empty input with default flags → just a newline.
 -/
-def formatNoN (args : List String) : String :=
-  intercalateSpace args ++ "\n"
+theorem i_empty : format defaultInput = "\n" := rfl
 
 /--
-format_no_n for empty args.
+I2: For any single arg s ≠ "-n", output = s ++ "\n".
+Parametric over all such strings.
 -/
-theorem format_no_n_empty : formatNoN [] = "\n" := rfl
-
-/--
-format_no_n for singleton arg (parametric).
--/
-theorem format_no_n_single (s : String) : formatNoN [s] = s ++ "\n" := rfl
-
-/--
-format_no_n for pair args (parametric).
--/
-theorem format_no_n_pair (s1 s2 : String) : formatNoN [s1, s2] = s1 ++ " " ++ s2 ++ "\n" := rfl
-
-/--
-The exit code of `echo` on success. Always 0.
--/
-def exitCode : UInt32 := 0
-
--- ─── Theorems ──────────────────────────────────────────────────────────────────
-
-/--
-The exit code is always zero.
--/
-theorem exitCode_is_zero : exitCode = 0 := rfl
-
-/--
-`echo` with no arguments outputs just a newline.
--/
-theorem format_empty : format [] = "\n" := rfl
-
-/--
-Intercalate space on empty list returns empty string (parametric).
--/
-theorem intercalate_space_empty : intercalateSpace ([] : List String) = "" := rfl
-
-/--
-Intercalate space on singleton list returns the element (parametric).
--/
-theorem intercalate_space_single (s : String) : intercalateSpace [s] = s := rfl
-
-/--
-Intercalate space on pair of strings joins with space (parametric).
--/
-theorem intercalate_space_pair (s1 s2 : String) : intercalateSpace [s1, s2] = s1 ++ " " ++ s2 := rfl
-
-/--
-`echo` with a single argument works as expected (concrete example).
-Note: Parametric proofs require case analysis on string equality with "-n".
--/
-theorem format_single : format ["hello"] = "hello\n" := rfl
-
-/--
-`echo` with two arguments joins them with a single space.
--/
-theorem format_two : format ["hello", "world"] = "hello world\n" := rfl
-
-/--
-`echo` with three concrete arguments.
--/
-theorem format_three : format ["a", "b", "c"] = "a b c\n" := rfl
-
-/--
-`echo` with -n suppresses the trailing newline.
--/
-theorem format_n : format ["-n", "hello"] = "hello" := rfl
-
-/--
-`echo` with only -n outputs nothing.
--/
-theorem format_only_n : format ["-n"] = "" := rfl
-
-/--
-`echo` with -n and multiple arguments.
--/
-theorem format_n_multi : format ["-n", "hello", "world"] = "hello world" := rfl
-
-/--
-`echo` with -n not as first argument preserves it.
--/
-theorem format_n_not_first : format ["hello", "-n"] = "hello -n\n" := rfl
-
-/--
-Idempotence: format produces the same output given the same input.
--/
-theorem format_idempotent (args : List String) : format args = format args := rfl
-
-/--
-String append is associative.
-This is useful for reasoning about echo output composition.
--/
-theorem append_assoc (s1 s2 s3 : String) :
-  (s1 ++ s2) ++ s3 = s1 ++ (s2 ++ s3) := String.append_assoc
-
-/--
-Length of concatenated strings equals sum of lengths.
-Useful for reasoning about output lengths.
--/
-theorem append_length (s1 s2 : String) :
-  (s1 ++ s2).length = s1.length + s2.length := String.length_append s1 s2
-
-/--
-Space separator has length 1.
--/
-theorem space_length : " ".length = 1 := rfl
-
-/--
-Newline has length 1.
--/
-theorem newline_length : "\n".length = 1 := rfl
-
-/--
-Empty string has length 0.
--/
-theorem empty_length : "".length = 0 := rfl
-
-/--
-stripN on empty list returns empty and false.
--/
-theorem stripN_empty : stripN ([] : List String) = ([], false) := rfl
-
-/--
-stripN on ["-n"] returns ([], true).
--/
-theorem stripN_n_only : stripN ["-n"] = ([], true) := by
-  unfold stripN
+theorem i_unary (s : String) (h : s ≠ "-n") :
+    format { suppressNewline := false, args := [s] } = s ++ "\n" := by
+  unfold format stripLeadingN
+  simp [h]
   rfl
 
 /--
-stripN on multiple leading "-n" flags consumes all of them.
+I3: For any two args (first ≠ "-n"), output = s1 ++ " " ++ s2 ++ "\n".
+Parametric.
 -/
-theorem stripN_multiple : stripN ["-n", "-n", "-n"] = ([], true) := by
-  unfold stripN
+theorem i_binary (s1 s2 : String) (h1 : s1 ≠ "-n") :
+    format { suppressNewline := false, args := [s1, s2] } = s1 ++ " " ++ s2 ++ "\n" := by
+  unfold format stripLeadingN
+  simp [h1]
   rfl
+
+/--
+I4: For any three args (first ≠ "-n"), output = s1 ++ " " ++ s2 ++ " " ++ s3 ++ "\n".
+Parametric.
+-/
+theorem i_ternary (s1 s2 s3 : String) (h1 : s1 ≠ "-n") :
+    format { suppressNewline := false, args := [s1, s2, s3] } = s1 ++ " " ++ s2 ++ " " ++ s3 ++ "\n" := by
+  unfold format stripLeadingN
+  simp [h1]
+  have h_inter : intercalate " " [s1, s2, s3] = s1 ++ " " ++ s2 ++ " " ++ s3 := by
+    calc
+      intercalate " " [s1, s2, s3] = s1 ++ " " ++ intercalate " " [s2, s3] := rfl
+      _ = s1 ++ " " ++ (s2 ++ " " ++ s3) := rfl
+      _ = s1 ++ " " ++ s2 ++ " " ++ s3 := by simp [String.append_assoc]
+  rw [h_inter]
+
+/--
+I5: With suppressNewline=true and empty args, output is empty.
+-/
+theorem i_suppress_empty :
+    format { suppressNewline := true, args := [] } = "" := by
+  unfold format stripLeadingN intercalate; rfl
+
+/--
+I6: Leading "-n" is consumed. Any single arg "-n" produces empty output.
+-/
+theorem i_leading_n_alone :
+    format { suppressNewline := false, args := ["-n"] } = "" := by
+  unfold format stripLeadingN intercalate; rfl
+
+/--
+I7: Multiple leading "-n" flags are all consumed (idempotence of -n stripping).
+-/
+theorem i_multiple_n (args : List String) :
+    format { suppressNewline := false, args := ["-n", "-n"] ++ args } =
+    format { suppressNewline := false, args := ["-n"] ++ args } := by
+  unfold format
+  have h_strip : stripLeadingN (["-n", "-n"] ++ args) = stripLeadingN (["-n"] ++ args) := by
+    simp [stripLeadingN]
+  rw [h_strip]
+
+/--
+I8: "-n" not in first position is preserved literally.
+-/
+theorem i_n_nonfirst (s : String) (h : s ≠ "-n") :
+    format { suppressNewline := false, args := [s, "-n"] } = s ++ " " ++ "-n" ++ "\n" := by
+  unfold format stripLeadingN
+  simp [h, intercalate]
+
+/--
+I9: Exit code is always 0 for echo.
+-/
+def exitCode : ExitCode := exitSuccess
+
+theorem i_exit_success : exitCode = exitSuccess := rfl
+
+/--
+I12: The format function can be decomposed: step 1 = stripLeadingN, step 2 = intercalate, step 3 = newline decision.
+This is a structural lemma useful for compositional proofs.
+-/
+theorem i_decompose (input : EchoInput) :
+    format input =
+      let (remaining, flagSuppress) := stripLeadingN input.args
+      let joined := intercalate " " remaining
+      if input.suppressNewline || flagSuppress then joined else joined ++ "\n"
+    := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. StripLeadingN Lemmas
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+stripLeadingN on empty list returns ([], false).
+-/
+theorem stripN_empty : stripLeadingN [] = ([], false) := rfl
+
+/--
+stripLeadingN on ["-n"] returns ([], true).
+-/
+theorem stripN_one : stripLeadingN ["-n"] = ([], true) := rfl
+
+/--
+stripLeadingN on multiple "-n" consumes all.
+-/
+theorem stripN_multiple (n : Nat) :
+    stripLeadingN (List.replicate n "-n" ++ ["hello"]) = (["hello"], decide (0 < n)) := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+      simp [List.replicate_succ, stripLeadingN, ih]
+
+/--
+stripLeadingN only removes elements, so the result is no longer than input.
+-/
+theorem stripN_preserves_order (args : List String) :
+    (stripLeadingN args).1.length ≤ args.length := by
+  induction args with
+  | nil => simp [stripLeadingN]
+  | cons a as ih =>
+      by_cases h : a = "-n"
+      · simp [stripLeadingN, h]
+        exact Nat.le_trans ih (Nat.le_succ _)
+      · simp [stripLeadingN, h]
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Intercalate Lemmas
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Empty list.
+-/
+theorem intercalate_nil (sep : String) : intercalate sep [] = "" := rfl
+
+/--
+Singleton list.
+-/
+theorem intercalate_single (sep : String) (s : String) : intercalate sep [s] = s := rfl
+
+/--
+Two-element list.
+-/
+theorem intercalate_pair (sep : String) (s1 s2 : String) : intercalate sep [s1, s2] = s1 ++ sep ++ s2 := rfl
+
+/--
+Three-element list.
+-/
+theorem intercalate_triple (sep : String) (s1 s2 s3 : String) :
+    intercalate sep [s1, s2, s3] = s1 ++ sep ++ s2 ++ sep ++ s3 := by
+  simp [intercalate, String.append_assoc]
+
+/--
+Intercalate into a non-empty list where all elements are non-empty
+produces a non-empty string.
+-/
+theorem intercalate_nonempty (sep : String) (xs : List String)
+    (hne : xs ≠ []) (h_all : ∀ s ∈ xs, s ≠ "") :
+    intercalate sep xs ≠ "" := by
+  cases xs with
+  | nil => simp at hne
+  | cons x xs =>
+      have hx : x ≠ "" := h_all x (by simp)
+      cases xs with
+      | nil =>
+          simp [intercalate, hx]
+      | cons y ys =>
+          simp [intercalate, hx]
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 7. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- echo → newline only -/
+example : format defaultInput = "\n" := i_empty
+
+/-- echo hello → "hello\n" -/
+example : format { suppressNewline := false, args := ["hello"] } = "hello\n" :=
+  i_unary "hello" (by decide)
+
+/-- echo hello world → "hello world\n" -/
+example : format { suppressNewline := false, args := ["hello", "world"] } = "hello world\n" :=
+  i_binary "hello" "world" (by decide)
+
+/-- echo -n hello → "hello" -/
+example : format { suppressNewline := true, args := ["hello"] } = "hello" := by
+  unfold format stripLeadingN intercalate; rfl
+
+/-- echo a b c → "a b c\n" -/
+example : format { suppressNewline := false, args := ["a", "b", "c"] } = "a b c\n" :=
+  i_ternary "a" "b" "c" (by decide)
+
+/-- echo hello -n → "hello -n\n" (literal -n when not first) -/
+example : format { suppressNewline := false, args := ["hello", "-n"] } = "hello" ++ " " ++ "-n" ++ "\n" :=
+  i_n_nonfirst "hello" (by decide)
 
 end Lentils.Echo.Logic

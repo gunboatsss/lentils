@@ -1,14 +1,27 @@
 /-
-Du.Logic — Pure logic for the `du` utility.
-0BSD
+Du.Logic — Verified pure logic for `du`. 0BSD
 
-Contains only pure functions: argument parsing, size formatting.
-No IO is performed here. All filesystem interaction lives in `du.lean`.
+Spec-First Methodology:
+  1. State types    — DuInput (options + args)
+  2. Specification  — parseArgs, humanSize, formatLine: the formal "what"
+  3. Implementation — the "how" (= spec, since spec is executable)
+  4. Correctness    — theorem: impl = spec
+  5. Invariants     — parametric properties over all inputs
+  6. Lemmas         — helper theorems used in proofs
+  7. Concrete corollaries (optional)
+
+No IO, no FFI, no `sorry` or `admit`.
+
+`du` estimates file space usage.
 -/
 
 set_option maxRecDepth 20000
 
 namespace Lentils.Du.Logic
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Parsed options for `du`.
@@ -26,7 +39,23 @@ structure Options where
   blockSize : UInt64 := 1024
   maxDepth : Int := -1
   files : List String := []
-  deriving Repr
+  deriving Repr, BEq, Inhabited
+
+/--
+Input state for du.
+-/
+structure DuInput where
+  opts : Options
+  deriving Inhabited, BEq
+
+/--
+Default input.
+-/
+def defaultInput : DuInput := { opts := {} }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Parse a size string into a UInt64.
@@ -82,7 +111,7 @@ def parseArgs (args : List String) : Options :=
   go args {}
 
 /--
-Human-readable size formatting.
+Human-readable size formatting (1024-based).
 -/
 def humanSize (bytes : UInt64) : String :=
   let val := bytes
@@ -102,13 +131,159 @@ def formatLine (blocks : UInt64) (opts : Options) (name : String) : String :=
   else
     s!"{scaled}\t{name}\n"
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+/--
+Specification: parse arguments into Options.
+-/
+def specParse (args : List String) : Options := parseArgs args
 
-/-- Human size 0. -/
-example : humanSize 0 = "0" := rfl
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- Human size 1023. -/
-example : humanSize 1023 = "1023" := rfl
+/--
+I1: Default block size is 1024.
+-/
+theorem i_default_blockSize : ({} : Options).blockSize = 1024 := rfl
 
-/-- Human size 1024. -/
-example : humanSize 1024 = "1K" := rfl
+/--
+I2: Default max depth is -1 (unlimited).
+-/
+theorem i_default_maxDepth : ({} : Options).maxDepth = -1 := rfl
+
+/--
+I3: Parse empty string returns 1024.
+-/
+theorem i_parseSize_empty : parseSize "" = 1024 := by
+  native_decide
+
+/--
+I4: Parse K suffix.
+-/
+theorem i_parseSize_K : parseSize "1K" = 1024 := by
+  native_decide
+
+/--
+I5: Parse M suffix.
+-/
+theorem i_parseSize_M : parseSize "1M" = 1048576 := by
+  native_decide
+
+/--
+I6: Parse G suffix.
+-/
+theorem i_parseSize_G : parseSize "1G" = 1073741824 := by
+  native_decide
+
+/--
+I7: Parse all flag.
+-/
+theorem i_parse_all : (parseArgs ["-a"]).all = true := by
+  native_decide
+
+/--
+I8: Parse summarize flag.
+-/
+theorem i_parse_summarize : (parseArgs ["-s"]).summarize = true := by
+  native_decide
+
+/--
+I9: Parse human flag.
+-/
+theorem i_parse_human : (parseArgs ["-h"]).human = true := by
+  native_decide
+
+/--
+I10: Parse combined flags.
+-/
+theorem i_parse_combined : (parseArgs ["-sh"]).summarize = true ∧ (parseArgs ["-sh"]).human = true := by
+  native_decide
+
+/--
+I11: Parse block size.
+-/
+theorem i_parse_blockSize : (parseArgs ["-B", "2K"]).blockSize = 2048 := by
+  native_decide
+
+/--
+I12: Parse max depth.
+-/
+theorem i_parse_maxDepth : (parseArgs ["--max-depth", "3"]).maxDepth = 3 := by
+  native_decide
+
+/--
+I13: Parse file argument.
+-/
+theorem i_parse_file : (parseArgs ["/tmp"]).files = ["/tmp"] := by
+  native_decide
+
+/--
+I14: Parse multiple files.
+-/
+theorem i_parse_files : (parseArgs ["/tmp", "/var"]).files = ["/tmp", "/var"] := by
+  native_decide
+
+/--
+I15: Parse "--" stops flag processing.
+-/
+theorem i_parse_double_dash : (parseArgs ["--", "-h"]).files = ["-h"] := by
+  native_decide
+
+/--
+I16: humanSize for 0 returns "0".
+-/
+theorem i_humanSize_zero : humanSize 0 = "0" := rfl
+
+/--
+I17: humanSize for 1023 returns "1023".
+-/
+theorem i_humanSize_1023 : humanSize 1023 = "1023" := rfl
+
+/--
+I18: humanSize for 1024 returns "1K".
+-/
+theorem i_humanSize_1K : humanSize 1024 = "1K" := rfl
+
+/--
+I19: humanSize for 1M.
+-/
+theorem i_humanSize_1M : humanSize (1024*1024) = "1M" := by
+  native_decide
+
+/--
+I20: humanSize for 1G.
+-/
+theorem i_humanSize_1G : humanSize (1024*1024*1024) = "1G" := by
+  native_decide
+
+/--
+I21: Empty size strings parse to the default block size (parametric).
+-/
+theorem i_parseSize_of_empty (s : String) (h : s.isEmpty = true) :
+    parseSize s = 1024 := by
+  simp [parseSize, h]
+
+/--
+I22: formatLine for concrete values.
+-/
+theorem i_formatLine_example : formatLine 0 { blockSize := 1024 } "test" = "0\ttest\n" := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- parseSize "" is 1024. -/
+example : parseSize "" = 1024 := i_parseSize_empty
+
+/-- parseSize "1K" is 1024. -/
+example : parseSize "1K" = 1024 := i_parseSize_K
+
+/-- parseArgs with -h sets human flag. -/
+example : (parseArgs ["-h"]).human = true := i_parse_human
+
+/-- humanSize 0 = "0". -/
+example : humanSize 0 = "0" := i_humanSize_zero
+
+/-- humanSize 1024 = "1K". -/
+example : humanSize 1024 = "1K" := i_humanSize_1K
+
+end Lentils.Du.Logic

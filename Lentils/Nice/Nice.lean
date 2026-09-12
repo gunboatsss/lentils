@@ -26,17 +26,17 @@ Parses the adjustment and command, then execs via FFI.
 Returns the command's exit code, or an error code on failure.
 -/
 def run (args : List String) : IO UInt32 := do
-  match parseArgs args with
+  match parseArgs { args := args } with
   | none =>
     IO.eprintln "nice: missing operand"
     return 1
-  | some (adj, cmd) =>
-    if cmd.isEmpty then
+  | some cfg =>
+    if cfg.cmd.isEmpty then
       IO.eprintln "nice: missing operand"
       return 1
     else
       try
-        let code ← runNice adj cmd.toArray
+        let code ← runNice cfg.adjustment cfg.cmd.toArray
         return code
       catch _ =>
         IO.eprintln "nice: failed to execute command"

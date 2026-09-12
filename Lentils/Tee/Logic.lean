@@ -52,9 +52,6 @@ theorem mapConst (b : ByteArray) (l : List String) :
 /-- `processBytes` is the identity function. -/
 theorem processBytes_id (ba : ByteArray) : processBytes ba = ba := rfl
 
-/-- Passthrough spec restated: the stdout output equals the input exactly. -/
-theorem processBytes_passthrough (ba : ByteArray) : processBytes ba = ba := rfl
-
 /-- Empty input is passed through to stdout unchanged. -/
 theorem processBytes_empty : processBytes ByteArray.empty = ByteArray.empty := rfl
 
@@ -200,11 +197,6 @@ theorem append_write_agree_on_empty (new : ByteArray) :
   appendTo ByteArray.empty new = writeTo ByteArray.empty new := by simp [appendTo, writeTo]
 
 -- ─── Explicit coverage of the requested proof topics ────────────────────────
-
-/-- (1) Passthrough spec: tee preserves every input byte on stdout. This is the
-    formal statement that tee's passthrough preserves stdin to stdout. -/
-theorem tee_passthrough_stdin_to_stdout (ba : ByteArray) :
-  processBytes ba = ba := rfl
 
 /-- (2) Fanout spec: tee writes the same bytes to stdout *and* to every file.
     The head is the stdout copy and the tail is one identical copy per file. -/

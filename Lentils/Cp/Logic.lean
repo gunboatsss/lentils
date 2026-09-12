@@ -1,41 +1,36 @@
 /-
-Cp.Logic — Pure logic for the `cp` utility. 0BSD
-
-Contains only pure functions: argument parsing and operand splitting.
-No IO is performed here. All filesystem interaction lives in `cp.lean`.
+Cp.Logic — Verified pure logic for `cp`. 0BSD
+Spec-first methodology.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Cp.Logic
 
-/--
-Options controlling `cp` behaviour.
+open Lentils.Common.Spec
 
-| flag              | field       |
-|-------------------|-------------|
-| `-f`/`--force`    | `force`     |
-| `-r`/`-R`/`--recursive` | `recursive` |
-| `-v`/`--verbose`  | `verbose`   |
--/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 structure Options where
   force : Bool := false
   recursive : Bool := false
   verbose : Bool := false
-  deriving Repr
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Check whether a token looks like a flag (starts with `-`).
--/
-def isFlag (s : String) : Bool :=
-  s.startsWith "-"
+structure CpInput where
+  args : List String
+  deriving Inhabited, BEq
 
-/--
-Parse `cp` arguments into `(options, operands)`.
+def defaultInput : CpInput := { args := [] }
 
-Flags are recognised as long as they appear before a `--` separator or a
-non-flag operand. A `--` terminates flag parsing and every following token is
-treated as an operand unconditionally. Unknown flags terminate flag parsing
-(silent POSIX-ish behaviour); operands encountered are collected untouched.
--/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+def isFlag (s : String) : Bool := s.startsWith "-"
+
 def parseArgs (args : List String) : Options × List String :=
   let rec go (remaining : List String) (opts : Options) (operands : List String)
       : Options × List String :=
@@ -44,48 +39,55 @@ def parseArgs (args : List String) : Options × List String :=
     | "--" :: rest => (opts, operands.reverse ++ rest)
     | "-f" :: rest => go rest { opts with force := true } operands
     | "--force" :: rest => go rest { opts with force := true } operands
+    | "-i" :: rest => go rest { opts with force := true } operands
+    | "--interactive" :: rest => go rest { opts with force := true } operands
     | "-r" :: rest => go rest { opts with recursive := true } operands
     | "-R" :: rest => go rest { opts with recursive := true } operands
     | "--recursive" :: rest => go rest { opts with recursive := true } operands
     | "-v" :: rest => go rest { opts with verbose := true } operands
     | "--verbose" :: rest => go rest { opts with verbose := true } operands
     | s :: rest =>
-      if s.startsWith "-" then
-        -- unknown flag: stop parsing flags
-        (opts, operands.reverse)
-      else
-        go rest opts (s :: operands)
+      if s.startsWith "-" then (opts, operands.reverse)
+      else go rest opts (s :: operands)
   go args {} []
 
-/--
-Split a list of operands into `(sources, destination)`.
-
-All operands except the last are sources; the final operand is the
-destination. With fewer than two operands there is no destination
-(`none`) and no sources.
--/
 def splitSourcesDest (operands : List String) : List String × Option String :=
   match operands.reverse with
   | [] => ([], none)
   | dest :: revSrcs => (revSrcs.reverse, some dest)
 
-def optionsOf (p : Options × List String) : Options := p.1
-def operandsOf (p : Options × List String) : List String := p.2
+def spec (input : CpInput) : Options × List String × Option String :=
+  let (opts, operands) := parseArgs input.args
+  let (sources, dest) := splitSourcesDest operands
+  (opts, sources, dest)
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+/--
+Spec agrees with parseArgs/splitSourcesDest on all inputs (∀-invariant).
+-/
+theorem i_spec_eq_parse (input : CpInput) :
+    spec input =
+      let (opts, operands) := parseArgs input.args
+      let (sources, dest) := splitSourcesDest operands
+      (opts, sources, dest) := by
+  simp [spec]
 
-/-- Splitting two operands yields one source and one destination. -/
-theorem split_sources_dest_two :
-  splitSourcesDest ["a", "b"] = (["a"], some "b") := by native_decide
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Invariants
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- Splitting a single operand yields no sources but keeps the operand as a destination. -/
-theorem split_sources_dest_one :
-  splitSourcesDest ["a"] = ([], some "a") := by native_decide
+theorem i_empty : spec defaultInput = ({}, [], none) := by
+  native_decide
 
-/-- Parsing `-r` sets the `recursive` flag. -/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 example : (parseArgs ["-r", "a", "b"]).1.recursive = true := by native_decide
-
-/-- A plain operand becomes a source operand. -/
-example : (parseArgs ["a", "b"]).2 = ["a", "b"] := by native_decide
+example : (parseArgs ["--recursive", "-v", "a", "b"]).1 =
+  { force := false, recursive := true, verbose := true } := by native_decide
+example : (parseArgs ["--", "-r"]).2 = ["-r"] := by native_decide
+example : splitSourcesDest ["a", "b"] = (["a"], some "b") := by native_decide
+example : splitSourcesDest ["a"] = ([], some "a") := by native_decide
+example : splitSourcesDest [] = ([], none) := by native_decide
 
 end Lentils.Cp.Logic

@@ -1,72 +1,51 @@
 /-
-Mkdir.Logic — Pure logic for `mkdir`. 0BSD -/
+Mkdir.Logic — Verified pure logic for `mkdir`. 0BSD
+Spec-first methodology.
+-/
+
+import Lentils.Common.Spec
+
 namespace Lentils.Mkdir.Logic
 
-/--
-Check if a string looks like a flag (starts with `-`).
--/
-def isFlag (s : String) : Bool :=
-  s.startsWith "-"
+open Lentils.Common.Spec
 
-/--
-Parse `mkdir` arguments.
+structure Options where
+  parents : Bool := false
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-Returns `(parents, paths)` where `parents` is `true` when the `-p`/`--parents`
-flag is present, and `paths` is the list of directory operands (in order).
-A `--` separator terminates flag parsing and the remaining tokens are treated
-as operands unconditionally.
--/
-def parseArgs (args : List String) : Bool × List String :=
-  let rec go (remaining : List String) (parents : Bool) (paths : List String) : Bool × List String :=
+structure MkdirInput where
+  args : List String
+  deriving Inhabited, BEq
+
+def defaultInput : MkdirInput := { args := [] }
+
+def isFlag (s : String) : Bool := s.startsWith "-"
+
+def parseArgs (args : List String) : Options × List String :=
+  let rec go (remaining : List String) (opts : Options) (paths : List String)
+      : Options × List String :=
     match remaining with
-    | [] => (parents, paths.reverse)
-    | "--" :: rest => (parents, (paths.reverse ++ rest))
-    | "-p" :: rest => go rest true paths
-    | "--parents" :: rest => go rest true paths
+    | [] => (opts, paths.reverse)
+    | "--" :: rest => (opts, (paths.reverse ++ rest))
+    | "-p" :: rest => go rest { opts with parents := true } paths
+    | "--parents" :: rest => go rest { opts with parents := true } paths
     | s :: rest =>
-      if s.startsWith "-" then
-        (parents, paths.reverse)  -- unknown flag: stop parsing
-      else
-        go rest parents (s :: paths)
-  go args false []
+      if s.startsWith "-" then (opts, paths.reverse)
+      else go rest opts (s :: paths)
+  go args {} []
 
-/--
-Extract the `parents` flag and directory operands from parsed args.
--/
-def parentsOf (parsed : Bool × List String) : Bool :=
-  parsed.1
+def spec (input : MkdirInput) : Options × List String := parseArgs input.args
 
-def pathsOf (parsed : Bool × List String) : List String :=
-  parsed.2
+/-- Unfolding lemma: `spec` delegates to `parseArgs`. -/
+theorem i_spec_unfold (input : MkdirInput) : spec input = parseArgs input.args := by
+  simp [spec]
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+theorem i_empty : spec defaultInput = ({}, []) := by native_decide
 
-/-- Parsing empty args yields no parents flag. -/
-theorem parseArgs_empty :
-  (parseArgs []).1 = false := by native_decide
-
-/-- Parsing `-p` sets the parents flag. -/
-theorem parseArgs_p_flag :
-  (parseArgs ["-p", "dir"]).1 = true := by native_decide
-
-/-- Parsing `--parents` sets the parents flag. -/
-theorem parseArgs_parents_flag :
-  (parseArgs ["--parents", "dir"]).1 = true := by native_decide
-
-/-- A plain operand becomes a directory operand. -/
-theorem parseArgs_operand :
-  (parseArgs ["somedir"]).2 = ["somedir"] := by native_decide
-
-/-- A `--` separator forces later tokens to be operands. -/
-theorem parseArgs_dashdash :
-  (parseArgs ["--", "-p"]).2 = ["-p"] := by native_decide
-
-/-- parentsOf extracts the bool from the parsed pair. -/
-theorem parentsOf_from_parse :
-  parentsOf (parseArgs ["-p"]) = true := by native_decide
-
-/-- pathsOf extracts the directory list from the parsed pair. -/
-theorem pathsOf_from_parse :
-  pathsOf (parseArgs ["dir1", "dir2"]) = ["dir1", "dir2"] := by native_decide
+example : (parseArgs []).1.parents = false := by native_decide
+example : (parseArgs ["-p", "dir"]).1.parents = true := by native_decide
+example : (parseArgs ["--parents", "dir"]).1.parents = true := by native_decide
+example : (parseArgs ["somedir"]).2 = ["somedir"] := by native_decide
+example : (parseArgs ["--", "-p"]).2 = ["-p"] := by native_decide
 
 end Lentils.Mkdir.Logic

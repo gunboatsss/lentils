@@ -1014,6 +1014,20 @@ LEAN_EXPORT lean_object *lean_coreutils_sync(lean_object *w) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
+// ─── mkdir(2) for `mkdir` utility ──────────────────────────────────────────────
+
+// Create a directory. Returns an IO error on failure.
+LEAN_EXPORT lean_object *lean_coreutils_mkdir(b_lean_obj_arg path,
+                                                uint32_t mode,
+                                                lean_object *w) {
+    (void)w;
+    if (mkdir(lean_string_cstr(path), (mode_t)mode) != 0) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
+    }
+    return lean_io_result_mk_ok(lean_box(0));
+}
+
 // ─── mkfifo(3) for `mkfifo` utility ───────────────────────────────────────────
 
 // Create a FIFO (named pipe) with the given path and mode.

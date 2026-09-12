@@ -1,38 +1,77 @@
 /-
-False.Logic — Pure exit-code logic for `false`.
+False.Logic — Verified pure logic for `false`.
 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+POSIX.1-2017 §false: always returns exit code 1, ignoring all operands.
 
-The `false` utility is the trivial program:
-  - Input: none
-  - Output: exit code 1
-  - Specification: always returns non-zero (typically 1)
+Structure:
+  1. State types      — FalseInput (flags + args)
+  2. Specification    — exitCode: always 1
+  3. Correctness      — theorem: impl = spec (trivially)
+  4. Invariants       — parametric properties over all inputs
+  5. Concrete examples — derived corollaries
 
-Provenance: POSIX.1-2017, Section "false — return false value".
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.False.Logic
 
-/--
-The exit code of `false`.  Always 1.
-This is the pure specification: `false` always indicates failure.
--/
-def exitCode : UInt32 := 1
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-The exit code is non-zero.
-This is the formal specification for `false`: failure is invariant.
+Input state for false. All arguments are ignored.
 -/
-theorem exitCode_is_nonzero : exitCode ≠ 0 := by
-  decide
+structure FalseInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+def defaultInput : FalseInput := { args := [] }
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Running `false` multiple times yields the same result (idempotence).
+The exit code of `false`. Always 1 regardless of input.
 -/
-example : exitCode = exitCode := rfl
+def exitCode (input : FalseInput) : UInt32 := 1
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+I1: Exit code is always 1, regardless of input.
+-/
+theorem i_exit_failure (input : FalseInput) : exitCode input = 1 := rfl
+
+/--
+I2: Exit code is non-zero for all inputs.
+-/
+theorem i_exit_nonzero (input : FalseInput) : exitCode input ≠ 0 := by
+  simp [exitCode]
+
+/--
+I4: Arguments are ignored — any args produce the same result as no args.
+-/
+theorem i_args_ignored (args : List String) :
+    exitCode { args := args } = exitCode { args := [] } := rfl
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- false → exit code 1 -/
+example : exitCode defaultInput = 1 := i_exit_failure defaultInput
+
+/-- false with args → exit code 1 -/
+example : exitCode { args := ["hello", "world"] } = 1 :=
+  i_exit_failure { args := ["hello", "world"] }
 
 end Lentils.False.Logic

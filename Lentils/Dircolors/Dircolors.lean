@@ -11,7 +11,9 @@ open Logic
 open Lentils.Common.IO.Native
 
 def run (args : List String) : IO UInt32 := do
-  let (opts, file) := parseArgs args
+  let input := parseArgs args
+  let opts := input.opts
+  let file := input.file
 
   if opts.printDatabase then
     for line in formatDatabase defaultDB do

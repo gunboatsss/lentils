@@ -4,45 +4,92 @@ Cp — IO wrapper for the `cp` utility.
 
 Copies files using `IO.FS.readBinFile` / `IO.FS.writeBinFile`. With `-r`/`-R`
 directories are copied recursively (using `System.FilePath.readDir` and
-`System.FilePath.metadata`). Multiple sources require the destination to be a
-directory; each source is copied into it under its own base name. Flag
-handling (`-f`/`-r`/`-v`) is parsed but `-f` is honoured implicitly because
+`lstatAll`). Multiple sources require the destination to be a directory; each
+source is copied into it under its own base name. Flag handling
+(`-f`/`-r`/`-v`) is parsed but `-f` is honoured implicitly because
 `writeBinFile` overwrites the destination.
 -/
 
 import Lentils.Cp.Logic
+import Lentils.Common.Array
 import Lentils.Common.Errors
+import Lentils.Common.IO.Native
 
 namespace Lentils.Cp
 
 open Logic
+open Lentils.Common.Array
 open Lentils.Common.Errors
+open Lentils.Common.IO.Native
+
+/-- Determine file type nibble from lstat mode bits. -/
+def fileType (mode : UInt64) : UInt64 :=
+  (mode >>> 12) &&& 0xF
 
 /--
-Copy a single regular file from `src` to `dst`.
-Returns `true` on success, `false` on failure.
+Check if two paths refer to the same file by comparing device and inode.
+Returns `true` if they are the same (i.e., copying would be a self-to-self).
 -/
-def copyFile (src dst : System.FilePath) : IO Bool := do
+def sameFile (path1 path2 : String) : IO Bool := do
   try
-    let content ← IO.FS.readBinFile src
-    IO.FS.writeBinFile dst content
-    return true
-  catch e =>
-    IO.eprintln s!"cp: cannot copy '{src.toString}' to '{dst.toString}': {e.toString}"
+    let a1 ← lstatAll path1
+    let a2 ← lstatAll path2
+    let dev1 := a1[7]!
+    let ino1 := a1[8]!
+    let dev2 := a2[7]!
+    let ino2 := a2[8]!
+    return (dev1 == dev2 && ino1 == ino2)
+  catch _ =>
     return false
 
 /--
-Recursively copy `src` to `dst`.
+Copy a single regular file from `src` to `dst`.
+Preserves source permission bits via stat/chmod.
+Returns `true` on success, `false` on failure.
+-/
+def copyFile (src dst : System.FilePath) : IO Bool := do
+  -- Check source existence first via lstat (gives proper errno for error message)
+  match ← try some <$> lstatAll src.toString catch _ => pure none with
+  | none =>
+    IO.eprintln s!"cp: cannot stat '{src.toString}': No such file or directory"
+    return false
+  | some _ =>
+    try
+      let content ← IO.FS.readBinFile src
+      IO.FS.writeBinFile dst content
+      let srcMode ← try statMode src.toString catch _ => pure 0
+      if srcMode != 0 then
+        try chmod dst.toString srcMode catch _ => pure ()
+      return true
+    catch e =>
+      IO.eprintln s!"cp: cannot stat '{src.toString}': {formatIoError e.toString}"
+      return false
+
+/--
+Recursively copy `src` to `dst` using lstat semantics.
+Symlinks are replicated (readlink + symlink), never followed.
 Directories are recreated and their entries copied entry-by-entry; regular
-files are copied byte-for-byte. Returns `true` on success, `false` on failure.
+files are copied byte-for-byte with permissions preserved.
+Returns `true` on success, `false` on failure.
 -/
 partial def copyRecursive (src dst : System.FilePath) : IO Bool := do
-  match ← try some <$> src.metadata catch _ => pure none with
+  match ← try some <$> lstatAll src.toString catch _ => pure none with
   | none =>
-      IO.eprintln s!"cp: cannot stat '{src.toString}'"
+      IO.eprintln s!"cp: cannot stat '{src.toString}': No such file or directory"
       return false
-  | some m =>
-    if m.type == .dir then
+  | some arr =>
+    let typ := fileType (arrGet arr 0)
+    if typ == 0xA then
+      -- Symlink: replicate the link itself
+      try
+        let target ← readlink src.toString
+        symlink target dst.toString
+        return true
+      catch e =>
+        IO.eprintln s!"cp: cannot copy '{src.toString}' to '{dst.toString}': {formatIoError e.toString}"
+        return false
+    else if typ == 0x4 then
+      -- Directory (not a symlink)
       try IO.FS.createDirAll dst catch _ => pure ()
       match ← try some <$> src.readDir catch _ => pure none with
       | none =>
@@ -58,6 +105,7 @@ partial def copyRecursive (src dst : System.FilePath) : IO Bool := do
             if !(← copyRecursive s d) then ok := false
           return ok
     else
+      -- Regular file (or other non-symlink, non-directory type)
       return ← copyFile src dst
 
 /--
@@ -73,10 +121,14 @@ def run (args : List String) : IO UInt32 := do
   let (sources, dest?) := splitSourcesDest operands
   match dest? with
   | none =>
-      return ← exitUsage "cp" "[-frRv] SOURCE... DIRECTORY"
+      IO.eprintln "cp: missing file operand"
+      IO.eprintln "Try 'cp --help' for more information."
+      return 1
   | some dest =>
     if sources.isEmpty then
-      return ← exitUsage "cp" "[-frRv] SOURCE... DIRECTORY"
+      IO.eprintln "cp: missing file operand"
+      IO.eprintln "Try 'cp --help' for more information."
+      return 1
     let destPath := System.FilePath.mk dest
     let destIsDir : Bool ←
       try destPath.isDir catch _ => pure false
@@ -91,6 +143,12 @@ def run (args : List String) : IO UInt32 := do
           destPath / (srcPath.fileName.getD src)
         else
           destPath
+      -- Check for self-to-self copy
+      if !destIsDir then
+        if ← sameFile srcPath.toString target.toString then
+          IO.eprintln s!"cp: '{src}' and '{dest}' are the same file"
+          failed := true
+          continue
       let ok ←
         if opts.recursive then
           copyRecursive srcPath target

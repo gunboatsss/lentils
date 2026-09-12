@@ -1,40 +1,25 @@
 /-
-Touch.Logic — Pure logic for the `touch` utility. 0BSD
-
-Contains only pure functions: argument parsing. No IO is performed here.
-All filesystem interaction lives in `touch.lean`.
+Touch.Logic — Verified pure logic for `touch`. 0BSD
+Spec-first methodology.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Touch.Logic
 
-/--
-Options controlling `touch` behaviour.
+open Lentils.Common.Spec
 
-| flag              | field      |
-|-------------------|------------|
-| `-c`/`--no-create`| `noCreate` |
-| `-f`/`--force`    | `force`    |
--/
 structure Options where
   noCreate : Bool := false
   force : Bool := false
-  deriving Repr
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Check whether a token looks like a flag (starts with `-`).
--/
-def isFlag (s : String) : Bool :=
-  s.startsWith "-"
+structure TouchInput where
+  args : List String
+  deriving Inhabited, BEq
 
-/--
-Parse `touch` arguments into `(options, files)`.
+def defaultInput : TouchInput := { args := [] }
 
-Flags are recognised as long as they appear before a `--` separator or a
-non-flag operand. A `--` terminates flag parsing and every following token is
-treated as a file operand unconditionally. Unknown flags terminate flag
-parsing (silent POSIX-ish behaviour); operands encountered are collected
-untouched.
--/
 def parseArgs (args : List String) : Options × List String :=
   let rec go (remaining : List String) (opts : Options) (operands : List String)
       : Options × List String :=
@@ -46,31 +31,24 @@ def parseArgs (args : List String) : Options × List String :=
     | "-f" :: rest => go rest { opts with force := true } operands
     | "--force" :: rest => go rest { opts with force := true } operands
     | s :: rest =>
-      if s.startsWith "-" then
-        -- unknown flag: stop parsing flags
-        (opts, operands.reverse)
-      else
-        go rest opts (s :: operands)
+      if s.startsWith "-" then (opts, operands.reverse)
+      else go rest opts (s :: operands)
   go args {} []
 
-def optionsOf (p : Options × List String) : Options := p.1
-def operandsOf (p : Options × List String) : List String := p.2
+def spec (input : TouchInput) : Options × List String := parseArgs input.args
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+theorem i_empty : spec defaultInput = ({}, []) := by native_decide
 
-/-- A plain operand becomes a file operand. -/
-theorem parse_plain :
-  (parseArgs ["file"]).2 = ["file"] := by native_decide
+/--
+Parsing after `--` returns the remaining args unchanged (parametric over all lists).
+-/
+theorem parseArgs_double_dash (rest : List String) :
+    (parseArgs ("--" :: rest)).2 = rest := by
+  unfold parseArgs; rfl
 
-/-- Parsing `-c` sets the `noCreate` flag. -/
-theorem parse_no_create :
-  (parseArgs ["-c", "file"]).1.noCreate = true := by native_decide
-
-/-- Parsing `--no-create` sets the `noCreate` flag. -/
-theorem parse_no_create_long :
-  (parseArgs ["--no-create", "file"]).1.noCreate = true := by native_decide
-
-/-- A `--` separator forces later tokens to be operands. -/
+example : (parseArgs ["file"]).2 = ["file"] := by native_decide
+example : (parseArgs ["-c", "file"]).1.noCreate = true := by native_decide
+example : (parseArgs ["--no-create", "file"]).1.noCreate = true := by native_decide
 example : (parseArgs ["--", "-c"]).2 = ["-c"] := by native_decide
 
 end Lentils.Touch.Logic

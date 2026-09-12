@@ -1,25 +1,14 @@
 /-
-Install.Logic — Pure logic for the `install` utility.
-0BSD
-
-Contains only pure functions: argument parsing, mode parsing.
-No IO is performed here. All filesystem interaction lives in `install.lean`.
+Install.Logic — Verified pure logic for `install`. 0BSD
+Spec-first methodology.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Install.Logic
 
-/--
-Parsed options for `install`.
-- `directory` : `-d` / `--directory` — create directories (no copy)
-- `mode` : `-m MODE` / `--mode=MODE` — permission mode (default 0755)
-- `verbose` : `-v` / `--verbose` — verbose
-- `compare` : `-C` / `--compare` — compare before copying
-- `backup` : `-b` / `--backup` — backup existing files
-- `strip` : `-s` / `--strip` — strip symbols (not implemented)
-- `owner` : `-o OWNER` / `--owner=OWNER` — set owner
-- `group` : `-g GROUP` / `--group=GROUP` — set group
-- `operands` : the operands (SOURCE... DEST or DIR...)
--/
+open Lentils.Common.Spec
+
 structure Options where
   directory : Bool := false
   mode : UInt32 := 0o755
@@ -30,11 +19,14 @@ structure Options where
   owner : Option String := none
   group : Option String := none
   operands : List String := []
-  deriving Repr
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Parse an octal mode string into a UInt32.
--/
+structure InstallInput where
+  args : List String
+  deriving Inhabited, BEq
+
+def defaultInput : InstallInput := { args := [] }
+
 def parseMode (s : String) : Option UInt32 :=
   if s.isEmpty then none else
   let rec go (chars : List Char) (acc : UInt32) : Option UInt32 :=
@@ -43,13 +35,9 @@ def parseMode (s : String) : Option UInt32 :=
     | c :: rest =>
       if '0' ≤ c && c ≤ '7' then
         go rest (acc * 8 + (c.toNat - '0'.toNat).toUInt32)
-      else
-        none
+      else none
   go (s.toList) 0
 
-/--
-Parse `install` arguments into `Options`.
--/
 def parseArgs (args : List String) : Options :=
   let rec go (remaining : List String) (opts : Options) : Options :=
     match remaining with
@@ -80,38 +68,28 @@ def parseArgs (args : List String) : Options :=
     | s :: rest =>
       if s.startsWith "-" && s.length > 1 then
         { opts with operands := opts.operands ++ s :: rest }
-      else
-        go rest { opts with operands := opts.operands ++ [s] }
+      else go rest { opts with operands := opts.operands ++ [s] }
   go args {}
 
-/--
-Split operands into (sources, dest) for copy mode.
-If `-d` is set, all operands are directories to create.
--/
 def splitOperands (opts : Options) : List String × Option String :=
-  if opts.directory then
-    (opts.operands, none)
-  else
-    match opts.operands.reverse with
+  if opts.directory then (opts.operands, none)
+  else match opts.operands.reverse with
     | [] => ([], none)
     | dest :: revSrcs => (revSrcs.reverse, some dest)
 
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+def spec (input : InstallInput) : Options := parseArgs input.args
 
-/-- Parsing `-d` sets directory mode. -/
+theorem i_empty : spec defaultInput = {} := by native_decide
+
+theorem i_parseMode_of_empty (s : String) (h : s.isEmpty = true) :
+    parseMode s = none := by
+  simp [parseMode, h]
+
 example : (parseArgs ["-d"]).directory = true := by native_decide
-
-/-- Parsing `-m 755` sets mode to 0o755. -/
 example : (parseArgs ["-m", "755"]).mode = 0o755 := by native_decide
-
-/-- Parsing `-v` sets verbose. -/
 example : (parseArgs ["-v"]).verbose = true := by native_decide
-
-/-- A plain operand becomes an operand. -/
 example : (parseArgs ["src", "dst"]).operands = ["src", "dst"] := by native_decide
-
-/-- Parse mode 644. -/
 example : parseMode "644" = some 0o644 := by native_decide
-
-/-- Parse mode 755. -/
 example : parseMode "755" = some 0o755 := by native_decide
+
+end Lentils.Install.Logic

@@ -16,7 +16,7 @@ Run the `true` utility with the given arguments.
 Always succeeds and returns exit code 0.
 Arguments are ignored (POSIX: true ignores all operands).
 -/
-def run (_args : List String) : IO UInt32 :=
-  return Logic.exitCode
+def run (args : List String) : IO UInt32 :=
+  return Logic.exitCode { args := args }
 
 end Lentils.True

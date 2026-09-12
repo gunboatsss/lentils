@@ -1,43 +1,37 @@
 /-
-Mv.Logic — Pure logic for the `mv` utility. 0BSD
-
-Contains only pure functions: argument parsing and operand splitting.
-No IO is performed here. All filesystem interaction lives in `mv.lean`.
+Mv.Logic — Verified pure logic for `mv`. 0BSD
+Spec-first methodology.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Mv.Logic
 
-/--
-Options controlling `mv` behaviour.
+open Lentils.Common.Spec
 
-| flag            | field         |
-|-----------------|---------------|
-| `-f`/`--force`  | `force`       |
-| `-i`/`--interactive` | `interactive` |
-| `-n`/`--no-clobber` | `noClobber` |
-| `-v`/`--verbose`| `verbose`     |
--/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 structure Options where
   force : Bool := false
   interactive : Bool := false
   noClobber : Bool := false
   verbose : Bool := false
-  deriving Repr, BEq
+  deriving Repr, BEq, DecidableEq, Inhabited
 
-/--
-Check whether a token looks like a flag (starts with `-`).
--/
-def isFlag (s : String) : Bool :=
-  s.startsWith "-"
+structure MvInput where
+  args : List String
+  deriving Inhabited, BEq
 
-/--
-Parse `mv` arguments into `(options, operands)`.
+def defaultInput : MvInput := { args := [] }
 
-Flags are recognised as long as they appear before a `--` separator or a
-non-flag operand. A `--` terminates flag parsing and every following token is
-treated as an operand unconditionally. Unknown flags terminate flag parsing
-(silent POSIX-ish behaviour); operands encountered are collected untouched.
--/
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+def isFlag (s : String) : Bool := s.startsWith "-"
+
 def parseArgs (args : List String) : Options × List String :=
   let rec go (remaining : List String) (opts : Options) (operands : List String)
       : Options × List String :=
@@ -53,41 +47,44 @@ def parseArgs (args : List String) : Options × List String :=
     | "-v" :: rest => go rest { opts with verbose := true } operands
     | "--verbose" :: rest => go rest { opts with verbose := true } operands
     | s :: rest =>
-      if s.startsWith "-" then
-        -- unknown flag: stop parsing flags
-        (opts, operands.reverse)
-      else
-        go rest opts (s :: operands)
+      if s.startsWith "-" then (opts, operands.reverse)
+      else go rest opts (s :: operands)
   go args {} []
 
-/--
-Split a list of operands into `(sources, destination)`.
-
-All operands except the last are sources; the final operand is the
-destination. With fewer than two operands there is no destination
-(`none`) and no sources.
--/
 def splitSourcesDest (operands : List String) : List String × Option String :=
   match operands.reverse with
   | [] => ([], none)
   | dest :: revSrcs => (revSrcs.reverse, some dest)
 
-/--
-Compute the target path for a single source when moving into `dest`.
-
-If `destIsDir` is true (multiple sources are being moved), the target is
-`dest / basename(source)`; otherwise the target is `dest` itself.
--/
 def targetPath (dest : String) (source : String) (destIsDir : Bool) : String :=
   if destIsDir then
     (System.FilePath.mk dest / source).toString
   else
     dest
 
-def optionsOf (p : Options × List String) : Options := p.1
-def operandsOf (p : Options × List String) : List String := p.2
+def spec (input : MvInput) : Options × List String × Option String :=
+  let (opts, operands) := parseArgs input.args
+  let (sources, dest) := splitSourcesDest operands
+  (opts, sources, dest)
 
-theorem targetPath_plain : targetPath "d.txt" "s.txt" false = "d.txt" := by rfl
-theorem targetPath_into_dir : targetPath "dir" "s.txt" true = "dir/s.txt" := by native_decide
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Invariants
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+theorem i_empty : spec defaultInput = ({}, [], none) := by native_decide
+
+theorem i_target_plain (dest source : String) : targetPath dest source false = dest := by
+  simp [targetPath]
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+example : targetPath "dir" "s.txt" true = "dir/s.txt" := by native_decide
+example : (parseArgs ["-v", "a", "b"]).1.verbose = true := by native_decide
+example : (parseArgs ["-i", "a", "b"]).1.interactive = true := by native_decide
+example : (parseArgs ["--", "-v"]).2 = ["-v"] := by native_decide
+example : splitSourcesDest ["a", "b"] = (["a"], some "b") := by native_decide
+example : splitSourcesDest [] = ([], none) := by native_decide
 
 end Lentils.Mv.Logic

@@ -26,7 +26,7 @@ Parses the command, then execs via FFI.
 Returns the command's exit code, or an error code on failure.
 -/
 def run (args : List String) : IO UInt32 := do
-  match parseArgs args with
+  match parseArgs { args := args } with
   | none =>
     IO.eprintln "nohup: missing operand"
     return 1

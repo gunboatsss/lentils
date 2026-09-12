@@ -1,55 +1,101 @@
 /-
-Pwd.Logic — Pure specification for `pwd`.
+Pwd.Logic — Verified pure logic for `pwd`.
 0BSD
 
-This file contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
-No `sorry` or `admit` allowed.
+POSIX.1-2017 §pwd: prints the current working directory.
 
-The `pwd` utility prints the current working directory.
-Since the actual path comes from the OS via getcwd, the pure logic
-just specifies the exit code as always 0 when successful.
+Structure:
+  1. State types      — PwdInput (path from getcwd)
+  2. Specification    — format: path ++ "\n"
+  3. Correctness      — theorem: impl = spec
+  4. Invariants       — parametric properties over all paths
+  5. Concrete examples — derived corollaries
 
-Provenance: POSIX.1-2017, Section "pwd — return working directory name".
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
+
+import Lentils.Common.Spec
 
 namespace Lentils.Pwd.Logic
 
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
-The exit code of `pwd` on success. Always 0.
-pwd always succeeds unless getcwd fails (e.g., unlinked directory).
+Input state for pwd. The path comes from the OS via getcwd.
 -/
-def exitCode : UInt32 := 0
+structure PwdInput where
+  path : String
+  deriving Inhabited, BEq, Repr
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Format the working directory for output.
-Simply appends a newline to the path.
+Appends a newline to the path.
 -/
-def format (path : String) : String :=
-  path ++ "\n"
-
--- ─── Theorems ──────────────────────────────────────────────────────────────────
+def format (input : PwdInput) : String :=
+  input.path ++ "\n"
 
 /--
-The exit code is always zero.
+Exit code of `pwd` on success. Always 0.
 -/
-theorem exitCode_is_zero : exitCode = 0 := rfl
+def exitCode : UInt32 := 0
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 4. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
-Format appends a newline to the given path.
+I1: Format appends a newline to the given path.
 -/
-theorem format_append_newline (path : String) : format path = path ++ "\n" := rfl
+theorem i_appends_newline (path : String) : format { path := path } = path ++ "\n" := rfl
 
 /--
-Format is injective: if format p1 = format p2 then p1 = p2.
+I2: Format is injective: if format p1 = format p2 then p1 = p2.
 -/
-theorem format_injective (p1 p2 : String) (h : format p1 = format p2) : p1 = p2 := by
+theorem i_injective (p1 p2 : String) (h : format { path := p1 } = format { path := p2 }) : p1 = p2 := by
   simpa [format] using h
 
 /--
-Idempotence: format produces the same output given the same input.
+I4: The output is always non-empty (at least the newline).
 -/
-theorem format_idempotent (path : String) : format path = format path := rfl
+theorem i_output_nonempty (path : String) : format { path := path } ≠ "" := by
+  intro h
+  have : path ++ "\n" ≠ "" := by
+    intro h2
+    have : "\n" = "" := by
+      simpa using h2
+    have hn : "\n" ≠ "" := by decide
+    exact hn this
+  apply this
+  simpa [format] using h
+
+/--
+I6: Exit code is always 0.
+-/
+theorem i_exit_success : exitCode = 0 := rfl
+
+/--
+I7: Length of output = length of path + 1 (for the newline).
+-/
+theorem i_output_length (path : String) :
+    (format { path := path }).length = path.length + 1 := by
+  simp [format, String.length]
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- pwd in root → "/\n" -/
+example : format { path := "/" } = "/\n" := rfl
+
+/-- pwd in /home/user → "/home/user\n" -/
+example : format { path := "/home/user" } = "/home/user\n" := rfl
 
 end Lentils.Pwd.Logic

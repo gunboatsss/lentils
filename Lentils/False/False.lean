@@ -16,7 +16,7 @@ Run the `false` utility with the given arguments.
 Always fails and returns exit code 1.
 Arguments are ignored (POSIX: false ignores all operands).
 -/
-def run (_args : List String) : IO UInt32 :=
-  return Logic.exitCode
+def run (args : List String) : IO UInt32 :=
+  return Logic.exitCode { args := args }
 
 end Lentils.False

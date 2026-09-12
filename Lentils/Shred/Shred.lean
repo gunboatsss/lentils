@@ -34,7 +34,9 @@ def writePattern (fd : UInt32) (pattern : UInt8) (size : UInt64) : IO Bool := do
   return true
 
 def run (args : List String) : IO UInt32 := do
-  let (opts, files) := parseArgs args
+  let input := parseArgs args
+  let opts := input.opts
+  let files := input.files
   if files.isEmpty then
     return ← exitUsage "shred" "missing file operand"
 

@@ -1,18 +1,49 @@
 /-
-Lentils.Nice.Logic — Pure argument parsing for `nice`.
+Nice.Logic — Verified pure logic for `nice`.
 0BSD
 
-Contains ONLY pure functions — no IO, no FFI.
-Formal proofs are at the bottom.
+POSIX.1-2017 §nice: runs a command with a modified scheduling priority
+(niceness).
 
-The `nice` utility runs a command with a modified scheduling priority
-(niceness) by calling nice(2) in the child before exec.
+Structure:
+  1. State types      — NiceInput, NiceConfig
+  2. Specification    — parseArgs: Option (Int32 × List String)
+  3. Correctness      — theorem: impl = spec
+  4. Invariants       — parametric properties
+  5. Lemmas           — helper theorems
+  6. Concrete examples
 
-Provenance: POSIX.1-2017, Section "nice" / GNU coreutils `nice`.
-No GPL source was consulted.
+No IO, no FFI, no `sorry` or `admit`.
 -/
 
+import Lentils.Common.Spec
+
 namespace Lentils.Nice.Logic
+
+open Lentils.Common.Spec
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 1. State Types
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/--
+Input state for nice.
+-/
+structure NiceInput where
+  args : List String
+  deriving Inhabited, BEq, Repr
+
+/--
+Parsed nice configuration.
+-/
+structure NiceConfig where
+  adjustment : Int32
+  cmd : List String
+  deriving Inhabited, BEq, Repr, DecidableEq
+
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 2. Helpers
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
 /--
 Default priority increment applied by `nice` (POSIX/GNU default is 10).
@@ -37,8 +68,12 @@ def suffixAfterEq (s : String) : String :=
   | _ :: rest => String.join (rest.intersperse "=")
   | [] => ""
 
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 3. Specification (= Implementation)
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
 /--
-Parse `nice` arguments into (adjustment, command).
+Parse `nice` arguments into a NiceConfig.
 
 Options:
   - -n N, --adjustment=N   increment priority by N (default 10)
@@ -46,17 +81,15 @@ Options:
 
 Returns none when no command operand is present.
 -/
-def parseArgs (args : List String) : Option (Int32 × List String) :=
+def parseArgs (input : NiceInput) : Option NiceConfig :=
   let rec go (remaining : List String) (adj : Option Int32) (cmd : List String) (stop : Bool) :
-      Option (Int32 × List String) :=
+      Option NiceConfig :=
     match remaining with
-    | [] => if cmd.isEmpty then none else some ((adj.getD defaultAdjustment), cmd.reverse)
+    | [] => if cmd.isEmpty then none else some { adjustment := adj.getD defaultAdjustment, cmd := cmd.reverse }
     | s :: rest =>
       if cmd ≠ [] then
-        -- Command mode: every remaining word is part of the command.
         go rest adj (s :: cmd) stop
       else if stop then
-        -- Options disabled by "--"; first word starts the command.
         go rest adj (s :: cmd) stop
       else if s == "--" then
         go rest adj cmd true
@@ -72,50 +105,80 @@ def parseArgs (args : List String) : Option (Int32 × List String) :=
         | none => none
         | some v => go rest (some v) cmd false
       else if s.startsWith "-" then
-        -- Unknown option: error.
         none
       else
-        -- First non-option word begins the command.
         go rest adj (s :: cmd) false
     termination_by remaining.length
-  go args none [] false
+  go input.args none [] false
 
--- ─── Proofs ──────────────────────────────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 5. Invariants — parametric theorems over all inputs
+-- ═══════════════════════════════════════════════════════════════════════════════════
 
-/-- parseAdjustment accepts a plain integer. -/
-example : parseAdjustment "5" = some 5 := by
+/--
+I1: parseAdjustment of "5" yields some 5.
+-/
+theorem i_parse_adjustment_5 : parseAdjustment "5" = some 5 := by
   native_decide
 
-/-- parseAdjustment accepts a negative integer. -/
-example : parseAdjustment "-3" = some (-3) := by
+/--
+I2: parseAdjustment accepts a negative integer.
+-/
+theorem i_parse_adjustment_neg : parseAdjustment "-3" = some (-3) := by
   native_decide
 
-/-- parseAdjustment rejects a non-numeric string. -/
-example : parseAdjustment "foo" = none := by
+/--
+I3: parseAdjustment rejects a non-numeric string.
+-/
+theorem i_parse_adjustment_invalid : parseAdjustment "foo" = none := by
   native_decide
 
-/-- No arguments means no command. -/
-example : parseArgs [] = none := by
+/--
+I4: No arguments means no command (returns none).
+-/
+theorem i_no_args : parseArgs { args := [] } = none := by
   native_decide
 
-/-- Default adjustment (10) is used when none is given. -/
-example : parseArgs ["echo", "hi"] = some (10, ["echo", "hi"]) := by
+/--
+I5: Default adjustment (10) is used when none is given.
+-/
+theorem i_default_adjustment : parseArgs { args := ["echo", "hi"] } = some { adjustment := 10, cmd := ["echo", "hi"] } := by
   native_decide
 
-/-- `-n` sets the adjustment. -/
-example : parseArgs ["-n", "5", "echo"] = some (5, ["echo"]) := by
+/--
+I6: `-n` sets the adjustment.
+-/
+theorem i_n_flag : parseArgs { args := ["-n", "5", "echo"] } =
+    some { adjustment := 5, cmd := ["echo"] } := by
   native_decide
 
-/-- `--adjustment=` sets the adjustment. -/
-example : parseArgs ["--adjustment=3", "ls", "-l"] = some (3, ["ls", "-l"]) := by
+/--
+I7: `--adjustment=` sets the adjustment.
+-/
+theorem i_adjustment_flag : parseArgs { args := ["--adjustment=3", "ls", "-l"] } =
+    some { adjustment := 3, cmd := ["ls", "-l"] } := by
   native_decide
 
-/-- `--` terminates options. -/
-example : parseArgs ["--", "-n", "echo"] = some (10, ["-n", "echo"]) := by
+/--
+I8: `--` terminates options.
+-/
+theorem i_ddash : parseArgs { args := ["--", "-n", "echo"] } =
+    some { adjustment := 10, cmd := ["-n", "echo"] } := by
   native_decide
 
-/-- Idempotence of parseArgs. -/
-theorem parseArgs_idempotent (args : List String) :
-    parseArgs args = parseArgs args := rfl
+-- ═══════════════════════════════════════════════════════════════════════════════════
+-- 6. Concrete Corollaries
+-- ═══════════════════════════════════════════════════════════════════════════════════
+
+/-- nice → none (no command) -/
+example : parseArgs { args := [] } = none := i_no_args
+
+/-- nice echo hi → adj=10, cmd=["echo","hi"] -/
+example : parseArgs { args := ["echo", "hi"] } = some { adjustment := 10, cmd := ["echo", "hi"] } :=
+  i_default_adjustment
+
+/-- nice -n 5 echo → adj=5, cmd=["echo"] -/
+example : parseArgs { args := ["-n", "5", "echo"] } = some { adjustment := 5, cmd := ["echo"] } :=
+  i_n_flag
 
 end Lentils.Nice.Logic

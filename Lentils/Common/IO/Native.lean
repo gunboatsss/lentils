@@ -156,6 +156,10 @@ opaque rmdir (path : String) : IO Unit
 @[extern "lean_coreutils_symlink"]
 opaque symlink (target : String) (linkpath : String) : IO Unit
 
+/-- readlink(2): read symlink target. Throws on error. -/
+@[extern "lean_coreutils_readlink"]
+opaque readlink (path : String) : IO String
+
 /-- link(2): create a hard link `newpath` -> `oldpath`. Throws on failure. -/
 @[extern "lean_coreutils_link"]
 opaque link (oldpath : String) (newpath : String) : IO Unit
@@ -200,6 +204,10 @@ opaque lstatAll (path : String) : IO (Array UInt64)
 /-- getmntent(3): return list of mounted filesystem paths as an Array of strings. -/
 @[extern "lean_coreutils_getmounts"]
 opaque getMounts : IO (Array String)
+
+/-- mkdir(2): create a directory with given path and mode. Throws on failure. -/
+@[extern "lean_coreutils_mkdir"]
+opaque mkdir' (path : String) (mode : UInt32) : IO Unit
 
 /-- mkfifo(3): create a FIFO (named pipe) with given path and mode.
     Throws on failure. -/

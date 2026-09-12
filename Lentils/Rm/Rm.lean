@@ -8,30 +8,42 @@ directories are removed recursively, descending with `unlink`/`rmdir`.
 -/
 
 import Lentils.Rm.Logic
+import Lentils.Common.Array
 import Lentils.Common.Errors
 import Lentils.Common.IO.Native
 
 namespace Lentils.Rm
 
 open Logic
+open Lentils.Common.Array
 open Lentils.Common.Errors
 open Lentils.Common.IO.Native
 
+/-- Determine file type nibble from lstat mode bits. -/
+def fileType (mode : UInt64) : UInt64 :=
+  (mode >>> 12) &&& 0xF
+
 /--
-Recursively remove a path using C FFI `unlink`/`rmdir`.
+Recursively remove a path using C FFI `unlink`/`rmdir` with lstat semantics.
 
 Directories are enumerated and their entries removed first, then the
-(directory) itself is removed with `rmdir`. Regular files are removed with
-`unlink`. Returns `true` on success, `false` on failure.
+(directory) itself is removed with `rmdir`. Symlinks are removed with
+`unlink` (never descended into). Regular files are removed with `unlink`.
+Returns `true` on success, `false` on failure.
 -/
 partial def removeRecursive (path : System.FilePath) : IO Bool := do
-  let isDir : Bool ← try path.isDir catch _ => pure false
-  if isDir then
-    match ← try some <$> path.readDir catch _ => pure none with
-    | none =>
+  match ← try some <$> lstatAll path.toString catch _ => pure none with
+  | none =>
+    IO.eprintln s!"rm: cannot remove '{path.toString}': No such file or directory"
+    return false
+  | some arr =>
+    let typ := fileType (arrGet arr 0)
+    if typ == 0x4 then
+      match ← try some <$> path.readDir catch _ => pure none with
+      | none =>
         IO.eprintln s!"rm: cannot remove '{path.toString}': Permission denied"
         return false
-    | some entries =>
+      | some entries =>
         let mut ok := true
         for e in entries do
           if e.fileName == "." || e.fileName == ".." then
@@ -44,12 +56,12 @@ partial def removeRecursive (path : System.FilePath) : IO Bool := do
             IO.eprintln s!"rm: cannot remove '{path.toString}': {e.toString}"
             return false
         return ok
-  else
-    try unlink path.toString
-    catch e =>
-      IO.eprintln s!"rm: cannot remove '{path.toString}': {e.toString}"
-      return false
-    return true
+    else
+      try unlink path.toString
+      catch e =>
+        IO.eprintln s!"rm: cannot remove '{path.toString}': {e.toString}"
+        return false
+      return true
 
 /--
 Run the `rm` utility.
@@ -62,29 +74,34 @@ exit code 0 on success, or a non-zero code if any removal fails.
 def run (args : List String) : IO UInt32 := do
   let (opts, files) := parseArgs args
   if files.isEmpty then
-    return ← exitUsage "rm" "[-dfirv] FILE..."
+    if opts.force then
+      return 0
+    else
+      IO.eprintln "rm: missing file operand"
+      IO.eprintln "Try 'rm --help' for more information."
+      return 1
   let mut failed := false
   for f in files do
     let path := System.FilePath.mk f
-    let ex : Bool ← try path.pathExists catch _ => pure false
-    if !ex then
+    let arr? ← try some <$> lstatAll path.toString catch _ => pure none
+    match arr? with
+    | none =>
       if opts.force then
         continue
       else
         IO.eprintln s!"rm: cannot remove '{f}': No such file or directory"
         failed := true
         continue
-    -- `ok` tracks this file's own removal result so verbose output is emitted
-    -- for every successfully removed file, independent of earlier failures.
-    let mut ok := false
-    if opts.recursive then
-      if ← removeRecursive path then
-        ok := true
-      else
-        failed := true
-    else
-      let isd : Bool ← try path.isDir catch _ => pure false
-      if isd then
+    | some arr =>
+      let typ := fileType (arrGet arr 0)
+      let isDir := typ == 0x4
+      let mut ok := false
+      if opts.recursive then
+        if ← removeRecursive path then
+          ok := true
+        else
+          failed := true
+      else if isDir then
         if opts.dir then
           try
             rmdir path.toString
@@ -102,8 +119,8 @@ def run (args : List String) : IO UInt32 := do
         catch e =>
           IO.eprintln s!"rm: cannot remove '{f}': {e.toString}"
           failed := true
-    if opts.verbose && ok then
-      IO.println s!"removed '{f}'"
+      if opts.verbose && ok then
+        IO.println s!"removed '{f}'"
   if failed then
     return 1
   else
