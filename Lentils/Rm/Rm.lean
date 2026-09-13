@@ -24,6 +24,17 @@ def fileType (mode : UInt64) : UInt64 :=
   (mode >>> 12) &&& 0xF
 
 /--
+Prompt before removing `f` (`rm -i` semantics).
+Returns `true` if the removal should proceed.
+-/
+def promptRemove (f : String) : IO Bool := do
+  IO.eprint s!"rm: remove '{f}'? "
+  let stdin ← IO.getStdin
+  let line ← try stdin.getLine catch _ => pure ""
+  let ans := line.trimAscii.toString.toLower
+  pure (ans == "y" || ans == "yes")
+
+/--
 Recursively remove a path using C FFI `unlink`/`rmdir` with lstat semantics.
 
 Directories are enumerated and their entries removed first, then the
@@ -82,6 +93,11 @@ def run (args : List String) : IO UInt32 := do
       return 1
   let mut failed := false
   for f in files do
+    -- NB: do NOT write `if opts.interactive && !(← promptRemove f)`:
+    -- the bind lifts out of `&&` and the prompt would run unconditionally.
+    if opts.interactive then
+      if !(← promptRemove f) then
+        continue
     let path := System.FilePath.mk f
     let arr? ← try some <$> lstatAll path.toString catch _ => pure none
     match arr? with

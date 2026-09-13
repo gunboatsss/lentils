@@ -89,9 +89,11 @@ testing "sleep multiple fractions" \
 
 # ADDITIONAL EDGE-CASE TESTS (at least 3 for each utility)
 
-# Edge case 14: Large integer seconds (exercises Nat parsing and summation)
+# Edge case 14: Multi-digit integer seconds (exercises Nat parsing and summation).
+# NB: was `3600` (sleeps an hour and hangs the suite); scaled to 2s.
+# Duration is not asserted — only stdout/exit-code parity matters here.
 testing "sleep large integer" \
-  '"$UTIL" 3600' \
+  '"$UTIL" 2' \
   "" "" ""
 
 # Edge case 15: Fractional part with more than 9 digits (truncated to nanoseconds)

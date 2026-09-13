@@ -44,13 +44,24 @@ static inline lean_object *io_err(void) {
 // write(2): fd + ByteArray → USize bytes written (or IO.Error).
 // Kept because Lean's native IO.FS.Stream.write silently swallows
 // write errors like ENOSPC (/dev/full) and EPIPE.
+// Loops on short writes and retries on EINTR so callers never lose data
+// silently under pipe pressure or signal interruption.
 LEAN_EXPORT lean_object *lean_coreutils_write(uint32_t fd,
                                               b_lean_obj_arg ba,
                                               lean_object *w) {
     size_t n = lean_sarray_size(ba);
-    ssize_t r = write((int)fd, lean_sarray_cptr(ba), n);
-    if (r < 0) return io_err();
-    return lean_io_result_mk_ok(lean_box((uint32_t)r));
+    const char *p = (const char *)lean_sarray_cptr(ba);
+    size_t off = 0;
+    while (off < n) {
+        ssize_t r = write((int)fd, p + off, n - off);
+        if (r < 0) {
+            if (errno == EINTR) continue;
+            return io_err();
+        }
+        if (r == 0) break;  // avoid infinite loop on non-progressing fd
+        off += (size_t)r;
+    }
+    return lean_io_result_mk_ok(lean_box((uint32_t)off));
 }
 
 // ─── Signal handling ───────────────────────────────────────────────────────────
@@ -130,8 +141,14 @@ LEAN_EXPORT lean_object *lean_coreutils_users(lean_object *w) {
     struct utmpx *ut;
     while ((ut = getutxent()) != NULL) {
         if (ut->ut_type == USER_PROCESS && ut->ut_user[0] != '\0') {
+            // utmpx name fields are NOT guaranteed NUL-terminated:
+            // bound the copy with strnlen like `who` does.
+            size_t user_len = strnlen(ut->ut_user, sizeof(ut->ut_user));
+            char ubuf[sizeof(ut->ut_user) + 1];
+            memcpy(ubuf, ut->ut_user, user_len);
+            ubuf[user_len] = '\0';
             // Add every login session (GNU users lists all sessions, not deduplicated)
-            lean_object *s = lean_mk_string(ut->ut_user);
+            lean_object *s = lean_mk_string(ubuf);
             lean_object *cons = lean_alloc_ctor(1, 2, 0);
             lean_ctor_set(cons, 0, s);
             lean_ctor_set(cons, 1, lst);
@@ -272,7 +289,8 @@ LEAN_EXPORT lean_object *lean_coreutils_stat_mode(b_lean_obj_arg path,
         return lean_io_result_mk_error(
             lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
     }
-    return lean_io_result_mk_ok(lean_box((uint32_t)(st.st_mode & 0xFFFF)));
+    // Mask to 07777 (perm + setuid/setgid/sticky); file-type bits excluded.
+    return lean_io_result_mk_ok(lean_box((uint32_t)(st.st_mode & 0xFFF)));
 }
 
 // ─── env: run a command with modified environment ───────────────────────────
@@ -289,16 +307,20 @@ static char *find_in_path(const char *name) {
     if (!path || *path == '\0') return NULL;
     // Duplicate PATH so we can modify it
     char *path_copy = strdup(path);
+    if (!path_copy) return NULL;
     char *result = NULL;
     char *p = path_copy;
-    while (*p) {
+    while (1) {
         // Find the end of this directory entry
         char *end = strchr(p, ':');
         if (end) *end = '\0';
+        // An empty PATH element means the current directory (POSIX).
+        const char *dir = (*p == '\0') ? "." : p;
         // Build full path
-        size_t len = strlen(p) + 1 + strlen(name) + 1;
+        size_t len = strlen(dir) + 1 + strlen(name) + 1;
         char *full = malloc(len);
-        snprintf(full, len, "%s/%s", p, name);
+        if (!full) break;
+        snprintf(full, len, "%s/%s", dir, name);
         if (access(full, X_OK) == 0) {
             result = full;
             break;
@@ -328,9 +350,19 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
     }
     // Build argv array
     char **argv = malloc((argc + 1) * sizeof(char *));
+    if (!argv) {
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(ENOMEM, lean_mk_string("out of memory")));
+    }
     for (size_t i = 0; i < argc; i++) {
         lean_object *s = lean_array_get_core(cmd_argv, i);
         argv[i] = strdup(lean_string_cstr(s));
+        if (!argv[i]) {
+            for (size_t k = 0; k < i; k++) free(argv[k]);
+            free(argv);
+            return lean_io_result_mk_error(
+                lean_mk_io_error_other_error(ENOMEM, lean_mk_string("out of memory")));
+        }
     }
     argv[argc] = NULL;
 
@@ -347,20 +379,59 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
         return lean_io_result_mk_ok(lean_box(127));
     }
     size_t extra_count = lean_array_size(env_vars);
-    // Build new environment array
+    // Helper: length of the KEY part of a "KEY=val" string (or whole string).
+    // Build new environment array, suppressing inherited entries whose key
+    // is overridden by a supplied pair (GNU replaces; execve/getenv would
+    // otherwise keep returning the OLD value for duplicate keys).
     size_t new_count = environ_count + extra_count;
     char **new_environ = malloc((new_count + 1) * sizeof(char *));
+    if (!new_environ) {
+        for (size_t k = 0; k < argc; k++) free(argv[k]);
+        free(argv);
+        return lean_io_result_mk_error(
+            lean_mk_io_error_other_error(ENOMEM, lean_mk_string("out of memory")));
+    }
     size_t j = 0;
     if (!clear_env) {
         for (size_t ei = 0; ei < environ_count; ei++) {
-            new_environ[j++] = strdup(environ[ei]);
+            const char *entry = environ[ei];
+            const char *eq_e = strchr(entry, '=');
+            size_t elen = eq_e ? (size_t)(eq_e - entry) : strlen(entry);
+            int overridden = 0;
+            for (size_t i = 0; i < extra_count && !overridden; i++) {
+                lean_object *s = lean_array_get_core(env_vars, i);
+                const char *kv = lean_string_cstr(s);
+                const char *eq_k = strchr(kv, '=');
+                size_t klen = eq_k ? (size_t)(eq_k - kv) : strlen(kv);
+                if (klen == elen && strncmp(entry, kv, klen) == 0) overridden = 1;
+            }
+            if (overridden) continue;
+            new_environ[j] = strdup(entry);
+            if (!new_environ[j]) {
+                for (size_t k = 0; k < argc; k++) free(argv[k]);
+                free(argv);
+                for (size_t k = 0; k < j; k++) free(new_environ[k]);
+                free(new_environ);
+                return lean_io_result_mk_error(
+                    lean_mk_io_error_other_error(ENOMEM, lean_mk_string("out of memory")));
+            }
+            j++;
         }
     }
     for (size_t i = 0; i < extra_count; i++) {
         lean_object *s = lean_array_get_core(env_vars, i);
-        new_environ[j++] = strdup(lean_string_cstr(s));
+        new_environ[j] = strdup(lean_string_cstr(s));
+        if (!new_environ[j]) {
+            for (size_t k = 0; k < argc; k++) free(argv[k]);
+            free(argv);
+            for (size_t k = 0; k < j; k++) free(new_environ[k]);
+            free(new_environ);
+            return lean_io_result_mk_error(
+                lean_mk_io_error_other_error(ENOMEM, lean_mk_string("out of memory")));
+        }
+        j++;
     }
-    new_environ[new_count] = NULL;
+    new_environ[j] = NULL;
 
     // Find the executable
     char *exe = find_in_path(argv[0]);
@@ -369,7 +440,7 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
         write(STDERR_FILENO, ": command not found\n", 20);
         for (size_t k = 0; k < argc; k++) free(argv[k]);
         free(argv);
-        for (size_t k = 0; k < new_count; k++) free(new_environ[k]);
+        for (size_t k = 0; k < j; k++) free(new_environ[k]);
         free(new_environ);
         return lean_io_result_mk_ok(lean_box(127));
     }
@@ -380,7 +451,7 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
         free(exe);
         for (size_t k = 0; k < argc; k++) free(argv[k]);
         free(argv);
-        for (size_t k = 0; k < new_count; k++) free(new_environ[k]);
+        for (size_t k = 0; k < j; k++) free(new_environ[k]);
         free(new_environ);
         return lean_io_result_mk_error(
             lean_mk_io_error_other_error(errno, lean_mk_string("fork failed")));
@@ -393,7 +464,7 @@ LEAN_EXPORT lean_object *lean_coreutils_run_env(b_lean_obj_arg env_vars,
     free(exe);
     for (size_t k = 0; k < argc; k++) free(argv[k]);
     free(argv);
-    for (size_t k = 0; k < new_count; k++) free(new_environ[k]);
+    for (size_t k = 0; k < j; k++) free(new_environ[k]);
     free(new_environ);
     int status;
     if (waitpid(pid, &status, 0) == -1) {
@@ -417,6 +488,11 @@ static char **build_argv(b_lean_obj_arg cmd_argv, size_t *argc_out) {
     for (size_t i = 0; i < argc; i++) {
         lean_object *s = lean_array_get_core(cmd_argv, i);
         argv[i] = strdup(lean_string_cstr(s));
+        if (!argv[i]) {
+            for (size_t k = 0; k < i; k++) free(argv[k]);
+            free(argv);
+            return NULL;
+        }
     }
     argv[argc] = NULL;
     *argc_out = argc;
@@ -467,7 +543,11 @@ LEAN_EXPORT lean_object *lean_coreutils_run_nice(int32_t adjustment,
             lean_mk_io_error_other_error(errno, lean_mk_string("fork failed")));
     }
     if (pid == 0) {
-        nice((int)adjustment);
+        errno = 0;
+        if (nice((int)adjustment) == -1 && errno != 0) {
+            const char *msg = "nice: cannot set niceness\n";
+            write(STDERR_FILENO, msg, strlen(msg));
+        }
         execve(exe, argv, environ);
         int exit_code = (errno == ENOENT) ? 127 : 126;
         _exit(exit_code);
@@ -609,11 +689,14 @@ LEAN_EXPORT lean_object *lean_coreutils_run_timeout(uint32_t seconds,
         sleep(1);
         elapsed++;
     }
-    if (r == pid) {
-        exit_code = (int)child_exit_code(status);
-    } else if (timed_out) {
+    if (timed_out) {
+        // A timeout occurred: GNU reports 124 even when the child dies
+        // from the first signal (the -k grace period only controls
+        // whether SIGKILL follows, not the exit status).
         exit_code = 124;
-        if (kill_after > 0) waitpid(pid, &status, 0);  // reap if SIGKILL path
+        if (r != pid) waitpid(pid, &status, 0);  // reap unless already reaped
+    } else if (r == pid) {
+        exit_code = (int)child_exit_code(status);
     }
     return lean_io_result_mk_ok(lean_box((uint32_t)exit_code));
 }
@@ -640,16 +723,15 @@ LEAN_EXPORT lean_object *lean_coreutils_list_env(lean_object *w) {
 // ─── gettimeofday(2) for `date` utility ─────────────────────────────────────
 
 // Return the current Unix time as (seconds, microseconds).
-// Returns a Lean pair (sec : UInt64, usec : UInt64) via a boxed UInt64
-// where the top 32 bits are microseconds and the bottom 32 bits are seconds.
+// Packed as (sec << 20) | usec: tv_usec < 2^20, leaving 44 bits for
+// seconds (good until year ~500000; the old 32-bit packing broke in 2106).
 LEAN_EXPORT lean_object *lean_coreutils_gettimeofday(lean_object *w) {
     struct timeval tv;
     if (gettimeofday(&tv, NULL) != 0) {
         return lean_io_result_mk_error(
             lean_mk_io_error_other_error(errno, lean_mk_string(strerror(errno))));
     }
-    // Return as UInt64: (usec << 32) | (sec & 0xFFFFFFFF)
-    uint64_t packed = ((uint64_t)(uint32_t)tv.tv_usec << 32) | (uint64_t)(uint32_t)tv.tv_sec;
+    uint64_t packed = ((uint64_t)tv.tv_sec << 20) | (uint64_t)(tv.tv_usec & 0xFFFFF);
     return lean_io_result_mk_ok(lean_box_uint64(packed));
 }
 
@@ -891,10 +973,11 @@ LEAN_EXPORT lean_object *lean_coreutils_chown(b_lean_obj_arg path,
     if (o && o[0]) {
         struct passwd *pw = getpwnam(o);
         if (pw == NULL) {
-            // Try numeric
+            // Try numeric; reject values that would collide with the
+            // (uid_t)-1 no-change sentinel used by chown(2).
             char *endptr;
             long n = strtol(o, &endptr, 10);
-            if (*endptr == '\0') {
+            if (*endptr == '\0' && n >= 0 && (uid_t)n != (uid_t)-1) {
                 uid = (uid_t)n;
             } else {
                 return lean_io_result_mk_error(
@@ -909,7 +992,7 @@ LEAN_EXPORT lean_object *lean_coreutils_chown(b_lean_obj_arg path,
         if (gr == NULL) {
             char *endptr;
             long n = strtol(g, &endptr, 10);
-            if (*endptr == '\0') {
+            if (*endptr == '\0' && n >= 0 && (gid_t)n != (gid_t)-1) {
                 gid = (gid_t)n;
             } else {
                 return lean_io_result_mk_error(

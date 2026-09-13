@@ -78,16 +78,29 @@ def buildLookup (paths : List String) : IO (String → StatContext) := do
     | some (_, c) => c
     | none => defaultCtx
 
--- Strip trailing "]" when invoked via the `[` form.
+-- Evaluate a parsed expression against the filesystem.
+def evalExpr (e : Expr) : IO UInt32 := do
+  let paths := collectPaths e
+  let lookup ← buildLookup paths
+  return boolToExit (eval lookup e)
+
+-- `test` form: arguments are used as-is (a trailing `]` is NOT special).
 def run (args : List String) : IO UInt32 := do
-  let cleaned := match args.reverse with
-    | "]" :: rest => rest.reverse
-    | _ => args
-  match parseArgs cleaned with
-  | some e => do
-    let paths := collectPaths e
-    let lookup ← buildLookup paths
-    return boolToExit (eval lookup e)
+  match parseArgs args with
+  | some e => evalExpr e
   | none => return exitFalse
+
+-- `[` form: a closing `]` is required (GNU exits 2 without it).
+def runBracket (args : List String) : IO UInt32 := do
+  match args.reverse with
+  | "]" :: rest => do
+    match parseArgs rest.reverse with
+    | some e => evalExpr e
+    | none => return exitFalse
+  | _ =>
+    -- GNU quotes the bracket locale-dependently (‘]’ in UTF-8, ']' in C);
+    -- match the UTF-8 form used by GNU on modern systems.
+    IO.eprintln "[: missing ‘]’"
+    return 2
 
 end Lentils.Test

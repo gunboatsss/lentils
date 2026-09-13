@@ -15,6 +15,7 @@ open Lentils.Common.Spec
 
 structure Options where
   force : Bool := false
+  interactive : Bool := false
   recursive : Bool := false
   verbose : Bool := false
   deriving Repr, BEq, DecidableEq, Inhabited
@@ -37,17 +38,33 @@ def parseArgs (args : List String) : Options × List String :=
     match remaining with
     | [] => (opts, operands.reverse)
     | "--" :: rest => (opts, operands.reverse ++ rest)
-    | "-f" :: rest => go rest { opts with force := true } operands
-    | "--force" :: rest => go rest { opts with force := true } operands
-    | "-i" :: rest => go rest { opts with force := true } operands
-    | "--interactive" :: rest => go rest { opts with force := true } operands
+    -- GNU last-wins: -f clears -i and vice versa.
+    | "-f" :: rest => go rest { opts with force := true, interactive := false } operands
+    | "--force" :: rest => go rest { opts with force := true, interactive := false } operands
+    | "-i" :: rest => go rest { opts with force := false, interactive := true } operands
+    | "--interactive" :: rest => go rest { opts with force := false, interactive := true } operands
     | "-r" :: rest => go rest { opts with recursive := true } operands
     | "-R" :: rest => go rest { opts with recursive := true } operands
     | "--recursive" :: rest => go rest { opts with recursive := true } operands
     | "-v" :: rest => go rest { opts with verbose := true } operands
     | "--verbose" :: rest => go rest { opts with verbose := true } operands
     | s :: rest =>
-      if s.startsWith "-" then (opts, operands.reverse)
+      if s == "-" then go rest opts (s :: operands)
+      else if s.startsWith "-" then
+        -- Combined single-char flags (e.g. -rv, -fi with GNU last-wins).
+        let chars := s.toList.drop 1
+        let rec applyChars (cs : List Char) (o : Options) : Option Options :=
+          match cs with
+          | [] => some o
+          | 'r' :: more => applyChars more { o with recursive := true }
+          | 'R' :: more => applyChars more { o with recursive := true }
+          | 'v' :: more => applyChars more { o with verbose := true }
+          | 'f' :: more => applyChars more { o with force := true, interactive := false }
+          | 'i' :: more => applyChars more { o with force := false, interactive := true }
+          | _ :: _ => none
+        match applyChars chars opts with
+        | some o' => go rest o' operands
+        | none => (opts, operands.reverse)
       else go rest opts (s :: operands)
   go args {} []
 

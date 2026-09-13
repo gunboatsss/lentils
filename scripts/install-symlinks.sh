@@ -27,12 +27,24 @@ COREUTILS="$(cd "$BIN_DIR" && pwd)/lentils"
 
 mkdir -p "$INSTALL_DIR"
 
-for app in cat echo true false pwd yes sleep basename dirname head tail wc uniq tee printf cut tr sort test grep; do
+# Cover every configured applet (derived from lentils.Kconfig), not a
+# hardcoded subset.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APPS="$(awk '/^config/{print $2}' "$SCRIPT_DIR/../lentils.Kconfig" | tr '[:upper:]' '[:lower:]')"
+
+for app in $APPS; do
     cat > "$INSTALL_DIR/$app" <<EOF
 #!/bin/sh
 exec "$COREUTILS" "$app" "\$@"
 EOF
     chmod +x "$INSTALL_DIR/$app"
 done
+
+# The `[` applet shares the `test` config entry, so it is not in Kconfig.
+cat > "$INSTALL_DIR/[" <<EOF
+#!/bin/sh
+exec "$COREUTILS" "[" "\$@"
+EOF
+chmod +x "$INSTALL_DIR/["
 
 echo "Installed lentils applet wrappers to $INSTALL_DIR"

@@ -35,3 +35,18 @@ EOF
 } > "$SCRIPT"
 
 lake env lean "$SCRIPT" 2>&1 || exit 1
+
+# Freshness: the committed Generated.lean must match .config, so that
+# editing .config then running `lake build` can never silently use a
+# stale committed config. Regenerate to a temp file and compare.
+if [ -f .config ] && [ -f Lentils/Config/Generated.lean ]; then
+  FRESH_TMP=$(mktemp /tmp/kconfig-fresh-XXXX.lean)
+  trap 'rm -f "$SCRIPT" "$FRESH_TMP"' EXIT
+  scripts/gen-config.sh .config "$FRESH_TMP" >/dev/null
+  if ! cmp -s "$FRESH_TMP" Lentils/Config/Generated.lean; then
+    echo "Error: Lentils/Config/Generated.lean is stale relative to .config." >&2
+    echo "Run: scripts/gen-config.sh .config Lentils/Config/Generated.lean" >&2
+    exit 1
+  fi
+  echo "Generated config is fresh."
+fi

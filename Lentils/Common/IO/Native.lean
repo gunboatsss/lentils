@@ -67,14 +67,21 @@ def readBytes (f : File) (n : USize) : IO ByteArray :=
 
 /--
 Read all bytes from a file until EOF.
-Uses 64KB chunks.
+Uses 64KB chunks, accumulated tail-recursively into a pre-sized array
+(linear time, constant C-stack depth).
 -/
-partial def readAll (f : File) (bufSize : USize := 65536) : IO ByteArray := do
+partial def readAll (f : File) (bufSize : USize := 65536) : IO ByteArray := go [] 0
+where go (chunks : List ByteArray) (total : Nat) : IO ByteArray := do
   let chunk ← readBytes f bufSize
   if chunk.isEmpty then
-    return ByteArray.empty
-  else
-    return chunk ++ (← readAll f bufSize)
+    let mut arr := Array.mkEmpty total
+    for c in chunks.reverse do
+      let mut i := 0
+      while i < c.size do
+        arr := arr.push (c.get! i)
+        i := i + 1
+    return ByteArray.mk arr
+  else go (chunk :: chunks) (total + chunk.size)
 
 /--
 Write bytes to a file.
@@ -94,15 +101,19 @@ def flush (f : File) : IO Unit :=
 @[extern "lean_coreutils_write"]
 opaque writeFd (fd : UInt32) (buf : @& ByteArray) : IO UInt32
 
-/-- Convenience: write a ByteArray to stdout, throws on error. -/
+/-- Convenience: write a ByteArray to stdout, throws on error.
+    Checks the byte count so short writes are never silently truncated. -/
 def writeStdout (buf : ByteArray) : IO Unit := do
-  let _ ← writeFd 1 buf
-  pure ()
+  let n ← writeFd 1 buf
+  if n.toNat != buf.size then
+    throw (IO.userError s!"short write to stdout: wrote {n} of {buf.size} bytes")
 
-/-- Convenience: write a ByteArray to stderr, throws on error. -/
+/-- Convenience: write a ByteArray to stderr, throws on error.
+    Checks the byte count so short writes are never silently truncated. -/
 def writeStderr (buf : ByteArray) : IO Unit := do
-  let _ ← writeFd 2 buf
-  pure ()
+  let n ← writeFd 2 buf
+  if n.toNat != buf.size then
+    throw (IO.userError s!"short write to stderr: wrote {n} of {buf.size} bytes")
 
 /-- Convenience: write a String to stdout, throws on error. -/
 def printOut (s : String) : IO Unit :=
@@ -172,8 +183,8 @@ opaque chmod (path : String) (mode : UInt32) : IO Unit
 @[extern "lean_coreutils_stat_mode"]
 opaque statMode (path : String) : IO UInt32
 
-/-- gettimeofday(2): return current time as (seconds, microseconds) packed into UInt64.
-    The top 32 bits are microseconds, the bottom 32 bits are seconds. -/
+/-- gettimeofday(2): return current time packed into UInt64 as
+    `(seconds << 20) | microseconds`. -/
 @[extern "lean_coreutils_gettimeofday"]
 opaque gettimeofday : IO UInt64
 

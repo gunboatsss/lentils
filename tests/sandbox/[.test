@@ -1,0 +1,16 @@
+#!/bin/bash
+# [.test — Tests for the `[` (bracket test) utility
+# License: 0BSD
+# Run via: run-sandbox-tests.sh "["
+
+testing "[ true expr" \
+  '"$UTIL" 1 = 1 ]' \
+  "" "" ""
+
+testing "[ false expr" \
+  '"$UTIL" 1 = 2 ]; echo $?' \
+  "1\n" "" ""
+
+testing "[ missing bracket errors" \
+  '"$UTIL" 1 = 1 2>&1; echo $?' \
+  "[: missing ‘]’\n2\n" "" ""

@@ -82,7 +82,8 @@ def exprTokens (s : String) : List String :=
 
 /-- Parse a single expression from a token list (single-pass). -/
 -- Single-function recursive descent parser.
--- Handles prefix (!), primary (sym, compare, parens), then binop chain (&&, ||).
+-- Handles prefix (!), primary (sym, compare, parens), then `&&` (tighter),
+-- then `||` (looser), matching Kconfig/C precedence.
 -- Each recursive call consumes at least one token, ensuring termination.
 partial def parseExpr (ts : List String) : Option (Expr × List String) :=
   -- Parse prefix and primary
@@ -104,19 +105,25 @@ partial def parseExpr (ts : List String) : Option (Expr × List String) :=
       | _ => none
     | a :: rest => some (Expr.sym a, rest)
     | _ => none
-  -- Get initial expression
-  match primary ts with
+  -- `&&` binds tighter than `||`: parse conjunctions first.
+  let rec parseAnd (ts' : List String) : Option (Expr × List String) :=
+    match primary ts' with
+    | none => none
+    | some (l, rest) =>
+      match rest with
+      | "&&" :: rest' =>
+        match parseAnd rest' with
+        | some (r, rest'') => some (Expr.and l r, rest'')
+        | _ => none
+      | _ => some (l, rest)
+  -- Get initial conjunction, then handle `||` chain.
+  match parseAnd ts with
   | none => none
   | some (l, rest) =>
-    -- Handle binop chain (|| and &&)
     match rest with
     | "||" :: rest' =>
       match parseExpr rest' with
       | some (r, rest'') => some (Expr.or l r, rest'')
-      | _ => none
-    | "&&" :: rest' =>
-      match parseExpr rest' with
-      | some (r, rest'') => some (Expr.and l r, rest'')
       | _ => none
     | _ => some (l, rest)
 

@@ -22,18 +22,22 @@ def run (args : List String) : IO UInt32 := do
   let input ←
     match filenames with
     | [] => readStdin
-    | file :: _ =>
-      if file = "-" then readStdin
-      else
-        match (← try
-          let f ← openFileRead file
-          let content ← readAll f
-          pure (some content)
-        catch _ => pure none) with
-        | some content => pure content
-        | none =>
-          writeStderr ("grep: " ++ file ++ ": No such file or directory\n").toUTF8
-          return 2
+    | files =>
+      let mut acc := ByteArray.empty
+      for file in files do
+        if file = "-" then
+          acc := acc ++ (← readStdin)
+        else
+          match (← try
+            let f ← openFileRead file
+            let content ← readAll f
+            pure (some content)
+          catch _ => pure none) with
+          | some content => acc := acc ++ content
+          | none =>
+            writeStderr ("grep: " ++ file ++ ": No such file or directory\n").toUTF8
+            return 2
+      pure acc
   let (result, hasMatch) := processInput input pattern flags
   if flags.showFiles then
     if hasMatch then

@@ -35,8 +35,9 @@ def isFlag (s : String) : Bool := s.startsWith "-"
 
 def applyShort (c : Char) (opts : Options) : Option Options :=
   match c with
-  | 'f' => some { opts with force := true }
-  | 'i' => some { opts with interactive := true }
+  -- GNU last-wins: -f clears -i and vice versa.
+  | 'f' => some { opts with force := true, interactive := false }
+  | 'i' => some { opts with force := false, interactive := true }
   | 'r' => some { opts with recursive := true }
   | 'R' => some { opts with recursive := true }
   | 'd' => some { opts with dir := true }
@@ -60,10 +61,10 @@ def parseArgs (args : List String) : Options × List String :=
     match remaining with
     | [] => (opts, operands.reverse)
     | "--" :: rest => (opts, operands.reverse ++ rest)
-    | "-f" :: rest => go rest { opts with force := true } operands
-    | "--force" :: rest => go rest { opts with force := true } operands
-    | "-i" :: rest => go rest { opts with interactive := true } operands
-    | "--interactive" :: rest => go rest { opts with interactive := true } operands
+    | "-f" :: rest => go rest { opts with force := true, interactive := false } operands
+    | "--force" :: rest => go rest { opts with force := true, interactive := false } operands
+    | "-i" :: rest => go rest { opts with force := false, interactive := true } operands
+    | "--interactive" :: rest => go rest { opts with force := false, interactive := true } operands
     | "-r" :: rest => go rest { opts with recursive := true } operands
     | "-R" :: rest => go rest { opts with recursive := true } operands
     | "--recursive" :: rest => go rest { opts with recursive := true } operands
@@ -91,11 +92,11 @@ def spec (input : RmInput) : Options × List String := parseArgs input.args
 theorem i_empty : spec defaultInput = ({}, []) := by native_decide
 
 /--
-Short flag 'f' sets force, leaving other options untouched.
-Parametric over all option states.
+Short flag 'f' sets force and clears interactive (GNU last-wins),
+leaving other options untouched. Parametric over all option states.
 -/
 theorem i_applyShort_force (opts : Options) :
-    applyShort 'f' opts = some { opts with force := true } := by
+    applyShort 'f' opts = some { opts with force := true, interactive := false } := by
   simp [applyShort]
 
 /--

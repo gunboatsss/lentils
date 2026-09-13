@@ -90,13 +90,19 @@ def getErrno (s : String) : UInt32 :=
 def formatIoError (s : String) : String :=
   let line := (s.splitOn "\n").headD s
   let errno := getErrno line
-  let fromErrno := errnoToString errno
-  -- If the error code gave a meaningful message, use it; otherwise extract the raw message
-  if fromErrno.startsWith "Unknown error" then
-    -- Extract the part before "(error code:"
+  -- errno 0 means no code could be extracted: fall back to the raw
+  -- message instead of reporting the bogus "Success".
+  if errno == 0 then
     let parts := line.splitOn " (error code:"
     parts.headD line |>.trimRight
   else
-    fromErrno
+    let fromErrno := errnoToString errno
+    -- If the error code gave a meaningful message, use it; otherwise extract the raw message
+    if fromErrno.startsWith "Unknown error" then
+      -- Extract the part before "(error code:"
+      let parts := line.splitOn " (error code:"
+      parts.headD line |>.trimRight
+    else
+      fromErrno
 
 end Lentils.Common.Errors

@@ -23,7 +23,7 @@ Returns (year, month) as Nats.
 -/
 def getCurrentYearMonth : IO (Nat × Nat) := do
   let packed ← gettimeofday
-  let secs := (packed &&& 0xFFFFFFFF).toNat
+  let secs := (packed >>> 20).toNat
   -- Derived from epochToBrokenDown (but we keep this self-contained to avoid
   -- depending on the Date module)
   let totalDays := secs / 86400

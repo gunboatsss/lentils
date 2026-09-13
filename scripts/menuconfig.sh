@@ -5,7 +5,7 @@
 CONFIG="${1:-.config}"
 cd "$(dirname "$0")/.."
 
-[ -s "$CONFIG" ] || awk '/^config/{n=$2}/^\tbool"/&&n{print "CONFIG_"n"=y";n=""}' lentils.Kconfig > "$CONFIG"
+[ -s "$CONFIG" ] || awk '/^config/{n=$2}/^\tbool /&&n{print "CONFIG_"n"=y";n=""}' lentils.Kconfig > "$CONFIG"
 
 mapfile -t NAMES < <(awk '/^config/{print$2}' lentils.Kconfig)
 TOTAL=${#NAMES[@]}

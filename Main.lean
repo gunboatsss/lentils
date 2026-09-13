@@ -194,7 +194,7 @@ def applets : List Applet :=
 
       { name := "test",     run := runNoProg Lentils.Test.run,     descr := "check file types and compare values" },
     appletIf (Lentils.Config.isGenEnabled "test")
-    { name := "[",        run := runNoProg Lentils.Test.run,     descr := "check file types and compare values" },
+    { name := "[",        run := λ _ args => Lentils.Test.runBracket args,     descr := "check file types and compare values" },
     appletIf (Lentils.Config.isGenEnabled "tr")
 
       { name := "tr",       run := runNoProg Lentils.Tr.run,       descr := "translate or delete characters" },
@@ -380,16 +380,31 @@ partial def dispatch (prog : String) (args : List String) : IO UInt32 :=
             IO.println s!"  {a.name}  — {a.descr}"
           return 0
       | "--help" :: _ => dispatch "lentils" []
-      | applet :: "--help" :: _ => printHelp applet *> return 0
+      | applet :: "--help" :: _ =>
+        match findApplet applet with
+        | some _ => printHelp applet *> return 0
+        | none => do
+            IO.eprintln s!"{applet}: unknown applet"
+            return 127
       | applet :: rest => dispatch applet rest
   | "help" =>
       match args with
       | [] => dispatch "lentils" []
-      | applet :: _ => printHelp applet *> return 0
+      | applet :: _ =>
+        match findApplet applet with
+        | some _ => printHelp applet *> return 0
+        | none => do
+            IO.eprintln s!"{applet}: unknown applet"
+            return 127
   | "--help" =>
       match args with
       | [] => dispatch "lentils" []
-      | applet :: _ => printHelp applet *> return 0
+      | applet :: _ =>
+        match findApplet applet with
+        | some _ => printHelp applet *> return 0
+        | none => do
+            IO.eprintln s!"{applet}: unknown applet"
+            return 127
   | _ =>
       match findApplet prog with
       | some a =>

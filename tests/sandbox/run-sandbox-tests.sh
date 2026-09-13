@@ -39,10 +39,13 @@ if [ ! -x "$OUR_BINARY" ]; then
   exit 1
 fi
 
-# Check bwrap exists
-if ! command -v bwrap >/dev/null 2>&1; then
-  echo "ERROR: bwrap is required for sandbox testing" >&2
-  exit 1
+# bwrap is only required for destructive (sandbox-isolated) runs.
+# Plain differential runs do not need it.
+if [ "${DESTRUCTIVE:-0}" = "1" ]; then
+  if ! command -v bwrap >/dev/null 2>&1; then
+    echo "ERROR: bwrap is required for sandbox testing (DESTRUCTIVE=1)" >&2
+    exit 1
+  fi
 fi
 
 export OUR_BINARY
@@ -80,7 +83,18 @@ WRAPEOF
   chmod +x "$OUR_WRAPPER"
   # $UTIL is substituted differently for host vs ours runs
   # Use command -v to resolve the actual path (some distros put coreutils in /usr/bin)
-  export HOST_UTIL="$(command -v "$util" 2>/dev/null || echo "/bin/$util")"
+  HOST_BIN="$(command -v "$util" 2>/dev/null || echo "/bin/$util")"
+  # Wrap the host binary with `exec -a` so its argv[0] is the bare utility
+  # name (like ours): GNU prints argv[0] in error messages, so invoking the
+  # host by absolute path would produce "/usr/bin/X: ..." vs our "X: ..."
+  # structurally-guaranteed mismatches on every error-path test.
+  HOST_WRAPPER="$TESTDIR/host_$util"
+  cat > "$HOST_WRAPPER" << WRAPEOF
+#!/bin/bash
+exec -a "$util" "$HOST_BIN" "\$@"
+WRAPEOF
+  chmod +x "$HOST_WRAPPER"
+  export HOST_UTIL="$HOST_WRAPPER"
   export OUR_UTIL="$OUR_WRAPPER"
   cd "$TESTDIR"
 
@@ -100,7 +114,7 @@ if [ "$JSON_MODE" = "1" ]; then
   print_json
 else
   echo ""
-  echo "Results: $PASSED/$TOTAL passed, $FAILCOUNT failed"
+  echo "Results: $PASSED/$TOTAL passed, $FAILTOTAL failed"
 fi
 
-[ $FAILCOUNT -eq 0 ]
+[ $FAILTOTAL -eq 0 ]

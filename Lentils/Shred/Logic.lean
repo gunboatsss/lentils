@@ -27,7 +27,8 @@ structure Options where
   passes : Nat := 3
   force : Bool := false
   verbose : Bool := false
-  remove : Bool := true
+  -- GNU keeps the file unless -u/--remove is given.
+  remove : Bool := false
   exact : Bool := false
   zero : Bool := true
   deriving Repr, BEq, DecidableEq, Inhabited

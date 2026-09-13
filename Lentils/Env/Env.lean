@@ -27,10 +27,17 @@ def run (args : List String) : IO UInt32 := do
         IO.println v
       return 0
     else
-      -- Print current environment (vars are set in the child, not here)
+      -- Print current environment with supplied pairs applied
+      -- (GNU replaces duplicate keys rather than appending).
       let env ← listEnv
+      let keyOf (s : String) : String :=
+        match s.splitOn "=" with | k :: _ => k | [] => s
+      let overrideKeys := parsed.envPairs.map keyOf
       for entry in env do
-        IO.println entry
+        if !(overrideKeys.contains (keyOf entry)) then
+          IO.println entry
+      for v in parsed.envPairs do
+        IO.println v
       return 0
   else
     -- Run command with modified environment

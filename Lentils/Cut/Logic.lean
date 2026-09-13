@@ -26,6 +26,8 @@ structure Config where
   delim    : UInt8 := 0x09
   ranges   : List Range := []
   suppress : Bool := false
+  filenames : List String := []
+  invalid : Bool := false
   deriving Inhabited
 
 structure CutInput where
@@ -64,12 +66,33 @@ def parseRangeList (s : String) : List Range :=
   let parts := s.splitOn ","
   parts.filterMap parseRange
 
+/-- A parsed range is valid iff positions are ≥ 1 and start ≤ stop. -/
+def rangeValid (r : Range) : Bool :=
+  match r.start, r.stop with
+  | some s, some e => s ≥ 1 && e ≥ 1 && s ≤ e
+  | some s, none => s ≥ 1
+  | none, _ => false
+
+/--
+Parse a range list, reporting validity: every comma-separated segment
+must parse (GNU errors on e.g. `cut -f a`) and be a non-decreasing
+1-based range (GNU errors on `0`, `5-3`).
+-/
+def parseRangeListChecked (s : String) : List Range × Bool :=
+  let parts := s.splitOn ","
+  let rs := parts.filterMap parseRange
+  (rs, rs.length == parts.length && rs.all rangeValid)
+
 def parseArgs (args : List String) : Config :=
   let rec go (args : List String) (cfg : Config) : Config :=
     match args with
     | [] => cfg
-    | "-f" :: fld :: rest => go rest { cfg with mode := Mode.fields, ranges := parseRangeList fld }
-    | "-c" :: chs :: rest => go rest { cfg with mode := Mode.chars, ranges := parseRangeList chs }
+    | "-f" :: fld :: rest =>
+      let (rs, ok) := parseRangeListChecked fld
+      go rest { cfg with mode := Mode.fields, ranges := rs, invalid := cfg.invalid || !ok }
+    | "-c" :: chs :: rest =>
+      let (rs, ok) := parseRangeListChecked chs
+      go rest { cfg with mode := Mode.chars, ranges := rs, invalid := cfg.invalid || !ok }
     | "-d" :: d :: rest => match d.toList with | [] => go rest cfg | c :: _ => go rest { cfg with delim := c.toUInt8 }
     | arg :: rest =>
       if arg.startsWith "-" && arg.length > 1 && !arg.startsWith "--" then
@@ -80,12 +103,24 @@ def parseArgs (args : List String) : Config :=
           | 's' :: more => handleChars more { cfg' with suppress := true } rem
           | 'f' :: more =>
             let fldStr := String.join (more.map (λ c => String.singleton c))
-            if fldStr.isEmpty then match rem with | fld :: rem' => go rem' { cfg' with mode := Mode.fields, ranges := parseRangeList fld } | [] => cfg'
-            else go rem { cfg' with mode := Mode.fields, ranges := parseRangeList fldStr }
+            if fldStr.isEmpty then match rem with
+              | fld :: rem' =>
+                let (rs, ok) := parseRangeListChecked fld
+                go rem' { cfg' with mode := Mode.fields, ranges := rs, invalid := cfg'.invalid || !ok }
+              | [] => cfg'
+            else
+              let (rs, ok) := parseRangeListChecked fldStr
+              go rem { cfg' with mode := Mode.fields, ranges := rs, invalid := cfg'.invalid || !ok }
           | 'c' :: more =>
             let chsStr := String.join (more.map (λ c => String.singleton c))
-            if chsStr.isEmpty then match rem with | chs :: rem' => go rem' { cfg' with mode := Mode.chars, ranges := parseRangeList chs } | [] => cfg'
-            else go rem { cfg' with mode := Mode.chars, ranges := parseRangeList chsStr }
+            if chsStr.isEmpty then match rem with
+              | chs :: rem' =>
+                let (rs, ok) := parseRangeListChecked chs
+                go rem' { cfg' with mode := Mode.chars, ranges := rs, invalid := cfg'.invalid || !ok }
+              | [] => cfg'
+            else
+              let (rs, ok) := parseRangeListChecked chsStr
+              go rem { cfg' with mode := Mode.chars, ranges := rs, invalid := cfg'.invalid || !ok }
           | 'd' :: more =>
             let dStr := String.join (more.map (λ c => String.singleton c))
             if dStr.isEmpty then
@@ -101,7 +136,7 @@ def parseArgs (args : List String) : Config :=
               | [] => go rem cfg'
           | _ :: more => handleChars more cfg' rem
         handleChars chars cfg rest
-      else go rest cfg
+      else go rest { cfg with filenames := cfg.filenames ++ [arg] }
   go args {}
 
 -- ═══════════════════════════════════════════════════════════════════════════════════

@@ -52,24 +52,30 @@ def parseArgs (args : List String) : Flags × String × List String :=
     | [] => (flags, none)
     | 'e' :: rest => (flags, some rest)
     | c :: rest => processCombined rest (setFlag flags c)
-  let rec go (args : List String) (flags : Flags) (pattern : String) : Flags × String × List String :=
+  let rec go (args : List String) (flags : Flags) (pattern : String) (hasPattern : Bool) : Flags × String × List String :=
     match args with
     | [] => (flags, pattern, [])
-    | "--help" :: rest => go rest { flags with showHelp := true } pattern
+    | "--help" :: rest => go rest { flags with showHelp := true } pattern hasPattern
     | arg :: rest =>
       if arg.startsWith "-" && arg.length > 1 && !arg.startsWith "--" then
         let chars := arg.toList.drop 1
         match processCombined chars flags with
-        | (flags', none) => go rest flags' pattern
+        | (flags', none) => go rest flags' pattern hasPattern
         | (flags', some restChars) =>
-          match rest with
-          | [] => (flags', pattern, [])
-          | p :: rest' =>
-            let flags'' := restChars.foldl setFlag flags'
-            go rest' flags'' p
-      else if pattern.isEmpty then go rest flags arg
+          -- Attached `-ePATTERN`: the remainder is the pattern itself (GNU).
+          if !restChars.isEmpty then
+            go rest flags' (String.ofList restChars) true
+          else
+            match rest with
+            | [] => (flags', pattern, [])
+            | p :: rest' =>
+              let flags'' := restChars.foldl setFlag flags'
+              go rest' flags'' p true
+      -- An explicitly empty pattern (`grep "" file`) counts as set: track
+      -- with `hasPattern` so a later operand isn't mistaken for the pattern.
+      else if !hasPattern then go rest flags arg true
       else (flags, pattern, arg :: rest)
-  go args {} ""
+  go args {} "" false
 
 -- ═══════════════════════════════════════════════════════════════════════════════════
 -- 3. Core matching
@@ -91,7 +97,7 @@ def toLowerByteArray (ba : ByteArray) : ByteArray :=
   ba.foldl (λ acc b => acc.push (toLowerByte b)) ByteArray.empty
 
 def isWordByte (b : UInt8) : Bool :=
-  (b ≥ 0x30 && b ≤ 0x39) || (b ≥ 0x41 && b ≤ 0x5A) || (b ≥ 0x61 && b ≤ 0x7A)
+  (b ≥ 0x30 && b ≤ 0x39) || (b ≥ 0x41 && b ≤ 0x5A) || (b ≥ 0x61 && b ≤ 0x7A) || b == 0x5F
 
 partial def containsPatternWord (text : ByteArray) (pattern : ByteArray) : Bool :=
   if pattern.isEmpty then true
@@ -133,7 +139,10 @@ mutual
     | Regex.Star r' =>
       let rec starGo (p : Nat) (iters : Nat) : Option Nat :=
         if iters == 0 then some p
-        else match matchRegex r' text p with | none => some p | some np => starGo np (iters - 1)
+        else match matchRegex r' text p with
+          | none => some p
+          -- Zero-width inner match: further iteration cannot progress.
+          | some np => if np == p then some p else starGo np (iters - 1)
       starGo pos (text.size - pos)
     | Regex.AnchorStart => if pos == 0 then some pos else none
     | Regex.AnchorEnd => if pos == text.size then some pos else none
@@ -153,7 +162,11 @@ mutual
     | Regex.Star r' =>
       let rec go (p : Nat) (acc : List Nat) : List Nat :=
         let acc' := p :: acc
-        match matchRegex r' text p with | none => acc' | some np => go np acc'
+        match matchRegex r' text p with
+        | none => acc'
+        -- Guard against zero-width inner matches (e.g. `Star AnchorStart`
+        -- from patterns like `^*a`): `np == p` would loop forever.
+        | some np => if np == p then acc' else go np acc'
       go pos []
     | Regex.Seq r1 r2 =>
       let r1Ends := allMatchEnds r1 text pos

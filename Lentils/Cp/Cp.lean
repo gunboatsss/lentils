@@ -43,17 +43,34 @@ def sameFile (path1 path2 : String) : IO Bool := do
     return false
 
 /--
+Prompt before overwriting `dst` (`cp -i` semantics).
+Returns `true` if the copy should proceed.
+-/
+def promptOverwrite (dst : String) : IO Bool := do
+  IO.eprint s!"cp: overwrite '{dst}'? "
+  let stdin ← IO.getStdin
+  let line ← try stdin.getLine catch _ => pure ""
+  let ans := line.trimAscii.toString.toLower
+  pure (ans == "y" || ans == "yes")
+
+/--
 Copy a single regular file from `src` to `dst`.
 Preserves source permission bits via stat/chmod.
+When `prompt` is true and `dst` exists, asks before overwriting.
 Returns `true` on success, `false` on failure.
 -/
-def copyFile (src dst : System.FilePath) : IO Bool := do
+def copyFile (src dst : System.FilePath) (prompt : Bool := false) : IO Bool := do
   -- Check source existence first via lstat (gives proper errno for error message)
   match ← try some <$> lstatAll src.toString catch _ => pure none with
   | none =>
     IO.eprintln s!"cp: cannot stat '{src.toString}': No such file or directory"
     return false
   | some _ =>
+    if prompt then
+      match ← try some <$> lstatAll dst.toString catch _ => pure none with
+      | some _ =>
+        if !(← promptOverwrite dst.toString) then return true
+      | none => pure ()
     try
       let content ← IO.FS.readBinFile src
       IO.FS.writeBinFile dst content
@@ -72,7 +89,7 @@ Directories are recreated and their entries copied entry-by-entry; regular
 files are copied byte-for-byte with permissions preserved.
 Returns `true` on success, `false` on failure.
 -/
-partial def copyRecursive (src dst : System.FilePath) : IO Bool := do
+partial def copyRecursive (src dst : System.FilePath) (prompt : Bool := false) : IO Bool := do
   match ← try some <$> lstatAll src.toString catch _ => pure none with
   | none =>
       IO.eprintln s!"cp: cannot stat '{src.toString}': No such file or directory"
@@ -81,6 +98,11 @@ partial def copyRecursive (src dst : System.FilePath) : IO Bool := do
     let typ := fileType (arrGet arr 0)
     if typ == 0xA then
       -- Symlink: replicate the link itself
+      if prompt then
+        match ← try some <$> lstatAll dst.toString catch _ => pure none with
+        | some _ =>
+          if !(← promptOverwrite dst.toString) then return true
+        | none => pure ()
       try
         let target ← readlink src.toString
         symlink target dst.toString
@@ -102,11 +124,11 @@ partial def copyRecursive (src dst : System.FilePath) : IO Bool := do
               continue
             let s := src / e.fileName
             let d := dst / e.fileName
-            if !(← copyRecursive s d) then ok := false
+            if !(← copyRecursive s d prompt) then ok := false
           return ok
     else
       -- Regular file (or other non-symlink, non-directory type)
-      return ← copyFile src dst
+      return ← copyFile src dst prompt
 
 /--
 Run the `cp` utility.
@@ -151,9 +173,9 @@ def run (args : List String) : IO UInt32 := do
           continue
       let ok ←
         if opts.recursive then
-          copyRecursive srcPath target
+          copyRecursive srcPath target opts.interactive
         else
-          copyFile srcPath target
+          copyFile srcPath target opts.interactive
       if opts.verbose then
         IO.println s!"'{src}' -> '{target.toString}'"
       if !ok then failed := true

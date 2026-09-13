@@ -55,6 +55,7 @@ def parseArgs (args : List String) : SortOptions :=
     | [] => opts
     | "--reverse" :: rest => go rest { opts with reverse := true }
     | "--numeric-sort" :: rest => go rest { opts with numeric := true }
+    | "--unique" :: rest => go rest { opts with unique := true }
     | "-t" :: sepArg :: rest => match sepArg.toList with | c :: _ => go rest { opts with separator := some c } | [] => go rest opts
     | "-k" :: keyArg :: rest => go rest { opts with key := parseKeyDef keyArg }
     | arg :: rest =>
@@ -90,12 +91,21 @@ def parseIntLeading (ba : ByteArray) : Int :=
       else acc * (if neg then -1 else 1)
     else acc * (if neg then -1 else 1)
   termination_by ba.size - i
-  if ba.isEmpty then 0
-  else
-    let first := ba.get! 0
-    if first.toNat = 0x2D then go 1 0 true
-    else if first.toNat >= 0x30 && first.toNat <= 0x39 then go 0 0 false
+  -- GNU numeric comparison skips leading blanks (space/tab).
+  let rec skip (i : Nat) : Nat :=
+    if i < ba.size then
+      let b := (ba.get! i).toNat
+      if b == 0x20 || b == 0x09 then skip (i + 1) else i
+    else i
+  termination_by ba.size - i
+  let s := skip 0
+  if s < ba.size then
+    let first := ba.get! s
+    if first.toNat = 0x2D then go (s + 1) 0 true
+    else if first.toNat = 0x2B then go (s + 1) 0 false
+    else if first.toNat >= 0x30 && first.toNat <= 0x39 then go s 0 false
     else 0
+  else 0
 
 def extractKey (line : ByteArray) (sep : Char) (key : SortKey) : ByteArray :=
   let sepByte : UInt8 := UInt8.ofNat sep.toNat
@@ -126,6 +136,21 @@ def compareLines (opts : SortOptions) (a b : ByteArray) : Ordering :=
 def dedupLines (lines : List ByteArray) (eq : ByteArray → ByteArray → Bool) : List ByteArray :=
   match lines with | [] => [] | [x] => [x] | x :: y :: rest => if eq x y then dedupLines (x :: rest) eq else x :: dedupLines (y :: rest) eq
 
+/--
+Equality for `-u`: GNU dedups on key equality, ignoring the full-line
+tie-break used for ordering. Without a key, numeric mode compares by
+numeric value (`-n -u`: "1" and "01" are duplicates).
+-/
+def dedupEq (opts : SortOptions) (a b : ByteArray) : Bool :=
+  match opts.key, opts.separator with
+  | some k, some sep =>
+    let ka := extractKey a sep k; let kb := extractKey b sep k
+    if k.numeric then parseIntLeading ka == parseIntLeading kb
+    else byteArrayCompare ka kb == Ordering.eq
+  | _, _ =>
+    if opts.numeric then parseIntLeading a == parseIntLeading b
+    else compareLines opts a b == Ordering.eq
+
 def insertionSort (lines : List ByteArray) (lt : ByteArray → ByteArray → Bool) : List ByteArray :=
   let rec insert (x : ByteArray) (sorted : List ByteArray) : List ByteArray :=
     match sorted with | [] => [x] | y :: ys => if lt x y then x :: y :: ys else y :: insert x ys
@@ -135,11 +160,12 @@ def sortLines (ba : ByteArray) (opts : SortOptions) : ByteArray :=
   let lines := splitLines ba
   let cleaned := match lines.reverse with | [] => [] | last :: rest => if last.isEmpty then rest.reverse else lines
   let lt (a b : ByteArray) : Bool := compareLines opts a b = Ordering.lt
-  let eq (a b : ByteArray) : Bool := compareLines opts a b = Ordering.eq
   let sorted := insertionSort cleaned lt
-  let final := if opts.reverse then sorted.reverse else sorted
-  let deduped := if opts.unique then dedupLines final eq else final
-  joinLines deduped
+  -- Dedup before reversing: `-u` keeps the first of an equal run in
+  -- sorted order, so `-r` cannot flip which duplicate survives.
+  let deduped := if opts.unique then dedupLines sorted (dedupEq opts) else sorted
+  let final := if opts.reverse then deduped.reverse else deduped
+  joinLines final
 
 def spec (input : SortInput) : SortOutput :=
   sortLines input.input input.options

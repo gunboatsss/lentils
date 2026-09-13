@@ -23,17 +23,22 @@ def parse (s : String) : Option Float :=
       if trimmed.startsWith "-" then (trimmed.drop 1).toString
       else if trimmed.startsWith "+" then (trimmed.drop 1).toString
       else trimmed
+    -- Empty parts count as zero (GNU accepts ".5" and "5.").
+    -- Integer parts convert with full precision (rounding, never mod 2^64 wrap).
     match body.splitOn "." with
     | [intPart] =>
-      match String.toNat? intPart with
-      | some (n : Nat) => some (if neg then -((UInt64.ofNat n).toFloat) else (UInt64.ofNat n).toFloat)
+      let n? := if intPart.isEmpty then some 0 else String.toNat? intPart
+      match n? with
+      | some (n : Nat) => some (if neg then -(n.toFloat) else n.toFloat)
       | none => none
     | [intPart, fracPart] =>
-      match String.toNat? intPart, String.toNat? fracPart with
+      let int? := if intPart.isEmpty then some 0 else String.toNat? intPart
+      let frac? := if fracPart.isEmpty then some 0 else String.toNat? fracPart
+      match int?, frac? with
       | some (int : Nat), some (frac : Nat) =>
         let fracLen := fracPart.length
-        let intF := (UInt64.ofNat int).toFloat
-        let fracF := (UInt64.ofNat frac).toFloat / (10.0 ^ (UInt64.ofNat fracLen).toFloat)
+        let intF := int.toFloat
+        let fracF := frac.toFloat / (10.0 ^ (fracLen.toFloat))
         some (if neg then -(intF + fracF) else intF + fracF)
       | _, _ => none
     | _ => none

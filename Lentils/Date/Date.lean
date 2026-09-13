@@ -22,8 +22,8 @@ Uses the gettimeofday FFI.
 -/
 def getCurrentTime : IO Nat := do
   let packed ← gettimeofday
-  -- Bottom 32 bits are seconds
-  let secs := packed &&& 0xFFFFFFFF
+  -- Seconds are the packed value shifted right by 20 (low 20 bits are usec)
+  let secs := packed >>> 20
   pure secs.toNat
 
 /--

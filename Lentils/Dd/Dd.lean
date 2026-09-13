@@ -10,13 +10,19 @@ namespace Lentils.Dd
 open Logic
 open Lentils.Common.IO.Native
 
-/-- Read all bytes from a file handle. -/
-partial def readAllBytes (h : IO.FS.Handle) : IO ByteArray := do
+/-- Read all bytes from a file handle (tail-recursive, linear time). -/
+partial def readAllBytes (h : IO.FS.Handle) : IO ByteArray := go [] 0
+where go (chunks : List ByteArray) (total : Nat) : IO ByteArray := do
   let chunk ← h.read (USize.ofNat 65536)
   if chunk.isEmpty then
-    return ByteArray.empty
-  else
-    return chunk ++ (← readAllBytes h)
+    let mut arr := Array.mkEmpty total
+    for c in chunks.reverse do
+      let mut i := 0
+      while i < c.size do
+        arr := arr.push (c.get! i)
+        i := i + 1
+    return ByteArray.mk arr
+  else go (chunk :: chunks) (total + chunk.size)
 
 def run (args : List String) : IO UInt32 := do
   let mut ifile : Option String := none

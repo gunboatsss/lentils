@@ -54,7 +54,10 @@ def parseDuration (s : String) : Option (Nat × Nat) :=
     | none => none
     | some secs => some (secs, 0)
   | [whole, frac] =>
-    match whole.toNat?, frac.toNat? with
+    -- GNU accepts ".5" (= 0.5) and "1." (= 1.0): empty parts count as zero.
+    let secs? := if whole.isEmpty then some 0 else whole.toNat?
+    let fracVal? := if frac.isEmpty then some 0 else frac.toNat?
+    match secs?, fracVal? with
     | some secs, some fracVal =>
       let fracLen := frac.length
       let nanos :=

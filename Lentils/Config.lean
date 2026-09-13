@@ -33,11 +33,13 @@ def parseConfig (content : String) : List (String × Bool) :=
   let lines := content.splitOn "\n"
   lines.filterMap parseLine
 
-/-- Look up whether an applet is enabled. Default: true. -/
+/-- Look up whether an applet is enabled. Default: false (fail-closed:
+    a missing or typo'd entry disables the applet instead of silently
+    enabling it and masking registry drift). -/
 def isEnabled (name : String) (config : List (String × Bool)) : Bool :=
   match config.find? (λ (n, _) => n = name) with
   | some (_, v) => v
-  | none => true
+  | none => false
 
 /-- Get list of enabled applet names. -/
 def enabledApplets (config : List (String × Bool)) : List String :=
@@ -153,7 +155,7 @@ def isGenEnabled (name : String) : Bool :=
   | "who" => Generated.WHO_enabled
   | "whoami" => Generated.WHOAMI_enabled
   | "yes" => Generated.YES_enabled
-  | _ => true
+  | _ => false
 
 -- ─── Proofs ──────────────────────────────────────────────────────────────────
 
@@ -161,7 +163,7 @@ theorem isEnabled_true : isEnabled "CAT" [("CAT", true), ("SHRED", false)] = tru
 
 theorem isEnabled_false : isEnabled "SHRED" [("CAT", true), ("SHRED", false)] = false := by native_decide
 
-theorem isEnabled_default : isEnabled "MISSING" [("CAT", true)] = true := by native_decide
+theorem isEnabled_default : isEnabled "MISSING" [("CAT", true)] = false := by native_decide
 
 theorem enabledApplets_simple : enabledApplets [("CAT", true), ("SHRED", false), ("LS", true)] = ["CAT", "LS"] := by native_decide
 
